@@ -7,6 +7,7 @@ package main
 
 import "fmt"
 
+/* Helper section 1: Log level type and values */
 type LogLevel int
 
 const (
@@ -28,6 +29,7 @@ func (l LogLevel) String() string {
 	return levelNames[l]
 }
 
+/* Helper section 2: Log level printing helper */
 func printLoglevel(level LogLevel) {
 	fmt.Printf("Log level: %d %s\n", level, level.String())
 }

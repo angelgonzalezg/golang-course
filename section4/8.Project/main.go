@@ -10,11 +10,13 @@ import (
 	"strings"
 )
 
+/* Helper section 1: Math error constants */
 const (
 	divisionOp     = "Division"
 	divisionErrMsg = "division by zero is not allowed"
 )
 
+/* Helper section 2: Custom math error type */
 type MathError struct {
 	Operation string
 	InputA    int
@@ -35,6 +37,7 @@ func (e MathError) Error() string {
 		e.Message)
 }
 
+/* Helper section 3: Math helper functions */
 func Sum(numbers ...int) int {
 	defer fmt.Println("Sum finished") // Runs when Sum finishes
 

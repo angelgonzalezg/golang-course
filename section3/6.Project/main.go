@@ -7,6 +7,7 @@ package main
 
 import "fmt"
 
+/* Helper section 1: Contact data model */
 type Contact struct {
 	ID    int
 	Name  string
@@ -14,10 +15,12 @@ type Contact struct {
 	Phone string
 }
 
+/* Helper section 2: Contact storage */
 var contactList []Contact
 var contactIndexByName map[string]int // Name -> index in contactList
 var nextID int = 1
 
+/* Helper section 3: Contact list helpers */
 func init() {
 	// Initialize storage before main runs.
 	contactList = make([]Contact, 0)

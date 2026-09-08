@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+/* Helper section 1: Product price lookup data */
 var productPrices = map[string]float64{
 	"TSHIRT": 20.00,
 	"HUG":    12.5,
@@ -17,6 +18,7 @@ var productPrices = map[string]float64{
 	"BOOK":   25.99,
 }
 
+/* Helper section 2: Price calculation helper */
 // calculateItemPrice returns the price and whether the item was found.
 func calculateItemPrice(itemCode string) (float64, bool) {
 	basePrice, found := productPrices[itemCode] // Map lookup
