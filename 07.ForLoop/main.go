@@ -5,7 +5,10 @@
 // Key idea: Go has one loop keyword, but it covers several loop patterns.
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"unicode/utf8"
+)
 
 func main() {
 	/* Section 1: Counter loops */
@@ -36,10 +39,15 @@ func main() {
 
 	/* Loop over a string as bytes */
 	// byte is useful for raw data, but one visible character can use many bytes.
-	word1 := "Hello ☀️" // sun emoji uses 4 bytes
+	// This sun combines U+2600 and U+FE0F: 2 runes encoded in 6 UTF-8 bytes.
+	sun := "☀️"
+	fmt.Printf("sun: %q, bytes: %d, runes: %d\n", sun, len(sun), utf8.RuneCountInString(sun))
+
+	word1 := "Hello " + sun
 	for index := 0; index < len(word1); index++ {
-		letter := word1[index]
-		fmt.Printf("word[%d] byte = %d (%c)\n", index, letter, letter)
+		value := word1[index]
+		// A single UTF-8 byte may be only part of a code point, so print it as a number.
+		fmt.Printf("word[%d] byte = %d (0x%02X)\n", index, value, value)
 	}
 
 	/* Section 3: While-style and infinite loops */
@@ -103,6 +111,7 @@ func main() {
 	}
 
 	/* Update slice values by using the index */
+	// A range value is a copy; use scores[index] to change the slice element.
 	scores := []int{70, 80, 90}
 	for index := range scores {
 		scores[index] += 5
@@ -113,10 +122,12 @@ func main() {
 	fmt.Println("\n== 6. Range over strings and maps ==")
 
 	/* Range over a string: value is a rune */
-	word2 := "Go 🦫"
+	// The index is a byte offset, so it can advance by more than 1.
+	word2 := "Go 🦫!"
 	for index, letter := range word2 {
-		fmt.Printf("word[%d] = %c\n", index, letter)
+		fmt.Printf("byte index %d = %c (%U)\n", index, letter, letter)
 	}
+	// ! starts at byte index 7 because 🦫 occupies 4 bytes.
 
 	/* Range over a map: order is not guaranteed */
 	stock := map[string]int{

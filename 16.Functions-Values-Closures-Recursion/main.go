@@ -46,9 +46,11 @@ func makeCounter() func() int {
 
 /* Recursion: function calls itself */
 // Use recursion for problems that repeat in smaller steps.
+// This example assumes 0 <= n <= 12, whose factorials fit in int on 32-bit and 64-bit systems.
+// Larger inputs require checking for overflow or using an arbitrary-precision type.
 func factorial(n int) int {
 	if n <= 1 {
-		return 1 // Base case stops the recursion.
+		return 1 // 0! and 1! are both 1; the base case stops the recursion.
 	}
 
 	return n * factorial(n-1)
@@ -117,11 +119,17 @@ func main() {
 	fmt.Println("Counter:", nextNumber())
 	fmt.Println("Counter:", nextNumber())
 
+	// A second call to makeCounter creates an independent captured count variable.
+	anotherCounter := makeCounter()
+	fmt.Println("Independent counter:", anotherCounter()) // 1
+	fmt.Println("Original counter:", nextNumber())        // 4
+
 	/* Section 7: Recursive function */
 	fmt.Println("\n== 7. Recursive function ==")
 
 	/* Recursive function */
 	// factorial keeps calling itself until it reaches the base case.
+	fmt.Println("Factorial of 0:", factorial(0))
 	fmt.Println("Factorial of 5:", factorial(5))
 
 	/* Section 8: Final advanced function rules */

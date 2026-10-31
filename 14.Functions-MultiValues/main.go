@@ -14,9 +14,10 @@ import (
 /* Helper section 1: Notes about return names */
 /*
 Named vs non-named return values:
-- Use non-named returns most of the time because return values are explicit.
+- Use non-named returns when the types already make the results clear.
 - Use named returns when the names make the result easier to understand.
-- Avoid named returns in long functions because plain return can become unclear.
+- Named results can still use explicit return expressions.
+- Prefer explicit returns so the reader can see which values leave the function.
 */
 
 /* Helper section 2: Multiple return helper functions */
@@ -70,19 +71,20 @@ func minMax(numbers []int) (int, int, bool) {
 /* Named return values */
 // firstName and lastName are declared in the function signature.
 // Names help because (string, string) alone would not say which value is which.
+// This example treats the first word as firstName and the remaining words as lastName.
+// Personal naming conventions vary; this is a simplified text-splitting example.
 func splitName(fullName string) (firstName, lastName string) {
 	parts := strings.Fields(fullName)
 	if len(parts) == 0 {
-		// Plain return returns the current values of firstName and lastName.
-		return
+		return "", ""
 	}
 
 	firstName = parts[0]
 	if len(parts) > 1 {
-		lastName = parts[1]
+		lastName = strings.Join(parts[1:], " ")
 	}
 
-	return
+	return firstName, lastName
 }
 
 func main() {
@@ -116,6 +118,12 @@ func main() {
 		fmt.Println("User not found.")
 	}
 
+	if name, ok := findUser(99); ok {
+		fmt.Println("Found user:", name)
+	} else {
+		fmt.Println("User 99 was not found; the returned name is not a result.")
+	}
+
 	/* Section 4: Return multiple related values */
 	fmt.Println("\n== 4. Return multiple related values ==")
 
@@ -124,12 +132,29 @@ func main() {
 		fmt.Printf("Min: %d, Max: %d\n", min, max)
 	}
 
+	// An empty slice has no minimum or maximum; check ok before using either value.
+	if min, max, ok := minMax(nil); ok {
+		fmt.Printf("Min: %d, Max: %d\n", min, max)
+	} else {
+		fmt.Println("An empty slice has no minimum or maximum.")
+	}
+
 	/* Section 5: Named return values */
 	fmt.Println("\n== 5. Named return values ==")
 
 	firstName, lastName := splitName("Angel Gonzalez")
 	fmt.Println("First name:", firstName)
 	fmt.Println("Last name:", lastName)
+
+	// Keep all remaining words instead of silently discarding part of the input.
+	firstName, lastName = splitName("Ana Garcia Lopez")
+	fmt.Printf("Multiple words: first=%q last=%q\n", firstName, lastName)
+
+	firstName, lastName = splitName("Ada")
+	fmt.Printf("One word: first=%q last=%q\n", firstName, lastName)
+
+	firstName, lastName = splitName("   ")
+	fmt.Printf("Empty input: first=%q last=%q\n", firstName, lastName)
 
 	/* Section 6: Final multiple return rules */
 	fmt.Println("\n== 6. Final multiple return rules ==")

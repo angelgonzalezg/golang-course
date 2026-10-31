@@ -12,7 +12,7 @@ func jumpForward() {
 	fmt.Println("before goto")
 	goto done
 
-	fmt.Println("this line is skipped")
+	// fmt.Println("this line is skipped") // Unreachable: leave it commented so go vet passes.
 
 done:
 	fmt.Println("after label")
@@ -102,7 +102,7 @@ func main() {
 	fmt.Println("\n== 4. Goto rules ==")
 
 	// goto cannot jump to a label in another function.
-	// goto should not jump over variable declarations that would enter scope.
+	// goto cannot jump over variable declarations that would enter scope.
 	// Prefer defer for cleanup when cleanup is simple and tied to one resource.
 	fmt.Println("goto is legal, but it should stay rare and obvious.")
 

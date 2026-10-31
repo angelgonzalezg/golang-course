@@ -35,12 +35,15 @@ func main() {
 	fmt.Println("\n== 2. Shadowing in if statements ==")
 
 	/* Shadowing in if statements */
-	// user exists only inside the if and else blocks.
+	user := "Guest"
+	fmt.Printf("before if user: %s\n", user)
+	// This user hides the outer user; err exists only inside the if and else blocks.
 	if user, err := findUser(); err == nil {
 		fmt.Printf("found user: %s\n", user)
 	} else {
 		fmt.Printf("error: %v\n", err)
 	}
+	fmt.Printf("after if user: %s\n", user) // Still Guest.
 
 	/* Section 3: Short declaration in the same scope */
 	fmt.Println("\n== 3. Short declaration in the same scope ==")
@@ -99,7 +102,8 @@ func main() {
 	/* Section 8: Final shadowing rules */
 	fmt.Println("\n== 8. Final shadowing rules ==")
 
-	// := creates a new variable when at least one name on the left is new.
+	// In the same block, := requires at least one new non-blank name.
+	// In an inner block, := can declare a new variable that hides an outer one.
 	// = updates an existing variable.
 	// Shadowing is allowed, but it should make code clearer, not surprising.
 	fmt.Println("Shadowing hides an outer variable only inside the inner scope.")

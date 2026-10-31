@@ -49,7 +49,8 @@ func main() {
 	/* Section 5: Rune and byte values */
 	fmt.Println("\n== 5. Rune and byte values ==")
 
-	// Single quotes create a rune, which represents one character.
+	// A rune literal represents one Unicode code point; rune is an alias for int32.
+	// One visible character can contain more than one code point.
 	fmt.Printf("rune value: %c, number: %v, type: %T\n", 'A', 'A', 'A')
 
 	// byte is an alias for uint8 and is common when working with raw data.
