@@ -10,7 +10,11 @@ import "fmt"
 /* Helper section 1: Types used by method examples */
 // Salary is a named type, so Go allows us to attach methods to it.
 // You cannot attach methods directly to built-in types like int or string.
+// The receiver's base type must be defined in the same package as the method.
 type Salary int
+
+// An alias is another name for the same type; SalaryAlias has Salary's methods too.
+type SalaryAlias = Salary
 
 /* Method on a non-struct type */
 // The receiver is the (s Salary) part.
@@ -43,8 +47,10 @@ func NewEmployee(id int, firstName, lastName, position string, salary Salary) Em
 }
 
 /* Helper section 3: Employee methods */
+// This lesson mixes receiver styles to compare their behavior.
+// For an application type with mutable state, prefer a consistent receiver style.
 /* Value receiver: reads data */
-// Use a value receiver when the method does not need to change the original value.
+// A value receiver is suitable for a small value that does not need shared mutation.
 func (e Employee) FullName() string {
 	// e is a copy of the Employee value.
 	return e.FirstName + " " + e.LastName
@@ -138,6 +144,7 @@ type Department struct {
 	Name string
 
 	// Embedded field: Department gets Employee fields and methods promoted.
+	// Department remains a distinct type; embedding provides composition.
 	Employee
 }
 
@@ -165,6 +172,15 @@ func main() {
 	// Salary is a named int type, so it can have methods.
 	fmt.Println("Yearly salary:", employee.Salary)
 	fmt.Println("Monthly salary:", employee.Salary.Monthly())
+
+	// A defined type is distinct from int, so conversion is explicit.
+	var rawSalary int = int(employee.Salary)
+	fmt.Printf("Converted salary: %d (%T)\n", rawSalary, rawSalary)
+	// var rawSalary int = employee.Salary // Does not compile: Salary and int are distinct.
+
+	// An alias preserves type identity and the existing method set.
+	var aliasSalary SalaryAlias = employee.Salary
+	fmt.Printf("Alias salary: %d (%T), monthly: %d\n", aliasSalary, aliasSalary, aliasSalary.Monthly())
 
 	/* Section 3: Value receiver methods */
 	fmt.Println("\n== 3. Value receiver methods ==")
@@ -226,6 +242,13 @@ func main() {
 	raiseLater(5000)
 	fmt.Println("After method value:", employee.Salary)
 
+	// A value-receiver method value saves a copy; a pointer-receiver one saves the pointer.
+	fullNameLater := employee.FullName
+	renameLater := employee.Rename
+	renameLater("Jane", "Taylor")
+	fmt.Println("Saved value receiver name:", fullNameLater()) // Jane Smith.
+	fmt.Println("Current employee name:", employee.FullName()) // Jane Taylor.
+
 	/* Section 9: Method expressions */
 	fmt.Println("\n== 9. Method expressions ==")
 
@@ -249,6 +272,7 @@ func main() {
 
 	// Department stores its own Employee value.
 	// Department can call Employee methods because Employee is embedded.
+	// Department is not assignable to Employee; access department.Employee when that type is needed.
 	fmt.Println("Department leader:", department.FullName())
 	fmt.Println("Department overview:", department.Overview())
 

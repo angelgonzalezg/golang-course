@@ -1,7 +1,7 @@
 // Enums in Go
 // Topic: Go does not have an enum keyword, but const groups can create enum-like values.
 // Args/Input: examples use order status, priority, days, and file permissions.
-// Usage: use custom types plus const when a value must come from a small fixed set.
+// Usage: group related values with a defined type and const, then validate external input.
 // Key idea: typed constants make related values clearer and harder to mix by mistake.
 package main
 
@@ -97,8 +97,14 @@ func parsePriority(text string) (Priority, bool) {
 	}
 }
 
-func hasPermission(allPermissions, permission FilePermission) bool {
-	return allPermissions&permission != 0
+// hasAllPermissions checks every requested bit. An empty request has no requirements.
+func hasAllPermissions(granted, requested FilePermission) bool {
+	return granted&requested == requested
+}
+
+// hasAnyPermission checks for at least one requested bit. An empty request matches nothing.
+func hasAnyPermission(granted, requested FilePermission) bool {
+	return granted&requested != 0
 }
 
 func main() {
@@ -168,14 +174,24 @@ func main() {
 
 	permissions := PermissionRead | PermissionWrite
 
-	fmt.Println("can read:", hasPermission(permissions, PermissionRead))
-	fmt.Println("can write:", hasPermission(permissions, PermissionWrite))
-	fmt.Println("can execute:", hasPermission(permissions, PermissionExecute))
+	fmt.Println("can read:", hasAllPermissions(permissions, PermissionRead))
+	fmt.Println("can write:", hasAllPermissions(permissions, PermissionWrite))
+	fmt.Println("can execute:", hasAllPermissions(permissions, PermissionExecute))
+
+	// A combined request needs an explicit choice between "any" and "all".
+	requested := PermissionRead | PermissionExecute
+	fmt.Println("has any of read/execute:", hasAnyPermission(permissions, requested))
+	fmt.Println("has all of read/execute:", hasAllPermissions(permissions, requested))
+	fmt.Println("has all of read/write:", hasAllPermissions(permissions, PermissionRead|PermissionWrite))
+	fmt.Println("empty request, all:", hasAllPermissions(permissions, 0))
+	fmt.Println("empty request, any:", hasAnyPermission(permissions, 0))
 
 	/* Section 10: Enum limits in Go */
 	fmt.Println("\n== 10. Enum limits in Go ==")
 
 	// Go allows converting a number to the enum type.
+	// A representable untyped constant can also be assigned directly: var status OrderStatus = 99.
+	// A defined type groups values; it does not restrict them to the declared constants.
 	// Validate values when they come from user input, files, or APIs.
 	invalidStatus := OrderStatus(99)
 	fmt.Printf("text: %v, number: %d\n", invalidStatus, invalidStatus)

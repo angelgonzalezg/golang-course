@@ -1,11 +1,15 @@
 // Interfaces
 // Topic: interfaces describe behavior by listing method signatures.
-// Args/Input: examples use employees, customers, accounts, notifications, and any.
+// Args/Input: examples use employees, customers, accounts, notifications, any, and io.Writer.
 // Usage: write functions that depend on behavior instead of concrete types.
 // Key idea: implementation is implicit; no "implements" keyword is needed in Go.
 package main
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+	"io"
+)
 
 /* Helper section 1: Interface definitions */
 type Namer interface {
@@ -115,6 +119,13 @@ func printProfile(value Profile) {
 	fmt.Println("Profile:", value.Description())
 }
 
+// writeDescription needs only a Describer and somewhere to write text.
+// Accepting io.Writer lets callers choose a buffer, file, or other destination.
+func writeDescription(destination io.Writer, value Describer) error {
+	_, err := fmt.Fprintln(destination, value.Description())
+	return err
+}
+
 func addDeposit(value Depositer, amountCents int) {
 	// This function only needs something that can Deposit.
 	value.Deposit(amountCents)
@@ -138,6 +149,14 @@ func describeUnknown(value any) {
 		fmt.Printf("unhandled type: %T\n", concreteValue)
 	}
 }
+
+// These declarations check interface satisfaction at compile time.
+var (
+	_ Profile   = Employee{}
+	_ Profile   = Customer{}
+	_ Namer     = Robot{}
+	_ Depositer = (*Account)(nil)
+)
 
 func main() {
 	/* Section 1: Interface basics */
@@ -163,6 +182,7 @@ func main() {
 
 	var namedValue Namer
 	namedValue = employee
+	// The static type is Namer; %T shows the dynamic concrete type stored inside it.
 	fmt.Printf("namedValue holds type %T with name %q\n", namedValue, namedValue.Name())
 
 	namedValue = customer
@@ -243,6 +263,7 @@ func main() {
 
 	// Now the interface has a concrete type, even though the concrete value is nil.
 	fmt.Println("notifier with nil concrete value is nil:", notifier == nil)
+	// This also applies to error values: return nil directly to report success.
 	notifier.Notify()
 
 	// Assign a real EmailNotifier value to satisfy and use the interface.
@@ -250,8 +271,23 @@ func main() {
 	fmt.Println("notifier with real concrete value is nil:", notifier == nil)
 	notifier.Notify()
 
-	/* Section 11: Prefer interfaces at boundaries */
-	fmt.Println("\n== 11. Prefer interfaces at boundaries ==")
+	/* Section 11: Interface comparisons */
+	fmt.Println("\n== 11. Interface comparisons ==")
+
+	var firstValue any = 42
+	var sameValue any = 42
+	var differentType any = int64(42)
+	fmt.Println("same dynamic type and value:", firstValue == sameValue)
+	fmt.Println("different dynamic types:", firstValue == differentType)
+
+	var sliceValue any = []int{1, 2, 3}
+	fmt.Println("interface holding a slice is nil:", sliceValue == nil)
+	// Comparing an interface to nil is safe even when it holds a slice.
+	// Two interfaces with the same incomparable dynamic type cannot be compared safely:
+	// fmt.Println(sliceValue == sliceValue) // Panics because []int is not comparable.
+
+	/* Section 12: Prefer interfaces at boundaries */
+	fmt.Println("\n== 12. Prefer interfaces at boundaries ==")
 
 	// Common Go style:
 	// - accept interfaces when a function only needs behavior
@@ -259,8 +295,15 @@ func main() {
 	fmt.Println("printName accepts an interface because it only needs Name().")
 	fmt.Println("Employee and Customer stay concrete types.")
 
-	/* Section 12: Final interface rule */
-	fmt.Println("\n== 12. Final interface rule ==")
+	var output bytes.Buffer
+	if err := writeDescription(&output, employee); err != nil {
+		fmt.Println("write error:", err)
+		return
+	}
+	fmt.Print("Description written to a buffer: ", output.String())
+
+	/* Section 13: Final interface rule */
+	fmt.Println("\n== 13. Final interface rule ==")
 
 	// Use interfaces when different concrete types should be used the same way.
 	// Examples: anything with Name(), anything that can Deposit(), anything that can Notify().

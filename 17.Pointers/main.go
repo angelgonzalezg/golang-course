@@ -2,7 +2,7 @@
 // Topic: pointers store memory addresses and let code read or update original values.
 // Args/Input: examples use ints, strings, structs, maps, slices, JSON, nil pointers, and new().
 // Usage: compare value parameters and pointer parameters before choosing one.
-// Key idea: prefer values and return modified data; use pointer parameters only for specific cases.
+// Key idea: start with values; choose pointers intentionally for shared mutation, identity, nil, or API needs.
 // & (address operator) gets an address, * (indirection operator) reads or updates the value at that address.
 package main
 
@@ -85,16 +85,19 @@ func applyDiscount(price *float64, percent float64) {
 /* Helper section 3: Value vs pointer guidance */
 /* Value parameters vs pointer parameters */
 // Value parameter:
-// - Receives a copy.
-// - Cannot change the caller's original value.
+// - Receives a copy of the passed value, including any references it contains.
+// - Reassigning the parameter does not replace the caller's variable.
+// - Referenced data may still be shared, as the map and slice examples below show.
 // - Usually best for small structs and read-only data.
-// - Can be more garbage-collector friendly when the compiler keeps the value on the stack.
 //
 // Pointer parameter:
-// - Receives the caller's memory address.
-// - Can change the caller's original value.
-// - Useful when an interface/any parameter needs to write into caller-provided data.
-// - Extra pointers can make data escape to the heap, which can give the garbage-collector more work.
+// - Receives a copy of an address; Go still passes the pointer by value.
+// - Lets the function modify the value at that address or share an object's identity.
+// - Can represent a missing value with nil or satisfy an API's mutation contract.
+// - May avoid copying a large value; measure when performance matters.
+//
+// Taking an address does not automatically allocate on the heap.
+// The compiler's escape analysis and optimizations determine where storage is needed.
 
 /* Value parameter with a struct: returns a modified copy */
 // This is often a good choice for small structs.
@@ -110,9 +113,8 @@ func updateCartItemValue(item CartItem, quantity int) CartItem {
 }
 
 /* Pointer parameter with a struct: modifies the original */
-// This shows what a pointer parameter can do, but returning a value is often clearer.
-// Extra pointers can make code harder to reason about and may create more garbage-collector work
-// if the data must escape to the heap.
+// Use this form when the operation should update the caller's existing item.
+// Returning an updated value is another choice when a separate result is wanted.
 func updateCartItemPointer(item *CartItem, quantity int) {
 	if item == nil || quantity <= 0 {
 		return
@@ -131,16 +133,15 @@ func celebrateBirthday(user *User) {
 }
 
 /* When to pass pointers to functions */
-// Beginner rule: do not pass pointers just to return a changed value.
-// Prefer passing by value and returning the updated value.
+// Start with values and returned results for small, independent data.
+// Use a pointer when shared mutation, identity, optional data, or an API contract needs it.
 
 /* Helper section 4: JSON and no-value helpers */
 /* Pointer passed through interface/any */
-// The main exception is when a function expects an interface/any value and must fill data supplied by the caller.
-// A common example is json.Unmarshal, it receives 'any', so the caller passes a pointer like &profile
+// json.Unmarshal requires a non-nil pointer so it can populate the destination.
+// Its any parameter lets it accept different destination types; any itself does not require a pointer.
 func decodeProfile(jsonText string, destination any) error {
-	// destination must hold a pointer, such as &profile.
-	// Without a pointer, json.Unmarshal would only receive a copy.
+	// A Profile value or a nil *Profile is rejected with an InvalidUnmarshalError.
 	return json.Unmarshal([]byte(jsonText), destination)
 }
 
@@ -213,6 +214,7 @@ func replaceVisitsValue(visits map[string]int) {
 }
 
 /* Use a pointer to a map only when replacing the map itself */
+// Returning a new map is often clearer; this helper demonstrates replacing the caller's variable.
 func replaceVisitsPointer(visits *map[string]int) {
 	if visits == nil {
 		return
@@ -257,6 +259,7 @@ func replaceScoresValue(scores []int) {
 }
 
 /* Use a pointer to a slice only when replacing the slice itself */
+// Returning a new slice is often clearer; this helper demonstrates replacing the caller's variable.
 func replaceScores(scores *[]int) {
 	if scores == nil {
 		return
@@ -368,13 +371,20 @@ func main() {
 	fmt.Println("\n== 6. Pointer passed through interface/any ==")
 
 	var profile Profile
-	// json.Unmarshal receives any, so &profile lets it fill profile.
+	// Pass &profile to satisfy json.Unmarshal's destination contract.
 	err := decodeProfile(`{"name":"Mia","age":27}`, &profile)
 	if err != nil {
 		fmt.Println("Decode error:", err)
 	} else {
 		fmt.Printf("Decoded profile: %+v\n", profile)
 	}
+
+	// Passing the struct value is allowed by any, but rejected by json.Unmarshal.
+	err = decodeProfile(`{"name":"Other","age":99}`, profile)
+	if err != nil {
+		fmt.Println("Value destination rejected:", err)
+	}
+	fmt.Printf("Profile after rejected destination: %+v\n", profile)
 
 	/* Section 7: Zero value vs no value */
 	fmt.Println("\n== 7. Zero value vs no value ==")
@@ -392,6 +402,8 @@ func main() {
 
 	var apiProfileWithNull APIProfile
 	// JSON null becomes nil for pointer fields.
+	// On a fresh struct, an omitted field is also nil; a pointer alone cannot distinguish the two.
+	// On a reused struct, omitted fields keep their previous values, while null clears the pointer.
 	err = decodeProfile(`{"name":"Guest","nickname":null,"age":null}`, &apiProfileWithNull)
 	if err != nil {
 		fmt.Println("Decode error:", err)

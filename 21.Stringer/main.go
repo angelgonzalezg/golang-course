@@ -25,7 +25,14 @@ type MoneyCents int
 func (m MoneyCents) String() string {
 	dollars := int(m) / 100
 	cents := int(m) % 100
-	return fmt.Sprintf("$%d.%02d", dollars, cents)
+	sign := ""
+	if m < 0 {
+		sign = "-"
+		// Divide before negating so even the minimum int can be formatted without overflow.
+		dollars = -dollars
+		cents = -cents
+	}
+	return fmt.Sprintf("%s$%d.%02d", sign, dollars, cents)
 }
 
 /* Helper section 2: Enum-like Stringer type */
@@ -42,6 +49,8 @@ const (
 /* Stringer on an enum-like type */
 func (status OrderStatus) String() string {
 	switch status {
+	case StatusUnknown:
+		return "unknown"
 	case StatusPending:
 		return "pending"
 	case StatusPaid:
@@ -51,7 +60,7 @@ func (status OrderStatus) String() string {
 	case StatusCanceled:
 		return "canceled"
 	default:
-		return "unknown"
+		return fmt.Sprintf("OrderStatus(%d)", int(status))
 	}
 }
 
@@ -115,19 +124,25 @@ func main() {
 	fmt.Println(myID)
 	fmt.Printf("with %%v: %v\n", myID)
 	fmt.Printf("with %%s: %s\n", myID)
+	// Numeric verbs format the underlying number without calling String.
+	fmt.Printf("with %%d: %d\n", myID)
 
 	/* Section 3: Stringer for formatted values */
 	fmt.Println("\n== 3. Stringer for formatted values ==")
 
 	price := MoneyCents(1299)
 	fmt.Println("price:", price)
+	fmt.Println("zero price:", MoneyCents(0))
+	fmt.Println("refund:", MoneyCents(-1299))
+	fmt.Println("one-cent refund:", MoneyCents(-1))
 
 	/* Section 4: Stringer on enum-like values */
 	fmt.Println("\n== 4. Stringer on enum-like values ==")
 
 	status := StatusPaid
 	fmt.Println("status:", status)
-	fmt.Println("unknown status:", OrderStatus(99))
+	fmt.Println("unset status:", StatusUnknown)
+	fmt.Println("invalid status:", OrderStatus(99))
 
 	/* Section 5: Stringer on structs */
 	fmt.Println("\n== 5. Stringer on structs ==")
@@ -155,7 +170,9 @@ func main() {
 	}
 
 	// Product has String on *Product, so pass a pointer.
-	fmt.Println(&product)
+	// fmt receives an interface value and does not automatically take the address of product.
+	fmt.Println("Product value:", product)
+	fmt.Println("Product pointer:", &product)
 
 	var missingProduct *Product
 	fmt.Println(missingProduct)
