@@ -45,7 +45,7 @@ context chapter is planned below.
 | --- | --- | --- |
 | Sales order processor | 5. Functions | [Run after the function lessons](chapters/05-functions/06-project-sales-order/main.go) |
 | Contact list | 6. Pointers | [Run after pointer basics](chapters/06-pointers/04-project-contact-list/main.go) |
-| Log levels | 7. Types, methods, and interfaces | [Run after Stringer](chapters/07-types-methods-and-interfaces/05-project-log-levels/main.go) |
+| Log levels | 7. Types, methods, and interfaces | [Run after Stringer](chapters/07-types-methods-and-interfaces/05-project-log-levels/README.md) |
 | Math helpers with errors | 9. Errors | [Run after error handling](chapters/09-errors/03-project-math-helpers/main.go) |
 
 ## Validate the course
