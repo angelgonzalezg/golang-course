@@ -8,6 +8,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 )
 
@@ -25,12 +26,13 @@ type Employee struct {
 	Salary    int
 	IsActive  bool
 	JoinedAt  time.Time
+	Skills    []string // A slice field demonstrates shared data after a struct assignment.
 	// Nested struct: Employee has an Address field.
 	Address Address
 }
 
 type Manager struct {
-	// Embedded struct: Manager gets Employee fields directly.
+	// Embedding promotes fields and methods; Manager remains a distinct type.
 	Employee
 	TeamSize int
 }
@@ -40,7 +42,7 @@ type APIEmployee struct {
 	FirstName string `json:"first_name"`      // Rename to "first_name".
 	LastName  string `json:"last_name"`       // Rename to "last_name".
 	Email     string `json:"email,omitempty"` // Skip when empty.
-	Password  string `json:"-"`               // Always ignore/escape.
+	Password  string `json:"-"`               // Always omit this field.
 }
 
 type Badge struct {
@@ -61,6 +63,12 @@ func NewEmployee(id int, firstName, lastName, position string, salary int) Emplo
 		IsActive:  true,
 		JoinedAt:  time.Now(),
 	}
+}
+
+// cloneEmployee copies the Employee value and duplicates its Skills slice.
+func cloneEmployee(employee Employee) Employee {
+	employee.Skills = slices.Clone(employee.Skills)
+	return employee
 }
 
 func main() {
@@ -85,6 +93,7 @@ func main() {
 		Salary:    100000,
 		IsActive:  true,
 		JoinedAt:  time.Now(),
+		Skills:    []string{"Go", "SQL"},
 		Address: Address{
 			City:    "Mexico City",
 			Country: "Mexico",
@@ -113,11 +122,19 @@ func main() {
 	fmt.Println("\n== 5. Struct assignment copies values ==")
 
 	/* Struct assignment copies values */
-	// Changing the copy does not change the original.
+	// Assignment copies each field; reference-containing fields can still share data.
 	janeCopy := jane
 	janeCopy.FirstName = "Janet"
 	fmt.Printf("original jane: %+v\n", jane)
 	fmt.Printf("jane copy:     %+v\n", janeCopy)
+	janeCopy.Skills[0] = "Rust"
+	fmt.Printf("original skills after copied slice change: %v\n", jane.Skills)
+
+	// Duplicate the slice when this field should have independent element storage.
+	independentJane := cloneEmployee(jane)
+	independentJane.Skills[0] = "Python"
+	fmt.Printf("original skills after independent change: %v\n", jane.Skills)
+	fmt.Printf("independent employee skills: %v\n", independentJane.Skills)
 
 	/* Section 6: Pointer to a struct */
 	fmt.Println("\n== 6. Pointer to a struct ==")
@@ -199,6 +216,7 @@ func main() {
 
 	/* Compare structs */
 	// Structs can be compared when all fields are comparable.
+	// Employee is not comparable because its Skills field is a slice.
 	badge1 := Badge{ID: 1, Level: "gold", Active: true}
 	badge2 := Badge{ID: 1, Level: "gold", Active: true}
 	fmt.Printf("badges are equal: %t\n", badge1 == badge2)
@@ -208,6 +226,6 @@ func main() {
 
 	// Use structs when fields are known when you write the code.
 	// Use named fields in literals so the code stays clear when fields change.
-	// Use pointers only when shared mutation or large data makes it necessary.
+	// Choose pointers deliberately for shared mutation, optional values, or API needs.
 	fmt.Println("Structs keep related data together in one custom type.")
 }

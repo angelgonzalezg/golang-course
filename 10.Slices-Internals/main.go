@@ -112,6 +112,11 @@ func main() {
 	printSlice("protectedBase before append", protectedBase)
 	printSlice("protectedView before append", protectedView)
 
+	// Limiting capacity does not copy data: existing elements are still shared.
+	// It also does not release the original backing array.
+	protectedView[0] = 42
+	printSlice("protectedBase after existing element change", protectedBase)
+
 	// The max value limits capacity, so append must allocate a new backing array.
 	protectedView = append(protectedView, 99)
 	printSlice("protectedBase after append", protectedBase)
@@ -192,20 +197,38 @@ func main() {
 	fmt.Println("numbers contains 4:", slices.Contains(numbers, 4))
 	fmt.Println("index of 5:", slices.Index(numbers, 5))
 
-	// slices.Delete returns a new slice view with the selected range removed.
+	// Delete shifts elements in the backing array and clears the obsolete tail.
+	// Save its return value because the length changes. Clone first to preserve numbers.
 	withoutMiddle := slices.Delete(slices.Clone(numbers), 1, 3)
-	printSlice("after Delete indexes 1..3", withoutMiddle)
+	printSlice("after Delete [1:3)", withoutMiddle)
 
-	// slices.Insert returns a new slice with values inserted at the chosen index.
+	// Insert can reuse the backing array or allocate a new one; always save the result.
 	withInserted := slices.Insert(slices.Clone(numbers), 2, 9, 9)
 	printSlice("after Insert at index 2", withInserted)
+	printSlice("numbers preserved by cloning before Delete and Insert", numbers)
+
+	/* Section 9.1: Clear, reset, and release a slice */
+	fmt.Println("\n== 9.1. Clear, reset, and release a slice ==")
+
+	reusable := []int{10, 20, 30}
+	clear(reusable) // Sets visible elements to zero without changing len or cap.
+	printSlice("after clear", reusable)
+
+	reusable[0] = 99
+	reusable = reusable[:0] // Keeps the backing array for reuse without clearing it.
+	printSlice("after resetting length", reusable)
+	printSlice("reslicing reveals data kept after reset", reusable[:cap(reusable)])
+
+	reusable = nil // Drops this reference; another view could still keep the array alive.
+	printSlice("after assigning nil", reusable)
+	// For slices holding references, clear obsolete elements when they should no longer retain data.
 
 	/* Section 10: Final slice rule */
 	fmt.Println("\n== 10. Final slice rule ==")
 
 	// Slices are small values that point to backing arrays.
-	// Clone when you need independent data.
+	// Clone for independent element storage; nested references need their own copies.
 	// Use buffers when you want to build temporary data with append.
 	// Use full slice expressions when append should not modify hidden shared capacity.
-	fmt.Println("Slicing creates views; clone when you need independent data.")
+	fmt.Println("Slicing creates views; cloning copies elements, including any references they contain.")
 }

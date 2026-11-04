@@ -6,6 +6,7 @@
 package main
 
 import (
+	"cmp"
 	"fmt"
 	"maps"
 	"slices"
@@ -32,7 +33,9 @@ func first[T any](items []T) (T, bool) {
 }
 
 /* comparable means values can be compared with == or != */
-// Slices, maps, and functions are not comparable, so they cannot be used here.
+// Slice, map, and function types cannot be used directly as T here.
+// Interface types such as any can satisfy comparable, but their dynamic values
+// must still be comparable whenever a comparison is performed.
 func contains[T comparable](items []T, target T) bool {
 	for _, item := range items {
 		if item == target {
@@ -55,7 +58,7 @@ func keys[K comparable, V any](values map[K]V) []K {
 }
 
 /* Helper section 2: Generic constraints */
-/* Number limits T to types that support + */
+/* Number is a sample constraint for three numeric underlying types that support + */
 // The | symbol means "or" in a type constraint.
 // The ~ symbol allows named types whose underlying type matches.
 type Number interface {
@@ -72,21 +75,16 @@ func sum[T Number](numbers ...T) T {
 	return total
 }
 
-/* Ordered limits T to values that can use < */
-type Ordered interface {
-	~int | ~int64 | ~float64 | ~string
-}
-
-func min[T Ordered](firstValue T, otherValues ...T) T {
-	smallest := firstValue
+/* cmp.Ordered covers all ordered types, including their defined types */
+// The built-in min already handles fixed arguments. This wrapper accepts a variadic slice.
+func smallest[T cmp.Ordered](firstValue T, otherValues ...T) T {
+	result := firstValue
 
 	for _, value := range otherValues {
-		if value < smallest {
-			smallest = value
-		}
+		result = min(result, value)
 	}
 
-	return smallest
+	return result
 }
 
 /* Transform a slice without caring about the element type */
@@ -126,12 +124,15 @@ func reduce[T any, R any](items []T, initial R, combine func(R, T) R) R {
 }
 
 /* Helper section 3: Generic struct and methods */
-type Pair[K comparable, V any] struct {
+// Pair only stores values, so neither type parameter needs to be comparable.
+type Pair[K, V any] struct {
 	Key   K
 	Value V
 }
 
 /* Generic type with methods */
+// The zero value is ready to use. Pass *Stack to share a mutable stack;
+// copying a populated Stack can share its backing array.
 type Stack[T any] struct {
 	items []T
 }
@@ -148,6 +149,9 @@ func (s *Stack[T]) Pop() (T, bool) {
 
 	lastIndex := len(s.items) - 1
 	value := s.items[lastIndex]
+	// Reslicing alone would leave references in the unused part of the backing array.
+	var zero T
+	s.items[lastIndex] = zero
 	s.items = s.items[:lastIndex]
 	return value, true
 }
@@ -172,6 +176,7 @@ func (c Coin) String() string {
 }
 
 /* describe works with any type that has a String method */
+// A regular Stringer parameter would also work; this version demonstrates method constraints.
 func describe[T Stringer](value T) string {
 	return "It says: " + value.String()
 }
@@ -196,8 +201,8 @@ func main() {
 		fmt.Println("First number:", value)
 	}
 
-	// Use [int] when Go cannot infer T from the arguments.
-	emptyValue, ok := first[int]([]int{})
+	// Even an empty []int argument carries enough type information to infer T.
+	emptyValue, ok := first([]int{})
 	fmt.Println("Empty first value:", emptyValue)
 	fmt.Println("Empty first ok:", ok)
 
@@ -211,14 +216,18 @@ func main() {
 	// This would not compile because []int is not comparable:
 	// contains([][]int{{1}, {2}}, []int{1})
 
+	fmt.Println("Contains int in comparable interface values:", contains([]any{"Go", 42}, 42))
+	// This compiles, but would panic when it compares two dynamic []int values:
+	// contains([]any{[]int{1}}, []int{1})
+
 	/* Section 4: Generic map helpers */
 	fmt.Println("\n== 4. Generic map helpers ==")
 
 	ages := map[string]int{"Ana": 31, "Ben": 28}
-	fmt.Println("Age map keys:", keys(ages))
+	fmt.Println("Age map keys (order unspecified):", keys(ages))
 
 	scores := map[int]string{1: "first", 2: "second"}
-	fmt.Println("Score map keys:", keys(scores))
+	fmt.Println("Score map keys (order unspecified):", keys(scores))
 
 	/* Section 5: Type constraints with unions */
 	fmt.Println("\n== 5. Type constraints with unions ==")
@@ -234,8 +243,11 @@ func main() {
 	/* Section 6: Ordered constraints */
 	fmt.Println("\n== 6. Ordered constraints ==")
 
-	fmt.Println("Smallest number:", min(8, 3, 10, 2))
-	fmt.Println("Smallest name:", min("Mia", "Ana", "Zoe"))
+	fmt.Println("Smallest number:", smallest(8, 3, 10, 2))
+	fmt.Println("Smallest name:", smallest("Mia", "Ana", "Zoe"))
+	fmt.Println("Smallest uint8:", smallest(uint8(8), uint8(3)))
+	orderedNumbers := []int{8, 3, 10, 2}
+	fmt.Println("Smallest from a nonempty slice:", smallest(orderedNumbers[0], orderedNumbers[1:]...))
 
 	/* Section 7: Map, filter, and reduce */
 	fmt.Println("\n== 7. Map, filter, and reduce ==")
@@ -281,6 +293,8 @@ func main() {
 	idPair := Pair[int, string]{Key: 1, Value: "first"}
 	fmt.Printf("Name pair: %+v\n", namePair)
 	fmt.Printf("ID pair:   %+v\n", idPair)
+	groupPair := Pair[[]string, int]{Key: []string{"Ana", "Ben"}, Value: 2}
+	fmt.Printf("Pair with a slice key: %+v\n", groupPair) // Pair fields are ordinary stored values.
 
 	/* Section 9: Generic types with methods */
 	fmt.Println("\n== 9. Generic types with methods ==")
@@ -302,6 +316,10 @@ func main() {
 	if value, ok := intStack.Pop(); ok {
 		fmt.Println("Popped int:", value)
 	}
+	intStack.Pop() // Remove the remaining value.
+	if _, ok := intStack.Pop(); !ok {
+		fmt.Println("An empty stack has no value to pop.")
+	}
 
 	/* Section 10: Type inference and explicit type arguments */
 	fmt.Println("\n== 10. Type inference and explicit type arguments ==")
@@ -309,7 +327,12 @@ func main() {
 	// Go can usually infer type arguments from regular arguments.
 	fmt.Println("Inferred sum:", sum(4, 5, 6))
 
-	// Explicit type arguments are useful when inference is not enough.
+	// Untyped nil carries no element type, so first(nil) would not compile.
+	nilValue, nilOK := first[int](nil)
+	fmt.Printf("Explicit first[int](nil): value=%d ok=%t\n", nilValue, nilOK)
+	fmt.Println("Explicit sum[int]() with no arguments:", sum[int]())
+
+	// Generic types require type arguments when instantiated.
 	emptyStack := Stack[float64]{}
 	fmt.Println("Empty float stack length:", emptyStack.Len())
 
@@ -328,6 +351,7 @@ func main() {
 	// we wrote by hand above (contains, keys). Prefer these when they fit.
 	letters := []string{"c", "a", "b"}
 	fmt.Println("slices.Contains 'a':", slices.Contains(letters, "a"))
+	fmt.Println("Built-in min for fixed arguments:", min(8, 3, 10, 2))
 
 	slices.Sort(letters)
 	fmt.Println("slices.Sort result:", letters)

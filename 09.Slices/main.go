@@ -1,5 +1,5 @@
 // Slices
-// Topic: slices are dynamic lists that can grow with append.
+// Topic: slices describe array views; append returns an updated slice that can grow.
 // Args/Input: examples use []int and []string values.
 // Usage: create slices, read/update elements, append values, range over values, and copy slices.
 // Key idea: use slices for most list-like data when the size can change.
@@ -21,6 +21,20 @@ func printStringSlice(label string, values []string) {
 	fmt.Printf("%s: value=%v len=%d cap=%d isNil=%t\n", label, values, len(values), cap(values), values == nil)
 }
 
+/* Helper section 2: Copy nested slice data */
+// cloneRows copies the outer slice and each row of ints, preserving nil slices.
+// Each row in the result has independent element storage.
+func cloneRows(rows [][]int) [][]int {
+	if rows == nil {
+		return nil
+	}
+	cloned := make([][]int, len(rows))
+	for index, row := range rows {
+		cloned[index] = slices.Clone(row)
+	}
+	return cloned
+}
+
 func main() {
 	/* Section 1: Nil slice vs empty slice */
 	fmt.Println("== 1. Nil slice vs empty slice ==")
@@ -31,7 +45,7 @@ func main() {
 	printIntSlice("nil slice", nilSlice)
 
 	/* Zero-length slice: initialized but empty. */
-	// Use it when you want to return [] instead of nil, for example in JSON.
+	// For []int, encoding/json encodes an empty non-nil slice as [] and a nil slice as null.
 	emptySlice := []int{}
 	printIntSlice("empty slice", emptySlice)
 
@@ -76,6 +90,7 @@ func main() {
 	// len: elements currently in the slice.
 	// cap: space available before append may allocate.
 	// When full, append grows capacity automatically.
+	// The exact growth strategy is an implementation detail; do not rely on a doubling rule.
 	scores = append(scores, 95)
 	scores = append(scores, 100)
 	printIntSlice("scores after append within capacity", scores)
@@ -138,11 +153,30 @@ func main() {
 	fmt.Printf("firstThreeCopy: copied=%d value=%v\n", copied, firstThreeCopy)
 
 	/* Clone a slice */
-	// slices.Clone creates a new slice with the same values.
+	// slices.Clone copies elements by assignment, which makes a shallow copy.
+	// For []int, this gives independent element storage.
 	clonedScores := slices.Clone(sourceScores)
+	// Slices cannot be compared with == except to nil; use slices.Equal for these int elements.
+	fmt.Println("clone initially equals source:", slices.Equal(sourceScores, clonedScores))
 	clonedScores[0] = 999
 	fmt.Printf("sourceScores after clone change: %v\n", sourceScores)
 	fmt.Printf("clonedScores after change:       %v\n", clonedScores)
+
+	/* Section 7.1: Shallow copies of nested slices */
+	fmt.Println("\n== 7.1. Shallow copies of nested slices ==")
+
+	rows := [][]int{{1, 2}, {3, 4}}
+	shallowRows := slices.Clone(rows) // Copies inner slice values, which still share their arrays.
+	independentRows := cloneRows(rows)
+	shallowRows[0][0] = 99
+	independentRows[1][0] = 77
+	fmt.Println("original rows after shallow change:", rows)
+	fmt.Println("independent rows after their own change:", independentRows)
+
+	// Replacing a row changes only that outer slice's element.
+	shallowRows[0] = []int{7, 8}
+	fmt.Println("original rows after shallow row replacement:", rows)
+	fmt.Println("shallow rows after row replacement:", shallowRows)
 
 	/* Section 8: Arrays and slices */
 	fmt.Println("\n== 8. Arrays and slices ==")
@@ -162,6 +196,8 @@ func main() {
 	// This panics if the slice is too short.
 	arrayValueFromSlice := [3]int(sourceScores[:3])
 	fmt.Printf("array value from slice: value=%v\n", arrayValueFromSlice)
+	arrayValueFromSlice[0] = 777 // An array value conversion copies the elements.
+	fmt.Println("source slice after array value change:", sourceScores)
 
 	/* Section 9: Final slice rule */
 	fmt.Println("\n== 9. Final slice rule ==")

@@ -8,6 +8,7 @@ package main
 import (
 	"fmt"
 	"maps"
+	"slices"
 )
 
 /* Helper section 1: Map parameter helpers */
@@ -66,6 +67,11 @@ func main() {
 	fmt.Printf("nilMap is nil: %t\n", nilMap == nil)
 	fmt.Printf("makeMap is nil: %t\n", makeMap == nil)
 	fmt.Printf("literalMap is nil: %t\n", literalMap == nil)
+	value, exists := nilMap["port"] // Reading a nil map is safe and reports a missing key.
+	fmt.Printf("nil map lookup: value=%d exists=%t len=%d\n", value, exists, len(nilMap))
+	delete(nilMap, "port") // delete and clear are also safe on nil maps.
+	clear(nilMap)
+	// nilMap["port"] = 8080 // Panics: initialize the map before assigning entries.
 
 	// Initialize a nil map with make before writing to it.
 	nilMap = make(map[string]int)
@@ -131,6 +137,17 @@ func main() {
 		fmt.Printf("%s: %d\n", name, grade)
 	}
 
+	// Sort a separate slice of keys when output needs a stable order.
+	names := make([]string, 0, len(studentGrades))
+	for name := range studentGrades {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	fmt.Println("grades sorted by name:")
+	for _, name := range names {
+		fmt.Printf("%s: %d\n", name, studentGrades[name])
+	}
+
 	/* Section 5: Map parameters and return values */
 	fmt.Println("\n== 5. Map parameters and return values ==")
 
@@ -172,14 +189,16 @@ func main() {
 	/* Section 7: Clone a map */
 	fmt.Println("\n== 7. Clone a map ==")
 
-	/* Clone a map to avoid sharing data */
+	/* Clone a map to copy its entries */
+	// maps.Clone makes a shallow copy; keys and values are copied by assignment.
 	clonedGrades := maps.Clone(originalGrades) // maps package go 1.21+
 	clonedGrades["Alice"] = 70
 	fmt.Printf("original after clone change: %+v\n", originalGrades)
 	fmt.Printf("clone after change:          %+v\n", clonedGrades)
 
 	/* Older option: make a map, then copy each key/value */
-	// make(map[key_type]val_type, cap)
+	// make(map[key_type]val_type, sizeHint): the hint is not a fixed capacity limit.
+	// Maps have len, but do not support cap.
 	manualClone := make(map[string]int, len(originalGrades))
 	for name, grade := range originalGrades {
 		manualClone[name] = grade
@@ -187,6 +206,21 @@ func main() {
 	manualClone["Alice"] = 80
 	fmt.Printf("original after manual clone change: %+v\n", originalGrades)
 	fmt.Printf("manual clone after change:          %+v\n", manualClone)
+
+	// Slice values in a cloned map can still share their backing arrays.
+	teams := map[string][]string{"backend": {"Ana", "Ben"}}
+	shallowTeams := maps.Clone(teams)
+	shallowTeams["backend"][0] = "Mia"
+	fmt.Printf("original teams after shallow value change: %v\n", teams)
+
+	// Copy each member slice when independent nested data is required.
+	independentTeams := make(map[string][]string, len(teams))
+	for name, members := range teams {
+		independentTeams[name] = slices.Clone(members)
+	}
+	independentTeams["backend"][0] = "Zoe"
+	fmt.Printf("original teams after independent value change: %v\n", teams)
+	fmt.Printf("independent teams: %v\n", independentTeams)
 
 	/* Section 8: Delete and clear */
 	fmt.Println("\n== 8. Delete and clear ==")
@@ -203,6 +237,7 @@ func main() {
 	fmt.Println("\n== 9. Compare maps ==")
 
 	/* Compare maps */
+	// Maps can only be compared to nil with ==; compare their entries with maps.Equal.
 	// maps.Equal checks if both maps have the same keys and values.
 	firstMap := map[string]int{"Alice": 90, "James": 85}
 	secondMap := map[string]int{"James": 85, "Alice": 90}
@@ -235,6 +270,7 @@ func main() {
 	/* Use a map as a set with struct{} */
 	// struct{} stores no value data, so it is common for large sets.
 	// empty struct{} uses zero bytes, while bool uses 1 byte.
+	// Total map memory also includes keys and bookkeeping; measure actual allocations.
 	visitedCitySet2 := map[string]struct{}{}
 	for _, city := range cities {
 		visitedCitySet2[city] = struct{}{}
@@ -255,7 +291,8 @@ func main() {
 	/* Section 12: Map keys must be comparable */
 	fmt.Println("\n== 12. Map keys must be comparable ==")
 
-	// Strings, numbers, booleans, and arrays can be map keys.
+	// Strings, numbers, and booleans can be map keys.
+	// Arrays and structs are comparable only when their elements or fields are comparable.
 	// Slices, maps, and functions cannot be map keys.
 	coordinates := map[[2]int]string{
 		{0, 0}: "origin",
@@ -268,6 +305,6 @@ func main() {
 
 	// Use maps for key/value lookup when keys are known at runtime.
 	// Use comma-ok when a missing key and a zero value must be different.
-	// Clone a map when the caller should not share changes.
+	// Clone to separate map entries; copy nested reference-containing values when needed.
 	fmt.Println("Maps are great for fast lookup by key.")
 }
