@@ -1,8 +1,8 @@
 // Panic and Recovery
-// Topic: panic stops normal execution; recover can catch it from a deferred function.
+// Topic: panic unwinds a goroutine; recover must be called directly by a deferred function.
 // Args/Input: examples use small functions that intentionally panic for learning.
 // Usage: prefer errors for expected problems; use panic for programmer mistakes.
-// Key idea: recover is useful at boundaries where you do not want one panic to stop everything.
+// Key idea: recover at a boundary only when the caller can safely handle the failure.
 package main
 
 import (
@@ -46,6 +46,18 @@ func recoverOutsideDeferDoesNothing() {
 	fmt.Println("recover outside defer:", recoveredValue)
 }
 
+func recoverFromHelper() {
+	// Being called by a deferred function is not enough: this call is indirect.
+	fmt.Println("recover inside a helper:", recover())
+}
+
+func indirectRecoverDoesNothing() {
+	defer func() {
+		recoverFromHelper()
+	}()
+	panic("indirect recover did not stop the panic")
+}
+
 func panicValueType() {
 	defer func() {
 		recoveredValue := recover()
@@ -62,7 +74,8 @@ func panicValueType() {
 		}
 	}()
 
-	panic(errors.New("database connection lost"))
+	// An invariant violation is a programmer mistake, unlike a failed connection.
+	panic(errors.New("internal invariant violated"))
 }
 
 /* Helper section 3: Recover boundary helpers */
@@ -74,6 +87,8 @@ func riskyDivide(a, b int) int {
 	return a / b
 }
 
+// safeDivide is an adapter for the intentionally panicking helper above.
+// In ordinary code, validate the divisor and return an error as the project does.
 func safeDivide(a, b int) (result int, err error) {
 	defer func() {
 		recoveredValue := recover()
@@ -108,6 +123,7 @@ func protectBoundary(name string, work func()) {
 	}()
 
 	work()
+	// Recovery returns from this boundary; it never resumes the panicking call.
 }
 
 func worker(id int, wg *sync.WaitGroup) {
@@ -147,10 +163,11 @@ func main() {
 
 	protectBoundary("panicWithCleanup", panicWithCleanup)
 
-	/* Section 4: Recover must be called from defer */
-	fmt.Println("\n== 4. Recover must be called from defer ==")
+	/* Section 4: Recover must be called directly by a deferred function */
+	fmt.Println("\n== 4. Recover must be called directly by a deferred function ==")
 
 	recoverOutsideDeferDoesNothing()
+	protectBoundary("outer boundary", indirectRecoverDoesNothing)
 	recoverPanic()
 
 	/* Section 5: Recover returns the panic value */
@@ -183,7 +200,8 @@ func main() {
 	/* Section 8: Recover inside each goroutine */
 	fmt.Println("\n== 8. Recover inside each goroutine ==")
 
-	// Each goroutine needs its own recover.
+	// A caller cannot recover a panic from another goroutine. If recovery is
+	// appropriate, the deferred function must run in the goroutine that panics.
 	// The order of goroutine output can change each run.
 	var wg sync.WaitGroup
 	for id := 1; id <= 3; id++ {
@@ -197,6 +215,7 @@ func main() {
 
 	// Panic is for programmer mistakes or impossible states.
 	// Recover is usually placed at application or goroutine boundaries.
+	// Recovery does not repair shared state or make retrying automatically safe.
 	// Do not use panic as normal control flow.
 	fmt.Println("Prefer error first; use panic and recover sparingly.")
 }

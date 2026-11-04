@@ -9,14 +9,18 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 /* Helper section 1: Sentinel errors */
 // Sentinel errors are package-level values that callers can compare with errors.Is.
-var ErrDivisionByZero = errors.New("division by zero")
-var ErrNumberTooLarge = errors.New("number too large")
-var ErrNotFound = errors.New("not found")
-var ErrInvalidInput = errors.New("invalid input")
+var (
+	ErrDivisionByZero     = errors.New("division by zero")
+	ErrDividendOutOfRange = errors.New("dividend must be between -1000 and 1000")
+	ErrInvalidPort        = errors.New("port must be between 1 and 65535")
+	ErrNotFound           = errors.New("not found")
+	ErrInvalidInput       = errors.New("invalid input")
+)
 
 /* Helper section 2: Custom error type */
 /* Custom error type with extra fields */
@@ -37,18 +41,25 @@ func divide(a, b int) (int, error) {
 		return 0, ErrDivisionByZero
 	}
 
-	if a > 1000 {
-		return 0, ErrNumberTooLarge
+	// An exercise-specific input limit gives us a second sentinel to inspect.
+	if a < -1000 || a > 1000 {
+		return 0, ErrDividendOutOfRange
 	}
 
 	return a / b, nil
 }
 
+// parsePort reads a configured destination port. This exercise excludes port 0,
+// which has a separate use when asking a listener to choose an available port.
 func parsePort(text string) (int, error) {
 	port, err := strconv.Atoi(text)
 	if err != nil {
 		// %w wraps the original error so callers can inspect it later.
 		return 0, fmt.Errorf("parse port %q: %w", text, err)
+	}
+
+	if port < 1 || port > 65535 {
+		return 0, fmt.Errorf("parse port %q: %w", text, ErrInvalidPort)
 	}
 
 	return port, nil
@@ -72,12 +83,12 @@ func findUserName(id int) (string, error) {
 func validateSignup(name string, age int) error {
 	var validationErrors []error
 
-	if name == "" {
-		validationErrors = append(validationErrors, fmt.Errorf("name: %w", ErrInvalidInput))
+	if strings.TrimSpace(name) == "" {
+		validationErrors = append(validationErrors, fmt.Errorf("name must not be blank: %w", ErrInvalidInput))
 	}
 
 	if age < 18 {
-		validationErrors = append(validationErrors, fmt.Errorf("age: %w", ErrInvalidInput))
+		validationErrors = append(validationErrors, fmt.Errorf("age must be at least 18: %w", ErrInvalidInput))
 	}
 
 	// errors.Join returns nil when there are no errors.
@@ -99,11 +110,14 @@ func chargePayment(amountCents int) error {
 
 /* Helper section 6: Fake file type for cleanup examples */
 type fakeFile struct {
-	Name string
+	Name       string
+	processErr error // Inject failures without depending on the filesystem.
+	closeErr   error
+	closed     bool
 }
 
 func openFakeFile(name string) (*fakeFile, error) {
-	if name == "" {
+	if strings.TrimSpace(name) == "" {
 		return nil, fmt.Errorf("open file: %w", ErrInvalidInput)
 	}
 
@@ -111,12 +125,9 @@ func openFakeFile(name string) (*fakeFile, error) {
 }
 
 func (f *fakeFile) Close() error {
-	if f == nil {
-		return nil
-	}
-
+	f.closed = true
 	fmt.Println("closing file:", f.Name)
-	return nil
+	return f.closeErr
 }
 
 func processFakeFile(name string) error {
@@ -124,10 +135,23 @@ func processFakeFile(name string) error {
 	if err != nil {
 		return err
 	}
-	// defer schedules cleanup before this function returns.
-	defer file.Close()
+	return processAndClose(file)
+}
+
+// processAndClose owns cleanup for a successfully opened, non-nil file.
+func processAndClose(file *fakeFile) (err error) {
+	// Named err lets deferred cleanup change the error returned to the caller.
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			// Keep both causes if processing and cleanup fail.
+			err = errors.Join(err, fmt.Errorf("close file %q: %w", file.Name, closeErr))
+		}
+	}()
 
 	fmt.Println("processing file:", file.Name)
+	if file.processErr != nil {
+		return fmt.Errorf("process file %q: %w", file.Name, file.processErr)
+	}
 	return nil
 }
 
@@ -174,8 +198,8 @@ func main() {
 	fmt.Println("\n== 3. Sentinel errors and errors.Is ==")
 
 	_, err = divide(1001, 1)
-	if errors.Is(err, ErrNumberTooLarge) {
-		fmt.Println("number is too large")
+	if errors.Is(err, ErrDividendOutOfRange) {
+		fmt.Println("dividend is outside this exercise's allowed range")
 	}
 
 	_, err = findUserName(99)
@@ -189,6 +213,11 @@ func main() {
 	_, err = parsePort("not-a-number")
 	if err != nil {
 		fmt.Println("wrapped error:", err)
+		fmt.Println("contains strconv.ErrSyntax:", errors.Is(err, strconv.ErrSyntax))
+	}
+	_, err = parsePort("70000")
+	if errors.Is(err, ErrInvalidPort) {
+		fmt.Println("port outside configured range:", err)
 	}
 
 	// Wrapped errors keep context plus the original cause.
@@ -200,6 +229,7 @@ func main() {
 
 	err = chargePayment(0)
 	if err != nil {
+		err = fmt.Errorf("checkout: %w", err)
 		fmt.Println("payment error:", err)
 
 		var opErr *OperationError
@@ -232,6 +262,15 @@ func main() {
 		fmt.Println("file error:", err)
 	}
 
+	processErr := errors.New("processing failed")
+	closeErr := errors.New("cleanup failed")
+	err = processAndClose(&fakeFile{Name: "report.txt", processErr: processErr, closeErr: closeErr})
+	if err != nil {
+		fmt.Println("processing and cleanup errors:", err)
+		fmt.Println("preserved processing failure:", errors.Is(err, processErr))
+		fmt.Println("preserved cleanup failure:", errors.Is(err, closeErr))
+	}
+
 	/* Section 8: Do not ignore errors */
 	fmt.Println("\n== 8. Do not ignore errors ==")
 
@@ -249,18 +288,29 @@ func main() {
 	// Add context when returning the error, not when creating every sentinel.
 	fmt.Println("good error style:", ErrDivisionByZero)
 
-	/* Section 10: Error, panic, and recover */
-	fmt.Println("\n== 10. Error, panic, and recover ==")
+	/* Section 10: A nil pointer inside an error is not a nil error */
+	fmt.Println("\n== 10. Nil errors and typed nil pointers ==")
+
+	var nilOperation *OperationError
+	var typedNil error = nilOperation
+	fmt.Println("pointer is nil:", nilOperation == nil)
+	// An interface is nil only when both its dynamic type and value are absent.
+	fmt.Println("error containing the pointer is nil:", typedNil == nil)
+	// Do not return a typed nil pointer as error; return nil explicitly.
+	fmt.Println("successful payment returns nil:", chargePayment(100) == nil)
+
+	/* Section 11: Error, panic, and recover */
+	fmt.Println("\n== 11. Error, panic, and recover ==")
 
 	// Use error for expected problems: bad input, missing files, failed requests.
 	// Use panic for programmer mistakes or impossible states.
 	fmt.Println("Expected failures should usually return error.")
 
-	// recover only works inside a deferred function.
+	// recover must be called directly by a deferred function in the panicking goroutine.
 	demonstrateRecover()
 
-	/* Section 11: Final error rules */
-	fmt.Println("\n== 11. Final error rules ==")
+	/* Section 12: Final error rules */
+	fmt.Println("\n== 12. Final error rules ==")
 
 	// Check errors explicitly.
 	// Wrap errors with %w when adding context.
