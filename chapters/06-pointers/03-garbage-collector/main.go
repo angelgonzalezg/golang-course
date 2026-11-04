@@ -372,9 +372,9 @@ func main() {
 	fmt.Println("\n== 10. Observe GC behavior ==")
 
 	// These are useful commands to try from the terminal:
-	fmt.Println("GODEBUG=gctrace=1 go run 28.Garbage-Collector/main.go")
-	fmt.Println("GOGC=50 go run 28.Garbage-Collector/main.go")
-	fmt.Println("GOMEMLIMIT=128MiB go run 28.Garbage-Collector/main.go")
+	fmt.Println("GODEBUG=gctrace=1 go run ./chapters/06-pointers/03-garbage-collector")
+	fmt.Println("GOGC=50 go run ./chapters/06-pointers/03-garbage-collector")
+	fmt.Println("GOMEMLIMIT=128MiB go run ./chapters/06-pointers/03-garbage-collector")
 
 	/* Section 11: Final GC rule */
 	fmt.Println("\n== 11. Final GC rule ==")

@@ -17,12 +17,12 @@ import "testing"
 //
 // Run all benchmarks (use default/all CPUs):
 // Better when code uses goroutines (run concurrently), real application behavior on the machine
-// go test -bench=. -benchmem ./18.Pointers-Performance
+// go test -bench=. -benchmem ./chapters/06-pointers/02-pointer-performance
 //
 // Run setting the number of logical CPUs manually
 // Better for basic performance, simpler comparisons, can be single-threaded, less scheduling noise)
 // -count=n rerun the test to help if numbers are stable
-// GOMAXPROCS=1 go test -bench=. -benchmem -count=5 ./18.Pointers-Performance
+// GOMAXPROCS=1 go test -bench=. -benchmem -count=5 ./chapters/06-pointers/02-pointer-performance
 //
 // How to read the output:
 // BenchmarkReturn10BytesValue-12  1000000000  0.72 ns/op  0 B/op  0 allocs/op

@@ -456,11 +456,11 @@ func main() {
 	// This is a quick demo, not a real benchmark.
 	//
 	// For better measurements, use the benchmarks in main_test.go:
-	// go test -bench=. ./18.Pointers-Performance
+	// go test -bench=. ./chapters/06-pointers/02-pointer-performance
 	// Runs every benchmark in this folder.
-	// go test -bench=. -benchmem ./18.Pointers-Performance
+	// go test -bench=. -benchmem ./chapters/06-pointers/02-pointer-performance
 	// Also shows memory allocations.
-	// go test -bench=. -benchmem -count=5 ./18.Pointers-Performance
+	// go test -bench=. -benchmem -count=5 ./chapters/06-pointers/02-pointer-performance
 	// Repeats the benchmarks five times to spot noisy results.
 	//
 	// In this example, 1 KB = 1,000 bytes and 1 MB = 1,000,000 bytes.
