@@ -59,3 +59,7 @@ name `Warn`. Update the parsing tests to document the new rule.
 After studying chapter 9, try a parser that returns `(LogLevel, error)` with
 details about invalid input. The current version uses the `(value, ok)` pattern
 introduced in chapter 5.
+
+Chapter 13's [structured logging lesson](../../13-standard-library/05-structured-logging/README.md)
+builds on this exercise with `log/slog`. Its standard severity numbers differ
+from this project's `iota` values, so integration needs an explicit mapping.

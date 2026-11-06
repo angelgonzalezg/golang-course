@@ -103,7 +103,8 @@ computes a greeting without persisting a resource, so success uses 200.
 
 `writeJSON` serializes before setting the final status. Once response bytes are
 being written, an I/O failure is recorded with the basic logger rather than
-attempting a second response. The next lesson covers structured logging. Each
+attempting a second response. The next lesson covers
+[structured logging](../05-structured-logging/README.md). Each
 request receives its own writer; finish using it before `ServeHTTP` returns.
 
 ## Reuse the client and inspect the response
