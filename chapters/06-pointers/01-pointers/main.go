@@ -98,11 +98,13 @@ func applyDiscount(price *float64, percent float64) {
 //
 // Taking an address does not automatically allocate on the heap.
 // The compiler's escape analysis and optimizations determine where storage is needed.
+// For return values, T copies its fields; *T can refer to existing or fresh data.
+// Document which object is shared, who may change it, and whether nil is valid.
 
 /* Value parameter with a struct: returns a modified copy */
-// This is often a good choice for small structs.
-// It avoids shared mutation, and the compiler may keep the copy on the stack.
-// Stack values are not heap objects, so they usually mean less garbage-collector work.
+// Choose this for a small result that the caller can edit independently.
+// CartItem contains only scalar fields, so copying it needs no nested cloning.
+// The compiler may avoid heap allocation; a value return alone does not guarantee it.
 func updateCartItemValue(item CartItem, quantity int) CartItem {
 	if quantity <= 0 {
 		return item
@@ -115,6 +117,7 @@ func updateCartItemValue(item CartItem, quantity int) CartItem {
 /* Pointer parameter with a struct: modifies the original */
 // Use this form when the operation should update the caller's existing item.
 // Returning an updated value is another choice when a separate result is wanted.
+// This helper creates no new item. Passing &item alone does not force heap storage.
 func updateCartItemPointer(item *CartItem, quantity int) {
 	if item == nil || quantity <= 0 {
 		return

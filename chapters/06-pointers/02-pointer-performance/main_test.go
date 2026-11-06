@@ -2,269 +2,157 @@ package main
 
 import "testing"
 
-// Section 1 benchmarks compare two ways of returning existing data:
-// 1. Return a value, which copies the payload.
-// 2. Return a pointer, which copies only the memory address.
-//
-// Section 2 benchmarks compare two ways of returning new local data:
-// 1. Return a new local value.
-// 2. Return a pointer to a new local value.
-// Returning a pointer to local data can make that data escape to the heap.
-//
-// testing.B is the type Go uses for benchmark functions.
-// The benchmark runner creates it and passes it to each Benchmark... function.
-// b.N is the number of loop runs chosen by Go for that specific benchmark.
-//
-// Run all benchmarks (use default/all CPUs):
-// Better when code uses goroutines (run concurrently), real application behavior on the machine
-// go test -bench=. -benchmem ./chapters/06-pointers/02-pointer-performance
-//
-// Run setting the number of logical CPUs manually
-// Better for basic performance, simpler comparisons, can be single-threaded, less scheduling noise)
-// -count=n rerun the test to help if numbers are stable
-// GOMAXPROCS=1 go test -bench=. -benchmem -count=5 ./chapters/06-pointers/02-pointer-performance
-//
-// How to read the output:
-// BenchmarkReturn10BytesValue-12  1000000000  0.72 ns/op  0 B/op  0 allocs/op
-// - 1000000000 is the final b.N chosen by Go.
-// - ns/op is the average time for one operation.
-// - B/op shows bytes allocated per operation.
-// - allocs/op shows allocations per operation.
+// These sinks deliberately retain results. In particular, storing a fresh
+// pointer globally models an escaping result; it is not a neutral benchmark aid.
+var (
+	smallValueSink    SmallPayload
+	smallPointerSink  *SmallPayload
+	mediumValueSink   MediumPayload
+	mediumPointerSink *MediumPayload
+	largeValueSink    LargePayload
+	largePointerSink  *LargePayload
+	checksumSink      byte
+)
 
-/* Section 1: existing data */
+func TestExistingPayloadOwnership(t *testing.T) {
+	t.Run("16 bytes", func(t *testing.T) {
+		source := newSmallValue(1)
+		value := existingSmallValue(&source)
+		pointer := existingSmallPointer(&source)
+		value.Data[0] = 10
+		if source.Data[0] != 1 || pointer != &source {
+			t.Fatal("value copy or pointer identity is incorrect")
+		}
+		pointer.Data[0] = 20
+		if source.Data[0] != 20 || value.Data[0] != 10 {
+			t.Fatal("pointer mutation did not preserve the independent value")
+		}
+	})
+	t.Run("4 KiB", func(t *testing.T) {
+		var source MediumPayload
+		source.Data[len(source.Data)-1] = 1
+		value := existingMediumValue(&source)
+		pointer := existingMediumPointer(&source)
+		value.Data[len(value.Data)-1] = 10
+		pointer.Data[len(pointer.Data)-1] = 20
+		if pointer != &source || source.Data[len(source.Data)-1] != 20 || value.Data[len(value.Data)-1] != 10 {
+			t.Fatal("medium payload copy or alias is incorrect")
+		}
+	})
+	t.Run("1 MiB", func(t *testing.T) {
+		var source LargePayload
+		source.Data[len(source.Data)-1] = 1
+		value := existingLargeValue(&source)
+		pointer := existingLargePointer(&source)
+		value.Data[len(value.Data)-1] = 10
+		pointer.Data[len(pointer.Data)-1] = 20
+		if pointer != &source || source.Data[len(source.Data)-1] != 20 || value.Data[len(value.Data)-1] != 10 {
+			t.Fatal("large payload copy or alias is incorrect")
+		}
+	})
+}
 
-/* 10 bytes */
-func BenchmarkReturn10BytesValue(b *testing.B) {
-	// Prepare sample data before the timer starts.
-	preparePerformancePayloads()
-
-	// Show allocations in the benchmark output.
-	b.ReportAllocs()
-
-	// Ignore setup time and measure only the loop below.
-	b.ResetTimer()
-
-	// Go chooses b.N automatically.
-	// Fast code gets more runs; slow code gets fewer runs.
-	for i := 0; i < b.N; i++ {
-		// Store the result globally so the compiler keeps the work.
-		value10Bytes = return10BytesValue()
+func TestFreshPayloadsAreIndependent(t *testing.T) {
+	first := newSmallPointer(1)
+	second := newSmallPointer(1)
+	value := newSmallValue(1)
+	if *first != value || *second != value {
+		t.Fatal("value and pointer constructors initialize different contents")
+	}
+	first.Data[0] = 99
+	if first == second || second.Data[0] != 1 || value.Data[0] != 1 {
+		t.Fatal("fresh results unexpectedly share mutable data")
 	}
 }
 
-func BenchmarkReturn10BytesPointer(b *testing.B) {
-	// Same benchmark shape, but this returns a pointer instead of a full value.
-	preparePerformancePayloads()
-	b.ReportAllocs()
-	b.ResetTimer()
+// b.Loop excludes setup automatically and keeps loop work observable.
+// Allocation counts and timing depend on the compiler, architecture, and use site.
+// These benchmarks are intentionally sequential; -cpu does not make them parallel.
+func BenchmarkExistingData(b *testing.B) {
+	small := newSmallValue(1)
+	var medium MediumPayload
+	medium.Data[0] = 1
+	var large LargePayload
+	large.Data[0] = 1
 
-	for i := 0; i < b.N; i++ {
-		pointer10Bytes = return10BytesPointer()
-	}
+	b.Run("16B/Value", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			smallValueSink = existingSmallValue(&small)
+		}
+	})
+	b.Run("16B/Pointer", func(b *testing.B) {
+		b.ReportAllocs()
+		// Reuse an existing object: this case does not include constructing a payload.
+		for b.Loop() {
+			smallPointerSink = existingSmallPointer(&small)
+		}
+		smallPointerSink = nil
+	})
+	b.Run("4KiB/Value", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			mediumValueSink = existingMediumValue(&medium)
+		}
+	})
+	b.Run("4KiB/Pointer", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			mediumPointerSink = existingMediumPointer(&medium)
+		}
+		mediumPointerSink = nil
+	})
+	b.Run("1MiB/Value", func(b *testing.B) {
+		b.ReportAllocs()
+		// Inspect both copy time and allocations: this large return can need a heap temporary.
+		for b.Loop() {
+			largeValueSink = existingLargeValue(&large)
+		}
+	})
+	b.Run("1MiB/Pointer", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			largePointerSink = existingLargePointer(&large)
+		}
+		largePointerSink = nil
+	})
 }
 
-/* 100 bytes */
-func BenchmarkReturn100BytesValue(b *testing.B) {
-	preparePerformancePayloads()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		value100Bytes = return100BytesValue()
-	}
-}
-
-func BenchmarkReturn100BytesPointer(b *testing.B) {
-	preparePerformancePayloads()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		pointer100Bytes = return100BytesPointer()
-	}
-}
-
-/* 1 KB */
-func BenchmarkReturn1KBValue(b *testing.B) {
-	preparePerformancePayloads()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		value1KB = return1KBValue()
-	}
-}
-
-func BenchmarkReturn1KBPointer(b *testing.B) {
-	preparePerformancePayloads()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		pointer1KB = return1KBPointer()
-	}
-}
-
-/* 10 KB */
-func BenchmarkReturn10KBValue(b *testing.B) {
-	preparePerformancePayloads()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		value10KB = return10KBValue()
-	}
-}
-
-func BenchmarkReturn10KBPointer(b *testing.B) {
-	preparePerformancePayloads()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		pointer10KB = return10KBPointer()
-	}
-}
-
-/* 100 KB */
-func BenchmarkReturn100KBValue(b *testing.B) {
-	preparePerformancePayloads()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		value100KB = return100KBValue()
-	}
-}
-
-func BenchmarkReturn100KBPointer(b *testing.B) {
-	preparePerformancePayloads()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		pointer100KB = return100KBPointer()
-	}
-}
-
-/* 1 MB */
-func BenchmarkReturn1MBValue(b *testing.B) {
-	preparePerformancePayloads()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		value1MB = return1MBValue()
-	}
-}
-
-func BenchmarkReturn1MBPointer(b *testing.B) {
-	preparePerformancePayloads()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		pointer1MB = return1MBPointer()
-	}
-}
-
-/* 10 MB */
-func BenchmarkReturn10MBValue(b *testing.B) {
-	preparePerformancePayloads()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		value10MB = return10MBValue()
-	}
-}
-
-func BenchmarkReturn10MBPointer(b *testing.B) {
-	preparePerformancePayloads()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		pointer10MB = return10MBPointer()
-	}
-}
-
-/* 100 MB */
-func BenchmarkReturn100MBValue(b *testing.B) {
-	preparePerformancePayloads()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		value100MB = return100MBValue()
-	}
-}
-
-func BenchmarkReturn100MBPointer(b *testing.B) {
-	preparePerformancePayloads()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		pointer100MB = return100MBPointer()
-	}
-}
-
-/* Section 2: new local data */
-
-/* 100 bytes */
-func BenchmarkReturnNewLocal100BytesValue(b *testing.B) {
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		value100Bytes = returnNewLocal100BytesValue()
-	}
-}
-
-func BenchmarkReturnNewLocal100BytesPointer(b *testing.B) {
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		pointer100Bytes = returnNewLocal100BytesPointer()
-	}
-}
-
-/* 1 MB */
-func BenchmarkReturnNewLocal1MBValue(b *testing.B) {
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		value1MB = returnNewLocal1MBValue()
-	}
-}
-
-func BenchmarkReturnNewLocal1MBPointer(b *testing.B) {
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		pointer1MB = returnNewLocal1MBPointer()
-	}
-}
-
-/* 100 MB */
-func BenchmarkReturnNewLocal100MBValue(b *testing.B) {
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		value100MB = returnNewLocal100MBValue()
-	}
-}
-
-func BenchmarkReturnNewLocal100MBPointer(b *testing.B) {
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		pointer100MB = returnNewLocal100MBPointer()
-	}
+func BenchmarkNewSmall(b *testing.B) {
+	b.Run("ValueRetained", func(b *testing.B) {
+		b.ReportAllocs()
+		// Store the value in existing global storage; copying need not allocate a new object.
+		for b.Loop() {
+			smallValueSink = newSmallValue(1)
+		}
+	})
+	b.Run("PointerRetained", func(b *testing.B) {
+		b.ReportAllocs()
+		// Retain a fresh object's address globally: the object escapes this caller.
+		// Replacing it permits later GC of the old target once no other references retain it.
+		for b.Loop() {
+			smallPointerSink = newSmallPointer(1)
+		}
+		smallPointerSink = nil
+	})
+	b.Run("ValueLocal", func(b *testing.B) {
+		b.ReportAllocs()
+		var checksum byte
+		for b.Loop() {
+			payload := newSmallValue(1)
+			checksum += payload.Data[0] + payload.Data[len(payload.Data)-1]
+		}
+		checksumSink = checksum
+	})
+	b.Run("PointerLocal", func(b *testing.B) {
+		b.ReportAllocs()
+		var checksum byte
+		// Only the scalar checksum survives. Inlining/escape analysis may avoid
+		// a heap allocation even though the constructor returns a pointer.
+		for b.Loop() {
+			payload := newSmallPointer(1)
+			checksum += payload.Data[0] + payload.Data[len(payload.Data)-1]
+		}
+		checksumSink = checksum
+	})
 }

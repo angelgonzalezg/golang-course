@@ -7,16 +7,18 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"runtime"
-	"runtime/debug"
+	"runtime/metrics"
+	"strconv"
 	"sync"
 )
 
 /* Helper section 1: Sizes and example data types */
 const (
-	kib      = 1024
-	mib      = 1024 * kib
-	maxInt64 = 1<<63 - 1
+	kib                     = 1024
+	mib                     = 1024 * kib
+	maxPooledBufferCapacity = 64 * kib
 )
 
 type Receipt struct {
@@ -30,16 +32,21 @@ type largeObject struct {
 }
 
 /* Helper section 2: Global sinks and reusable pool */
-var sinkInt int
 var sinkIDs []int
 var sinkMap map[int]int
 var sinkBuffers [][]byte
 var sinkReceipts []Receipt
 var sinkReceiptPointers []*Receipt
+var sinkChecksum uint64
+
+type messageBuffer struct {
+	data []byte
+}
 
 var byteBufferPool = sync.Pool{
 	New: func() any {
-		return make([]byte, 0, 256)
+		// A pointer fits in the interface without boxing a slice header each Put.
+		return &messageBuffer{data: make([]byte, 0, 256)}
 	},
 }
 
@@ -56,8 +63,8 @@ func formatBytes(bytes uint64) string {
 }
 
 func formatMemoryLimit(limit int64) string {
-	if limit == maxInt64 {
-		return "unlimited"
+	if limit == math.MaxInt64 {
+		return "disabled (MaxInt64)"
 	}
 
 	if limit < 0 {
@@ -86,6 +93,8 @@ func printMemory(label string) {
 }
 
 func measureAllocations(label string, work func()) {
+	// Process-wide snapshots include runtime activity; they are observations,
+	// not exact allocation contracts. Repeated benchmarks provide better comparisons.
 	// runtime.GC is used here only to make this lesson easier to observe.
 	// In regular application code, let the runtime decide when GC should run.
 	runtime.GC()
@@ -103,7 +112,7 @@ func measureAllocations(label string, work func()) {
 }
 
 /* Helper section 4: Allocation examples */
-func makeTemporaryGarbage() {
+func makeTemporaryBuffers() [][]byte {
 	garbage := make([][]byte, 3_000)
 
 	for i := range garbage {
@@ -111,14 +120,17 @@ func makeTemporaryGarbage() {
 		garbage[i][0] = byte(i)
 	}
 
-	sinkInt += len(garbage)
+	return garbage
 }
 
+// Return a small scalar-only copy when the original receipt should stay unchanged.
 func updateReceiptValue(receipt Receipt) Receipt {
 	receipt.Paid = true
 	return receipt
 }
 
+// buildReceiptValues stores records directly in one backing array.
+// Receipt has no pointer fields, so the GC has no element pointers to scan.
 func buildReceiptValues(count int) []Receipt {
 	receipts := make([]Receipt, 0, count)
 
@@ -133,6 +145,9 @@ func buildReceiptValues(count int) []Receipt {
 	return receipts
 }
 
+// buildReceiptPointers stores pointers to separately created receipts.
+// The GC follows the pointer array to its live targets; this layout can add
+// allocations and reference scanning compared with the pointer-free value array.
 func buildReceiptPointers(count int) []*Receipt {
 	receipts := make([]*Receipt, 0, count)
 
@@ -149,31 +164,58 @@ func buildReceiptPointers(count int) []*Receipt {
 }
 
 /* Helper section 5: Buffer reuse examples */
+func appendRequestID(buffer []byte, id int) []byte {
+	buffer = append(buffer, "request-id:"...)
+	return strconv.AppendInt(buffer, int64(id), 10)
+}
+
+// checksumBytes reads every byte synchronously and never retains the slice.
+// This simple checksum makes consumed data observable; it is not cryptography.
+func checksumBytes(buffer []byte) uint64 {
+	var checksum uint64
+	for _, value := range buffer {
+		checksum = checksum*31 + uint64(value)
+	}
+	return checksum
+}
+
+// Retaining all messages requires independent byte storage for each result.
 func buildMessagesWithNewBuffers(count int) [][]byte {
 	buffers := make([][]byte, 0, count)
 
 	for i := 0; i < count; i++ {
 		buffer := make([]byte, 0, 64)
-		buffer = append(buffer, "request-id:"...)
-		buffer = append(buffer, byte('0'+i%10))
+		buffer = appendRequestID(buffer, i)
 		buffers = append(buffers, buffer)
 	}
 
 	return buffers
 }
 
-func buildMessagesWithReusedBuffer(count int) int {
+// Both processing variants build and checksum the same messages without keeping
+// them. A new source-level buffer does not guarantee a heap allocation.
+func processMessagesWithNewBuffers(count int) uint64 {
+	var checksum uint64
+	for i := 0; i < count; i++ {
+		buffer := make([]byte, 0, 64)
+		buffer = appendRequestID(buffer, i)
+		checksum += checksumBytes(buffer)
+	}
+	return checksum
+}
+
+func processMessagesWithReusedBuffer(count int) uint64 {
 	buffer := make([]byte, 0, 64)
-	totalBytes := 0
+	var checksum uint64
 
 	for i := 0; i < count; i++ {
 		buffer = buffer[:0]
-		buffer = append(buffer, "request-id:"...)
-		buffer = append(buffer, byte('0'+i%10))
-		totalBytes += len(buffer)
+		buffer = appendRequestID(buffer, i)
+		// Consume before reuse; saving these views would make messages alias.
+		checksum += checksumBytes(buffer)
 	}
 
-	return totalBytes
+	return checksum
 }
 
 /* Helper section 6: Collection preallocation examples */
@@ -231,19 +273,36 @@ func makeObjectCache(count int) []*largeObject {
 }
 
 func clearObjectCache(cache []*largeObject) {
-	for i := range cache {
-		cache[i] = nil
-	}
+	clear(cache) // Clears visible slots, preserving len, cap, and the backing array.
 }
 
-func writeWithPool(message string) int {
-	buffer := byteBufferPool.Get().([]byte)
-	buffer = buffer[:0]
-	buffer = append(buffer, message...)
+// prepareForPool defines a per-buffer retention policy; the pool's total size
+// is not bounded by this cap. It does not erase bytes in the backing array.
+func prepareForPool(buffer *messageBuffer) bool {
+	if cap(buffer.data) > maxPooledBufferCapacity {
+		buffer.data = nil
+		return false
+	}
+	buffer.data = buffer.data[:0]
+	return true
+}
 
-	bytesWritten := len(buffer)
-	byteBufferPool.Put(buffer)
-	return bytesWritten
+func checksumWithPool(message string) uint64 {
+	buffer := byteBufferPool.Get().(*messageBuffer)
+	buffer.data = append(buffer.data[:0], message...)
+	checksum := checksumBytes(buffer.data)
+	// Reuse can reduce repeated allocation work, while pooled capacity retains memory.
+	if prepareForPool(buffer) {
+		byteBufferPool.Put(buffer)
+	}
+	// Do not access buffer or return aliases into its data after Put.
+	return checksum
+}
+
+func checksumWithLocalBuffer(message string) uint64 {
+	buffer := make([]byte, 0, 256)
+	buffer = append(buffer, message...)
+	return checksumBytes(buffer)
 }
 
 func main() {
@@ -251,12 +310,14 @@ func main() {
 	fmt.Println("== 1. What the garbage collector cleans ==")
 
 	printMemory("startup")
-	makeTemporaryGarbage()
-	printMemory("after temporary heap allocations")
+	sinkBuffers = makeTemporaryBuffers()
+	printMemory("while buffers are reachable")
+	sinkBuffers = nil
 
 	// For the lesson, force one collection so the change is visible.
 	runtime.GC()
-	printMemory("after forced GC")
+	printMemory("after releasing buffers and forcing GC")
+	fmt.Println("Heap reclamation does not imply an immediate drop in process RSS.")
 
 	/* Section 2: Prefer simple values when possible */
 	fmt.Println("\n== 2. Prefer simple values when possible ==")
@@ -265,47 +326,52 @@ func main() {
 	paidReceipt := updateReceiptValue(receipt)
 
 	// Small values can often stay on the stack.
-	// Stack memory is not heap garbage, so it gives the GC less work.
+	// The compiler decides placement. Pointers stored on stacks can still be GC roots.
 	fmt.Printf("original receipt: %+v\n", receipt)
 	fmt.Printf("updated copy:     %+v\n", paidReceipt)
 
-	/* Section 3: Prefer slices of structs when possible */
-	fmt.Println("\n== 3. Prefer slices of structs when possible ==")
+	/* Section 3: Choose between slices of values and slices of pointers */
+	fmt.Println("\n== 3. Slices of values and slices of pointers ==")
 
-	// []Receipt stores the receipts together in one slice backing array.
-	// []*Receipt stores pointers, and each &Receipt usually becomes a separate heap object.
+	// []Receipt (values): start here for small records stored and processed together
+	// when per-object identity and nil entries are unnecessary. Elements remain mutable.
 	measureAllocations("slice of struct values", func() {
 		sinkReceipts = buildReceiptValues(20_000)
 	})
 	sinkReceipts = nil
 
+	// []*Receipt (pointers): use for objects shared across collections, identity
+	// preserved as a slice grows, or nil entries. For large structs, benchmark copy
+	// costs against allocations and GC work before choosing pointers for performance.
 	measureAllocations("slice of pointers to structs", func() {
 		sinkReceiptPointers = buildReceiptPointers(20_000)
 	})
 	sinkReceiptPointers = nil
 
-	// Use pointer slices when you need nil entries, shared mutable objects,
-	// or to avoid copying very large structs. Use them deliberately.
-	fmt.Println("Rule: prefer []Struct first; use []*Struct when the pointer behavior matters.")
+	fmt.Println("Rule for []T (values): use for small records processed together when per-object identity and nil entries are unnecessary.")
+	fmt.Println("Rule for []*T (pointers): use for shared object identity or nil entries; for large structs, measure copying against allocation and GC costs.")
 
 	/* Section 4: Reuse temporary buffers */
 	fmt.Println("\n== 4. Reuse temporary buffers ==")
 
-	// Creating many temporary buffers can create many short-lived heap objects.
-	measureAllocations("new buffer per message", func() {
-		sinkBuffers = buildMessagesWithNewBuffers(5_000)
+	measureAllocations("new temporary buffer per message", func() {
+		sinkChecksum = processMessagesWithNewBuffers(5_000)
 	})
-	sinkBuffers = nil
+	newBufferChecksum := sinkChecksum
 
 	// Reusing one buffer is useful when each result is temporary.
 	measureAllocations("reuse one buffer", func() {
-		sinkInt += buildMessagesWithReusedBuffer(5_000)
+		sinkChecksum = processMessagesWithReusedBuffer(5_000)
 	})
+	fmt.Println("same consumed messages:", newBufferChecksum == sinkChecksum)
+
+	retained := buildMessagesWithNewBuffers(3)
+	fmt.Printf("independently retained messages: %q\n", retained)
 
 	/* Section 5: Preallocate slices and maps */
 	fmt.Println("\n== 5. Preallocate slices and maps ==")
 
-	// If you know the expected size, capacity avoids repeated growth work.
+	// Slice capacity avoids growth while it is sufficient; map size is only a hint.
 	measureAllocations("slice without prealloc", func() {
 		sinkIDs = buildIDsWithoutPrealloc(20_000)
 	})
@@ -327,12 +393,16 @@ func main() {
 	/* Section 6: Clear references in long-lived containers */
 	fmt.Println("\n== 6. Clear references in long-lived containers ==")
 
-	cache := makeObjectCache(300)
+	cache := makeObjectCache(128)
 	runtime.GC()
 	printMemory("cache holding object references")
+	// Keep the original object graph alive through the observation above, even
+	// if the compiler sees that the next use only overwrites the slice's slots.
+	runtime.KeepAlive(cache)
 
 	// A long-lived slice keeps the objects alive while it still stores pointers to them.
-	clearObjectCache(cache)
+	// Clearing removes those references; any other aliases would still keep targets alive.
+	clearObjectCache(cache[:cap(cache)])
 	runtime.GC()
 	printMemory("after clearing object references")
 	runtime.KeepAlive(cache)
@@ -341,32 +411,36 @@ func main() {
 	fmt.Println("\n== 7. Use sync.Pool for hot temporary objects ==")
 
 	// sync.Pool is for temporary reusable objects.
-	// It is not a permanent cache; the GC can drop pooled values.
+	// Get may return a new object at any time; correctness cannot require reuse.
 	for i := 0; i < 3; i++ {
-		bytesWritten := writeWithPool("pooled temporary buffer")
-		fmt.Println("bytes written with pooled buffer:", bytesWritten)
+		checksum := checksumWithPool("pooled temporary buffer")
+		fmt.Println("checksum with pooled buffer:", checksum)
 	}
 
 	/* Section 8: Tune GC frequency with GOGC */
 	fmt.Println("\n== 8. Tune GC frequency with GOGC ==")
 
-	// GOGC controls how much new heap data is allowed before the next GC.
+	// The growth target accounts for the live heap and GC roots. It is a target,
+	// not a hard byte limit, and the memory limit can cause earlier collections.
 	// Lower values usually mean lower memory usage and more GC CPU work.
 	// Higher values usually mean higher memory usage and less frequent GC work.
-	previousGCPercent := debug.SetGCPercent(200)
-	fmt.Println("temporarily set GC target percent to 200")
-	fmt.Println("previous GC target percent:", previousGCPercent)
-	debug.SetGCPercent(previousGCPercent)
+	settings := []metrics.Sample{{Name: "/gc/gogc:percent"}, {Name: "/gc/gomemlimit:bytes"}}
+	metrics.Read(settings) // Observe the experiment's settings without overriding them.
+	gcPercent := settings[0].Value.Uint64()
+	if gcPercent == math.MaxUint64 {
+		fmt.Println("configured GOGC: off")
+	} else {
+		fmt.Println("configured GOGC:", gcPercent)
+	}
 
 	/* Section 9: Tune the soft memory limit */
 	fmt.Println("\n== 9. Tune the soft memory limit ==")
 
-	// GOMEMLIMIT or debug.SetMemoryLimit asks Go to stay near a memory limit.
-	// The runtime may run GC more often to respect the limit.
-	previousLimit := debug.SetMemoryLimit(128 * mib)
-	fmt.Println("temporarily set memory limit to 128 MiB")
-	fmt.Println("previous memory limit:", formatMemoryLimit(previousLimit))
-	debug.SetMemoryLimit(previousLimit)
+	// This is a soft limit for Go runtime-managed memory, not all process memory.
+	// The runtime may exceed it; it cannot collect reachable data to satisfy it.
+	fmt.Println("configured memory limit:", formatMemoryLimit(int64(settings[1].Value.Uint64())))
+	stats := readMemoryStats()
+	fmt.Println("runtime-managed memory (Sys - HeapReleased):", formatBytes(stats.Sys-stats.HeapReleased))
 
 	/* Section 10: Observe GC behavior */
 	fmt.Println("\n== 10. Observe GC behavior ==")
