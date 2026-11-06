@@ -5,7 +5,8 @@ Go examples and practice projects organized around Jon Bodner's
 
 The directories under `chapters/` follow the book's chapter numbers. Lessons
 within a chapter introduce the prerequisites used by its practice project.
-Each lesson and project is a separate `main` package, with its tests alongside it.
+Most lessons and projects are separate `main` packages, with tests alongside them.
+Chapter 10 also introduces library packages and an isolated lab with nested modules.
 
 ## Requirements
 
@@ -33,6 +34,7 @@ Change the package path to run another lesson or project from the tables below.
 | 7. Types, methods, and interfaces | [Enums](chapters/07-types-methods-and-interfaces/01-enums/main.go), [methods](chapters/07-types-methods-and-interfaces/02-methods/main.go), [interfaces](chapters/07-types-methods-and-interfaces/03-interfaces/main.go), [Stringer](chapters/07-types-methods-and-interfaces/04-stringer/main.go) |
 | 8. Generics | [Generics](chapters/08-generics/01-generics/main.go) |
 | 9. Errors | [Error handling](chapters/09-errors/01-error-handling/main.go), [panic and recover](chapters/09-errors/02-panic-and-recover/main.go) |
+| 10. Modules, packages, and imports | [Package boundaries, exports, and internal helpers](chapters/10-modules-and-packages/README.md), [dependency versions and local modules](chapters/10-modules-and-packages/02-module-versions/README.md) |
 | 12. Concurrency in Go | [Concurrency](chapters/12-concurrency/01-concurrency/main.go) |
 
 The performance and GC lessons provide additional practice after pointer basics.
@@ -55,6 +57,18 @@ go test ./...
 go vet ./...
 ```
 
+The chapter 10 versioning lab has three nested modules. Validate them separately;
+the root commands above stop at nested module boundaries:
+
+```sh
+go -C chapters/10-modules-and-packages/02-module-versions/app test ./...
+go -C chapters/10-modules-and-packages/02-module-versions/greeting-v1 test ./...
+go -C chapters/10-modules-and-packages/02-module-versions/greeting-v2 test ./...
+go -C chapters/10-modules-and-packages/02-module-versions/app vet ./...
+go -C chapters/10-modules-and-packages/02-module-versions/greeting-v1 vet ./...
+go -C chapters/10-modules-and-packages/02-module-versions/greeting-v2 vet ./...
+```
+
 Run the concurrency example with the race detector:
 
 ```sh
@@ -72,7 +86,6 @@ go test -run='^$' -bench=. -benchmem ./chapters/06-pointers/03-garbage-collector
 
 The gaps in chapter numbering leave room for the remaining units:
 
-- Chapter 10: modules, packages, and imports.
 - Chapter 11: Go tooling.
 - Chapter 13: I/O, time, JSON, HTTP, and structured logging.
 - Chapter 14: context propagation, values, cancellation, and deadlines.
