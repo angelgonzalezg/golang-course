@@ -37,7 +37,7 @@ Change the package path to run another lesson or project from the tables below.
 | 10. Modules, packages, and imports | [Package boundaries, exports, and internal helpers](chapters/10-modules-and-packages/README.md), [dependency versions and local modules](chapters/10-modules-and-packages/02-module-versions/README.md) |
 | 11. Go tooling | [Builds and analysis, build tags, embedded resources, and code generation](chapters/11-go-tooling/README.md) |
 | 12. Concurrency in Go | [Concurrency fundamentals, ownership, and shutdown](chapters/12-concurrency/01-concurrency/README.md) |
-| 13. The standard library | [I/O, buffering, files, and filesystem interfaces](chapters/13-standard-library/01-io-and-files/README.md) |
+| 13. The standard library | [I/O, buffering, files, and filesystem interfaces](chapters/13-standard-library/01-io-and-files/README.md), [time, calendars, timers, and tickers](chapters/13-standard-library/02-time/README.md) |
 
 The performance and GC lessons provide additional practice after pointer basics.
 The concurrency lesson includes a short introduction to `context`; a dedicated
@@ -96,7 +96,7 @@ go test -run='^$' -bench=. -benchmem ./chapters/06-pointers/03-garbage-collector
 
 The gaps in chapter numbering leave room for the remaining units:
 
-- Chapter 13: extend the I/O lessons with time, JSON, HTTP, and structured logging.
+- Chapter 13: build on I/O and time with JSON, HTTP, and structured logging.
 - Chapter 14: context propagation, values, cancellation, and deadlines.
 - Chapter 15: writing tests.
 - Chapter 16: reflection, unsafe, and cgo.
