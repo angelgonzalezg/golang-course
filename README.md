@@ -36,7 +36,7 @@ Change the package path to run another lesson or project from the tables below.
 | 9. Errors | [Error handling](chapters/09-errors/01-error-handling/main.go), [panic and recover](chapters/09-errors/02-panic-and-recover/main.go) |
 | 10. Modules, packages, and imports | [Package boundaries, exports, and internal helpers](chapters/10-modules-and-packages/README.md), [dependency versions and local modules](chapters/10-modules-and-packages/02-module-versions/README.md) |
 | 11. Go tooling | [Builds and analysis, build tags, embedded resources, and code generation](chapters/11-go-tooling/README.md) |
-| 12. Concurrency in Go | [Concurrency](chapters/12-concurrency/01-concurrency/main.go) |
+| 12. Concurrency in Go | [Concurrency fundamentals, ownership, and shutdown](chapters/12-concurrency/01-concurrency/README.md) |
 
 The performance and GC lessons provide additional practice after pointer basics.
 The concurrency lesson includes a short introduction to `context`; a dedicated
@@ -77,9 +77,10 @@ go -C chapters/10-modules-and-packages/02-module-versions/greeting-v1 vet ./...
 go -C chapters/10-modules-and-packages/02-module-versions/greeting-v2 vet ./...
 ```
 
-Run the concurrency example with the race detector:
+Validate the concurrency lesson with the race detector:
 
 ```sh
+go test -race -timeout=30s ./chapters/12-concurrency/01-concurrency
 go run -race ./chapters/12-concurrency/01-concurrency
 ```
 
@@ -99,5 +100,5 @@ The gaps in chapter numbering leave room for the remaining units:
 - Chapter 15: writing tests.
 - Chapter 16: reflection, unsafe, and cgo.
 
-Further exercises will extend concurrency with pipelines, fan-out, fan-in,
-bounded worker pools, and cancellation.
+Further exercises will extend the finite pipeline and worker pool with fan-out,
+fan-in, cancellation, error propagation, and backpressure.

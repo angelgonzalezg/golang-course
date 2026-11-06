@@ -1,326 +1,255 @@
-// Concurrency
-// Topic: concurrency lets a Go program make progress on more than one task at a time.
-// Args/Input: examples use goroutines, channels, select, context, mutexes, atomics, and worker pools.
-// Usage: use goroutines for independent work, channels for communication, and sync tools for shared state.
-// Key idea: do not share memory by accident; either communicate with channels or protect shared data.
+// Concurrency Fundamentals
+// Topic: coordinate goroutines with explicit communication, ownership, and completion.
+// Usage: go run -race ./chapters/12-concurrency/01-concurrency
+// Key idea: cancellation requests a stop; joining confirms that work has returned.
 package main
 
 import (
+	"cmp"
 	"context"
+	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
-/* Helper section 1: Goroutine helpers */
-func printAfterDelay(message string, delay time.Duration) {
-	time.Sleep(delay)
-	fmt.Println(message)
-}
-
-func waitGroupWorker(id int, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	time.Sleep(time.Duration(id) * 20 * time.Millisecond)
-	fmt.Println("WaitGroup worker finished:", id)
-}
-
-/* Helper section 2: Channel helpers */
-func sendGreeting(messages chan<- string) {
-	// chan<- means this function can only send to the channel.
-	messages <- "hello from a goroutine"
-}
-
-func produceNumbers(out chan<- int, count int) {
-	defer close(out) // Closing tells receivers there are no more values.
-
-	for number := 1; number <= count; number++ {
-		out <- number
-	}
-}
-
-func squareNumbers(in <-chan int, out chan<- int) {
-	defer close(out)
-
-	for number := range in {
-		out <- number * number
-	}
-}
-
-/* Helper section 3: Select, timeout, and cancellation helpers */
-func delayedResult(label string, delay time.Duration) <-chan string {
-	results := make(chan string, 1)
-
+func showGoroutine() {
+	finished := make(chan struct{})
 	go func() {
-		time.Sleep(delay)
-		results <- label + " completed"
+		defer close(finished)
+		fmt.Println("goroutine message")
 	}()
-
-	return results
-}
-
-func heartbeat(done <-chan struct{}) {
-	ticker := time.NewTicker(20 * time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-done:
-			fmt.Println("heartbeat stopped")
-			return
-		case <-ticker.C:
-			fmt.Println("heartbeat")
-		}
-	}
-}
-
-func workWithContext(ctx context.Context, name string) error {
-	select {
-	case <-time.After(100 * time.Millisecond):
-		fmt.Println(name, "finished")
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-/* Helper section 4: Shared state helpers */
-func incrementWithMutex(counter *int, times int, mu *sync.Mutex, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	for i := 0; i < times; i++ {
-		mu.Lock()
-		*counter = *counter + 1
-		mu.Unlock()
-	}
-}
-
-func incrementAtomic(counter *int64, times int, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	for i := 0; i < times; i++ {
-		atomic.AddInt64(counter, 1)
-	}
-}
-
-/* Helper section 5: Worker pool helpers */
-type Job struct {
-	ID    int
-	Value int
-}
-
-type JobResult struct {
-	WorkerID int
-	JobID    int
-	Output   int
-}
-
-func poolWorker(id int, jobs <-chan Job, results chan<- JobResult, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	for job := range jobs {
-		time.Sleep(15 * time.Millisecond)
-		results <- JobResult{
-			WorkerID: id,
-			JobID:    job.ID,
-			Output:   job.Value * 2,
-		}
-	}
-}
-
-/* Helper section 6: sync.Once helper */
-func loadConfigOnce(once *sync.Once, config *string) {
-	once.Do(func() {
-		fmt.Println("loading config once")
-		*config = "config loaded"
-	})
-}
-
-func main() {
-	/* Section 1: Goroutine basics */
-	fmt.Println("== 1. Goroutine basics ==")
-
-	// go starts a function in a new goroutine.
-	go printAfterDelay("goroutine message", 30*time.Millisecond)
 	fmt.Println("main keeps running")
+	// A completion signal coordinates the work; sleeping would only guess at timing.
+	<-finished
+}
 
-	// This small sleep is only for the lesson, so the goroutine can print.
-	time.Sleep(50 * time.Millisecond)
+func showWaitGroup() {
+	results := make([]int, 3)
+	runWorkers(len(results), func(id int) {
+		// Each worker owns one distinct element; readers wait for all writes.
+		results[id] = (id + 1) * 10
+	})
+	fmt.Println("joined worker results:", results)
+}
 
-	/* Section 2: WaitGroup waits for goroutines */
-	fmt.Println("\n== 2. WaitGroup waits for goroutines ==")
-
-	var wg sync.WaitGroup
-	for id := 1; id <= 3; id++ {
-		wg.Add(1)
-		go waitGroupWorker(id, &wg)
-	}
-	wg.Wait()
-	fmt.Println("all WaitGroup workers finished")
-
-	/* Section 3: Unbuffered channel */
-	fmt.Println("\n== 3. Unbuffered channel ==")
-
+func showUnbufferedChannel() {
 	messages := make(chan string)
-	go sendGreeting(messages)
+	var sender sync.WaitGroup
+	sender.Add(1)
+	go func() {
+		defer sender.Done()
+		messages <- "hello from a goroutine"
+	}()
+	fmt.Println("received:", <-messages)
+	sender.Wait()
+	// Exactly one value is expected, so the channel needs no close for this protocol.
+}
 
-	// Receive blocks until another goroutine sends a value.
-	greeting := <-messages
-	fmt.Println("received:", greeting)
+func showBufferedChannel() {
+	messages := make(chan string, 2)
+	messages <- "first"
+	messages <- "second"
+	select {
+	case messages <- "third":
+		fmt.Println("queued third")
+	default:
+		// Nonblocking rejection is intentional here. A blocking send would wait.
+		fmt.Println("buffer full: third was not queued")
+	}
+	fmt.Println(<-messages)
+	fmt.Println(<-messages)
+}
 
-	/* Section 4: Buffered channel */
-	fmt.Println("\n== 4. Buffered channel ==")
-
-	bufferedMessages := make(chan string, 2)
-	bufferedMessages <- "first"
-	bufferedMessages <- "second"
-
-	fmt.Println(<-bufferedMessages)
-	fmt.Println(<-bufferedMessages)
-
-	/* Section 5: Close and range over a channel */
-	fmt.Println("\n== 5. Close and range over a channel ==")
-
+func showChannelClose() {
 	numbers := make(chan int)
-	go produceNumbers(numbers, 3)
-
+	var producer sync.WaitGroup
+	producer.Add(1)
+	go func() {
+		defer producer.Done()
+		produceNumbers(numbers, 3)
+	}()
 	for number := range numbers {
 		fmt.Println("number:", number)
 	}
+	producer.Wait()
+	value, ok := <-numbers
+	fmt.Printf("after drain: value=%d, ok=%t\n", value, ok)
 
-	/* Section 6: Channel pipeline */
-	fmt.Println("\n== 6. Channel pipeline ==")
+	// A queued zero is still a real value. Close preserves already queued values.
+	queued := make(chan int, 1)
+	queued <- 0
+	close(queued)
+	value, ok = <-queued
+	fmt.Printf("queued zero: value=%d, ok=%t\n", value, ok)
+	value, ok = <-queued
+	fmt.Printf("after queued zero: value=%d, ok=%t\n", value, ok)
+}
 
+func showPipeline() {
 	inputs := make(chan int)
 	squares := make(chan int)
-
-	go produceNumbers(inputs, 4)
-	go squareNumbers(inputs, squares)
-
+	var stages sync.WaitGroup
+	stages.Add(2)
+	go func() {
+		defer stages.Done()
+		produceNumbers(inputs, 4)
+	}()
+	go func() {
+		defer stages.Done()
+		squareNumbers(inputs, squares)
+	}()
+	// This finite example consumes every result. Early exit needs a cancellation
+	// protocol through every stage, developed in the later patterns lessons.
 	for square := range squares {
 		fmt.Println("square:", square)
 	}
+	stages.Wait()
+}
 
-	/* Section 7: Select chooses the ready channel */
-	fmt.Println("\n== 7. Select chooses the ready channel ==")
+func showSelect() {
+	first := make(chan string, 1)
+	second := make(chan string, 1)
+	first <- "first source"
+	second <- "second source"
+	close(first)
+	close(second)
+	// Both sources are ready. select does not prioritize the first written case.
+	fmt.Println("selected messages (arrival order may vary):", collectMessages(first, second))
+}
 
-	fast := delayedResult("fast task", 20*time.Millisecond)
-	slow := delayedResult("slow task", 60*time.Millisecond)
+func showTimeout() {
+	stop := make(chan struct{})
+	release := make(chan struct{})
+	results := make(chan string)
+	var worker sync.WaitGroup
+	worker.Add(1)
+	go func() {
+		defer worker.Done()
+		sendWhenReleased(stop, release, results)
+	}()
 
-	for i := 0; i < 2; i++ {
-		select {
-		case result := <-fast:
-			fmt.Println(result)
-		case result := <-slow:
-			fmt.Println(result)
-		}
+	// The work gate stays unreleased, so only expiration can produce a result here.
+	timer := time.NewTimer(10 * time.Millisecond)
+	_, err := receiveResult(results, timer.C)
+	timer.Stop()
+	fmt.Println("timed out:", errors.Is(err, ErrTimeout))
+
+	// A timeout stopped this receive, not the worker. Request cancellation and join.
+	close(stop)
+	worker.Wait()
+	_, ok := <-results
+	fmt.Println("worker returned and closed results:", !ok)
+}
+
+func showStopBroadcast() {
+	stop := make(chan struct{})
+	var workers sync.WaitGroup
+	for id := 0; id < 2; id++ {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			<-stop
+		}()
 	}
+	// The caller is the sole closer. All current and future receivers observe it.
+	close(stop)
+	workers.Wait()
+	fmt.Println("both workers acknowledged stop")
+}
 
-	/* Section 8: Timeout with select */
-	fmt.Println("\n== 8. Timeout with select ==")
-
-	select {
-	case result := <-delayedResult("very slow task", 80*time.Millisecond):
-		fmt.Println(result)
-	case <-time.After(30 * time.Millisecond):
-		fmt.Println("timed out")
-	}
-
-	/* Section 9: Cancellation with a done channel */
-	fmt.Println("\n== 9. Cancellation with a done channel ==")
-
-	done := make(chan struct{})
-	go heartbeat(done)
-
-	time.Sleep(55 * time.Millisecond)
-	close(done)
-	time.Sleep(10 * time.Millisecond)
-
-	/* Section 10: Cancellation with context */
-	fmt.Println("\n== 10. Cancellation with context ==")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+func showContext() {
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	if err := workWithContext(ctx, "context task"); err != nil {
-		fmt.Println("context task stopped:", err)
-	}
-
-	/* Section 11: Protect shared data with a Mutex */
-	fmt.Println("\n== 11. Protect shared data with a Mutex ==")
-
-	counter := 0
-	var counterMu sync.Mutex
-	var mutexWG sync.WaitGroup
-
-	for i := 0; i < 3; i++ {
-		mutexWG.Add(1)
-		go incrementWithMutex(&counter, 1000, &counterMu, &mutexWG)
-	}
-	mutexWG.Wait()
-	fmt.Println("counter with mutex:", counter)
-
-	/* Section 12: Atomic counters */
-	fmt.Println("\n== 12. Atomic counters ==")
-
-	var atomicCounter int64
-	var atomicWG sync.WaitGroup
-
-	for i := 0; i < 3; i++ {
-		atomicWG.Add(1)
-		go incrementAtomic(&atomicCounter, 1000, &atomicWG)
-	}
-	atomicWG.Wait()
-	fmt.Println("atomic counter:", atomicCounter)
-
-	/* Section 13: Worker pool */
-	fmt.Println("\n== 13. Worker pool ==")
-
-	jobs := make(chan Job)
-	results := make(chan JobResult)
-	var poolWG sync.WaitGroup
-
-	for workerID := 1; workerID <= 3; workerID++ {
-		poolWG.Add(1)
-		go poolWorker(workerID, jobs, results, &poolWG)
-	}
-
+	release := make(chan struct{})
+	result := make(chan error, 1)
+	var worker sync.WaitGroup
+	worker.Add(1)
 	go func() {
-		for jobID := 1; jobID <= 5; jobID++ {
-			jobs <- Job{ID: jobID, Value: jobID * 10}
-		}
-		close(jobs)
+		defer worker.Done()
+		result <- workWithContext(ctx, release)
 	}()
+	cancel()
+	fmt.Println("context task canceled:", errors.Is(<-result, context.Canceled))
+	worker.Wait()
+}
 
-	go func() {
-		poolWG.Wait()
-		close(results)
-	}()
+func showMutex() {
+	var counter Counter
+	runWorkers(3, func(_ int) {
+		incrementWithMutex(&counter, 1000)
+	})
+	fmt.Println("counter with mutex:", counter.Value())
+}
 
-	for result := range results {
+func showAtomic() {
+	var counter atomic.Int64
+	runWorkers(3, func(_ int) {
+		incrementAtomic(&counter, 1000)
+	})
+	fmt.Println("atomic counter:", counter.Load())
+}
+
+func showWorkerPool() {
+	jobs := []Job{{ID: 1, Value: 10}, {ID: 2, Value: 20}, {ID: 3, Value: 30}, {ID: 4, Value: 40}, {ID: 5, Value: 50}}
+	results, err := runWorkerPool(jobs, 3)
+	if err != nil {
+		fmt.Println("worker pool:", err)
+		return
+	}
+	// Sort only for presentation. Completion order and worker assignment may vary.
+	slices.SortFunc(results, func(a, b JobResult) int { return cmp.Compare(a.JobID, b.JobID) })
+	for _, result := range results {
 		fmt.Printf("worker %d processed job %d -> %d\n", result.WorkerID, result.JobID, result.Output)
 	}
+}
 
-	/* Section 14: sync.Once */
-	fmt.Println("\n== 14. sync.Once ==")
+func showOnce() {
+	var loader ConfigLoader
+	var calls atomic.Int64
+	values := make([]string, 3)
+	runWorkers(len(values), func(id int) {
+		values[id] = loader.Load(func() string {
+			calls.Add(1)
+			return "config loaded"
+		})
+	})
+	fmt.Println("config values:", values)
+	fmt.Println("initializer calls:", calls.Load())
+}
 
-	var once sync.Once
-	config := ""
-
-	for i := 0; i < 3; i++ {
-		loadConfigOnce(&once, &config)
-	}
-	fmt.Println(config)
-
-	/* Section 15: Final concurrency rules */
-	fmt.Println("\n== 15. Final concurrency rules ==")
-
-	// Use goroutines for independent work.
-	// Use WaitGroup when you only need to wait.
-	// Use channels when goroutines must communicate values.
-	// Use context when work needs cancellation or deadlines.
-	// Use Mutex or atomic operations when goroutines share memory.
-	// Run go test -race when you want Go to look for data races.
-	fmt.Println("Concurrency is powerful when ownership and shutdown are clear.")
+func main() {
+	fmt.Println("== 1. Goroutine and completion signal ==")
+	showGoroutine()
+	fmt.Println("\n== 2. WaitGroup joins finite work ==")
+	showWaitGroup()
+	fmt.Println("\n== 3. Unbuffered rendezvous ==")
+	showUnbufferedChannel()
+	fmt.Println("\n== 4. Buffered queue and nonblocking rejection ==")
+	showBufferedChannel()
+	fmt.Println("\n== 5. Close, range, and comma-ok ==")
+	showChannelClose()
+	fmt.Println("\n== 6. Finite pipeline ==")
+	showPipeline()
+	fmt.Println("\n== 7. Select, closed inputs, and nil channels ==")
+	showSelect()
+	fmt.Println("\n== 8. Timeout, cancellation, and joining ==")
+	showTimeout()
+	fmt.Println("\n== 9. Broadcast cancellation ==")
+	showStopBroadcast()
+	fmt.Println("\n== 10. Context cancellation preview ==")
+	showContext()
+	fmt.Println("\n== 11. Mutex-protected state ==")
+	showMutex()
+	fmt.Println("\n== 12. Atomic counter ==")
+	showAtomic()
+	fmt.Println("\n== 13. Finite worker pool ==")
+	showWorkerPool()
+	fmt.Println("\n== 14. Concurrent initialization with Once ==")
+	showOnce()
+	fmt.Println("\n== 15. Choose the coordination tool ==")
+	fmt.Println("WaitGroup joins; channels communicate; Mutex protects shared invariants.")
+	fmt.Println("Atomics update independent values; Once initializes once; cancellation needs acknowledgment.")
 }
