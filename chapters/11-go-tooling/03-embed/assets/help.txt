@@ -1,0 +1,1 @@
+Help: rebuild the binary after changing embedded files.

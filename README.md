@@ -35,6 +35,7 @@ Change the package path to run another lesson or project from the tables below.
 | 8. Generics | [Generics](chapters/08-generics/01-generics/main.go) |
 | 9. Errors | [Error handling](chapters/09-errors/01-error-handling/main.go), [panic and recover](chapters/09-errors/02-panic-and-recover/main.go) |
 | 10. Modules, packages, and imports | [Package boundaries, exports, and internal helpers](chapters/10-modules-and-packages/README.md), [dependency versions and local modules](chapters/10-modules-and-packages/02-module-versions/README.md) |
+| 11. Go tooling | [Builds and analysis, build tags, embedded resources, and code generation](chapters/11-go-tooling/README.md) |
 | 12. Concurrency in Go | [Concurrency](chapters/12-concurrency/01-concurrency/main.go) |
 
 The performance and GC lessons provide additional practice after pointer basics.
@@ -55,6 +56,13 @@ context chapter is planned below.
 ```sh
 go test ./...
 go vet ./...
+```
+
+Check chapter 11's alternate build configuration:
+
+```sh
+go test -tags=diagnostic ./chapters/11-go-tooling/...
+go vet -tags=diagnostic ./chapters/11-go-tooling/...
 ```
 
 The chapter 10 versioning lab has three nested modules. Validate them separately;
@@ -86,7 +94,6 @@ go test -run='^$' -bench=. -benchmem ./chapters/06-pointers/03-garbage-collector
 
 The gaps in chapter numbering leave room for the remaining units:
 
-- Chapter 11: Go tooling.
 - Chapter 13: I/O, time, JSON, HTTP, and structured logging.
 - Chapter 14: context propagation, values, cancellation, and deadlines.
 - Chapter 15: writing tests.

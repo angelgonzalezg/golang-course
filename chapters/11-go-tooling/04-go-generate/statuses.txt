@@ -1,0 +1,4 @@
+# One Go identifier suffix per status. Order determines the numeric values.
+Queued
+Running
+Complete

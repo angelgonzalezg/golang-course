@@ -1,0 +1,1 @@
+Go tooling assets are compiled into this program.
