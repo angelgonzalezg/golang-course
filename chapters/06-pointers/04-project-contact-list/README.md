@@ -3,6 +3,23 @@
 Practice structs, slices, maps, pointers, and functions with `(value, ok)` returns.
 Read the composite types, function, and pointer lessons first.
 
+## Learning stages
+
+1. Run [pointer basics](../01-pointers/main.go) to compare a copied parameter
+   with changing the caller's value through a pointer.
+2. Complete the [small contact lookup practice](01-pointer-lookup/README.md).
+   It shows a value result that can be edited independently and a pointer result
+   that changes an element in the caller's slice.
+3. Run this expanded project. Trace add and lookup first, then snapshots and
+   updates, and finally deletion. These operations add stable IDs and keep the
+   name index consistent.
+
+The small practice uses direct pointers while the caller keeps the slice's
+structure stable. This book returns snapshots and accepts changes through its
+operations: renaming a contact directly through a stored-element pointer would
+bypass the name index. Saved IDs let callers find the current element after
+growth or deletion changes the slice's storage or positions.
+
 ## Run and test
 
 Run these commands from the repository root:

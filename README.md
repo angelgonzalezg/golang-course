@@ -22,6 +22,24 @@ go run ./chapters/05-functions/06-project-sales-order
 
 Change the package path to run another lesson or project from the tables below.
 
+## Learning path
+
+1. Start with the small lessons in chapters 2–5: declarations, collections,
+   control flow, and functions. In each `main.go`, read the helper definitions
+   alongside the numbered examples in `main`.
+2. Run an example, predict what will change when you edit one input, and run it
+   again. Then try the practice project for that chapter. Projects combine the
+   same fundamentals with validation and rules for managing shared data.
+3. Follow each lesson's prerequisites before its extensions. Tests can check
+   your changes now; chapter 15 will explain how to write them.
+
+For chapter 6, use this progression:
+[pointer basics](chapters/06-pointers/01-pointers/main.go) →
+[small contact lookup practice](chapters/06-pointers/04-project-contact-list/01-pointer-lookup/README.md) →
+[complete contact book](chapters/06-pointers/04-project-contact-list/README.md).
+Pointer performance and GC are optional deeper study after that route. The GC
+pooling example also uses interfaces and concurrency from later chapters.
+
 ## Current lessons
 
 | Book chapter | Topics, in reading order |
@@ -30,7 +48,7 @@ Change the package path to run another lesson or project from the tables below.
 | 3. Composite types | [Arrays](chapters/03-composite-types/01-arrays/main.go), [slices](chapters/03-composite-types/02-slices/main.go), [slice internals](chapters/03-composite-types/03-slice-internals/main.go), [strings, bytes, and runes](chapters/03-composite-types/04-strings-bytes-and-runes/README.md), [maps](chapters/03-composite-types/05-maps/main.go), [structs](chapters/03-composite-types/06-structs/main.go) |
 | 4. Blocks, shadows, and control structures | [Shadowing](chapters/04-blocks-and-control-flow/01-shadowing/main.go), [conditionals](chapters/04-blocks-and-control-flow/02-conditionals/main.go), [switch](chapters/04-blocks-and-control-flow/03-switch/main.go), [for loops](chapters/04-blocks-and-control-flow/04-for-loops/main.go), [goto](chapters/04-blocks-and-control-flow/05-goto/main.go) |
 | 5. Functions | [Functions](chapters/05-functions/01-functions/main.go), [multiple return values](chapters/05-functions/02-multiple-return-values/main.go), [variadic functions](chapters/05-functions/03-variadic-functions/main.go), [function values, closures, and recursion](chapters/05-functions/04-function-values-closures-and-recursion/main.go), [defer](chapters/05-functions/05-defer/main.go) |
-| 6. Pointers | [Pointers](chapters/06-pointers/01-pointers/main.go), [pointer performance](chapters/06-pointers/02-pointer-performance/README.md), [garbage collector](chapters/06-pointers/03-garbage-collector/README.md) |
+| 6. Pointers | [Pointers](chapters/06-pointers/01-pointers/main.go), [contact lookup with values and pointers](chapters/06-pointers/04-project-contact-list/01-pointer-lookup/README.md), [pointer performance](chapters/06-pointers/02-pointer-performance/README.md), [garbage collector](chapters/06-pointers/03-garbage-collector/README.md) |
 | 7. Types, methods, and interfaces | [Enums](chapters/07-types-methods-and-interfaces/01-enums/main.go), [methods](chapters/07-types-methods-and-interfaces/02-methods/main.go), [interfaces](chapters/07-types-methods-and-interfaces/03-interfaces/main.go), [Stringer](chapters/07-types-methods-and-interfaces/04-stringer/main.go) |
 | 8. Generics | [Generics](chapters/08-generics/01-generics/main.go) |
 | 9. Errors | [Error handling](chapters/09-errors/01-error-handling/main.go), [panic and recover](chapters/09-errors/02-panic-and-recover/main.go) |
@@ -40,7 +58,6 @@ Change the package path to run another lesson or project from the tables below.
 | 13. The standard library | [I/O, buffering, files, and filesystem interfaces](chapters/13-standard-library/01-io-and-files/README.md), [time, calendars, timers, and tickers](chapters/13-standard-library/02-time/README.md), [JSON, field semantics, and validation](chapters/13-standard-library/03-json/README.md), [HTTP handlers, clients, and shutdown](chapters/13-standard-library/04-http/README.md), [structured logging with slog](chapters/13-standard-library/05-structured-logging/README.md) |
 | 14. The context | [Propagation, cancellation, deadlines, request values, and lifecycle](chapters/14-context/01-context/README.md) |
 
-The performance and GC lessons provide additional practice after pointer basics.
 The concurrency lesson introduces `context`; chapter 14 extends it with deadlines,
 propagation across API boundaries, request values, and explicit lifetime ownership.
 Read that context chapter before the advanced concurrency pattern lesson in chapter 12.
@@ -50,7 +67,7 @@ Read that context chapter before the advanced concurrency pattern lesson in chap
 | Project | Book chapter | Example |
 | --- | --- | --- |
 | Sales order processor | 5. Functions | [Run after the function lessons](chapters/05-functions/06-project-sales-order/README.md) |
-| Contact book | 6. Pointers | [Run after pointer basics](chapters/06-pointers/04-project-contact-list/README.md) |
+| Contact book | 6. Pointers | [Start with a small lookup](chapters/06-pointers/04-project-contact-list/01-pointer-lookup/README.md), then [build the complete book](chapters/06-pointers/04-project-contact-list/README.md) |
 | Log levels | 7. Types, methods, and interfaces | [Run after Stringer](chapters/07-types-methods-and-interfaces/05-project-log-levels/README.md) |
 | Math helpers with errors | 9. Errors | [Run after error handling](chapters/09-errors/03-project-math-helpers/README.md) |
 

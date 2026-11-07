@@ -4,6 +4,11 @@ Read [pointer basics](../01-pointers/main.go) first. This lesson distinguishes
 ownership, copying, and heap allocations with three payloads: 16 B, 4 KiB, and
 1 MiB. Here, KiB means 1024 bytes and MiB means 1048576 bytes.
 
+For a first pass through pointers, complete the
+[small contact lookup practice](../04-project-contact-list/01-pointer-lookup/README.md)
+and [contact book](../04-project-contact-list/README.md) before this optional
+measurement lesson.
+
 ## Run and measure
 
 Run from the repository root:
