@@ -135,8 +135,9 @@ cancellation points without timing assumptions.
 
 The context preview passes a context to work and checks `ctx.Err()` when `Done`
 is observed. The caller invokes its cancel function and separately waits for
-completion. Chapter 14 will add deadlines, propagation, and appropriate context
-values; this introduction uses cancellation without competing timers.
+completion. Chapter 14's [context lesson](../../14-context/01-context/README.md)
+adds deadlines, propagation, and appropriate context values; this introduction
+uses cancellation without competing timers.
 
 ## Finite pipeline and worker pool
 

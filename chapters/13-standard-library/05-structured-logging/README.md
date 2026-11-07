@@ -160,7 +160,8 @@ alone does not handle an error; the returned value still drives control flow.
 handlers do not automatically copy arbitrary context values into attributes.
 The example attaches `request_id` with `With`. Context cancellation should not
 suppress the record; a canceled operation may be exactly what needs explaining.
-Chapter 14 will explore propagation and context values in detail.
+Chapter 14's [context lesson](../../14-context/01-context/README.md) explores
+propagation and context values in detail.
 
 `AddSource` includes the logging call's source location when useful. It adds
 capture work and record detail. Ordinary wrapper functions around `logger.Info`

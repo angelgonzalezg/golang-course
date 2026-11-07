@@ -117,7 +117,8 @@ adding a shared map or store would require its own synchronization contract.
 
 `NewRequestWithContext` binds each request to its caller's cancellation.
 `getGreeting` builds the path/query and `postGreeting` encodes JSON and sets its
-media type. Context use here previews chapter 14's dedicated propagation lesson.
+media type. Context use here previews chapter 14's dedicated
+[propagation lesson](../../14-context/01-context/README.md).
 
 `Client.Do` returning nil error means a response was received, not that the status
 is successful. `doGreeting` distinguishes:

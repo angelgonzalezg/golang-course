@@ -38,10 +38,11 @@ Change the package path to run another lesson or project from the tables below.
 | 11. Go tooling | [Builds and analysis, build tags, embedded resources, and code generation](chapters/11-go-tooling/README.md) |
 | 12. Concurrency in Go | [Concurrency fundamentals, ownership, and shutdown](chapters/12-concurrency/01-concurrency/README.md) |
 | 13. The standard library | [I/O, buffering, files, and filesystem interfaces](chapters/13-standard-library/01-io-and-files/README.md), [time, calendars, timers, and tickers](chapters/13-standard-library/02-time/README.md), [JSON, field semantics, and validation](chapters/13-standard-library/03-json/README.md), [HTTP handlers, clients, and shutdown](chapters/13-standard-library/04-http/README.md), [structured logging with slog](chapters/13-standard-library/05-structured-logging/README.md) |
+| 14. The context | [Propagation, cancellation, deadlines, request values, and lifecycle](chapters/14-context/01-context/README.md) |
 
 The performance and GC lessons provide additional practice after pointer basics.
-The concurrency lesson includes a short introduction to `context`; a dedicated
-context chapter is planned below.
+The concurrency lesson introduces `context`; chapter 14 extends it with deadlines,
+propagation across API boundaries, request values, and explicit lifetime ownership.
 
 ## Practice projects
 
@@ -85,6 +86,12 @@ go test -race -timeout=30s ./chapters/12-concurrency/01-concurrency
 go run -race ./chapters/12-concurrency/01-concurrency
 ```
 
+Validate the dedicated context lesson, including its local HTTP cancellation test:
+
+```sh
+go test -race -timeout=30s ./chapters/14-context/01-context
+```
+
 Run the pointer and GC benchmarks explicitly:
 
 ```sh
@@ -96,7 +103,6 @@ go test -run='^$' -bench=. -benchmem ./chapters/06-pointers/03-garbage-collector
 
 The remaining units cover:
 
-- Chapter 14: context propagation, values, cancellation, and deadlines.
 - Chapter 15: writing tests.
 - Chapter 16: reflection, unsafe, and cgo.
 
