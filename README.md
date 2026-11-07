@@ -36,13 +36,14 @@ Change the package path to run another lesson or project from the tables below.
 | 9. Errors | [Error handling](chapters/09-errors/01-error-handling/main.go), [panic and recover](chapters/09-errors/02-panic-and-recover/main.go) |
 | 10. Modules, packages, and imports | [Package boundaries, exports, and internal helpers](chapters/10-modules-and-packages/README.md), [dependency versions and local modules](chapters/10-modules-and-packages/02-module-versions/README.md) |
 | 11. Go tooling | [Builds and analysis, build tags, embedded resources, and code generation](chapters/11-go-tooling/README.md) |
-| 12. Concurrency in Go | [Concurrency fundamentals, ownership, and shutdown](chapters/12-concurrency/01-concurrency/README.md) |
+| 12. Concurrency in Go | [Concurrency fundamentals, ownership, and shutdown](chapters/12-concurrency/01-concurrency/README.md), [fan-out, fan-in, cancellable pipelines, and backpressure](chapters/12-concurrency/02-concurrency-patterns/README.md) |
 | 13. The standard library | [I/O, buffering, files, and filesystem interfaces](chapters/13-standard-library/01-io-and-files/README.md), [time, calendars, timers, and tickers](chapters/13-standard-library/02-time/README.md), [JSON, field semantics, and validation](chapters/13-standard-library/03-json/README.md), [HTTP handlers, clients, and shutdown](chapters/13-standard-library/04-http/README.md), [structured logging with slog](chapters/13-standard-library/05-structured-logging/README.md) |
 | 14. The context | [Propagation, cancellation, deadlines, request values, and lifecycle](chapters/14-context/01-context/README.md) |
 
 The performance and GC lessons provide additional practice after pointer basics.
 The concurrency lesson introduces `context`; chapter 14 extends it with deadlines,
 propagation across API boundaries, request values, and explicit lifetime ownership.
+Read that context chapter before the advanced concurrency pattern lesson in chapter 12.
 
 ## Practice projects
 
@@ -79,11 +80,12 @@ go -C chapters/10-modules-and-packages/02-module-versions/greeting-v1 vet ./...
 go -C chapters/10-modules-and-packages/02-module-versions/greeting-v2 vet ./...
 ```
 
-Validate the concurrency lesson with the race detector:
+Validate both concurrency lessons with the race detector:
 
 ```sh
-go test -race -timeout=30s ./chapters/12-concurrency/01-concurrency
+go test -race -timeout=60s ./chapters/12-concurrency/...
 go run -race ./chapters/12-concurrency/01-concurrency
+go run -race ./chapters/12-concurrency/02-concurrency-patterns
 ```
 
 Validate the dedicated context lesson, including its local HTTP cancellation test:
@@ -106,5 +108,5 @@ The remaining units cover:
 - Chapter 15: writing tests.
 - Chapter 16: reflection, unsafe, and cgo.
 
-Further exercises will extend the finite pipeline and worker pool with fan-out,
-fan-in, cancellation, error propagation, and backpressure.
+Final review will check documentation, exercise progression, and validation across
+the complete course.

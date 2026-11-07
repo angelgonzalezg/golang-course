@@ -210,6 +210,10 @@ timers are watchdogs for broken protocols, and cleanup can release its fake
 dependency even if an assertion fails. The race detector checks executed
 concurrent accesses; the explicit ownership protocol still needs review.
 
+Continue with the [concurrency patterns](../../12-concurrency/02-concurrency-patterns/README.md)
+lesson to apply these lifetimes to fan-out, fan-in, early consumer exit, and
+backpressure across a complete pipeline.
+
 References: [`context`](https://pkg.go.dev/context),
 [context introduction](https://go.dev/blog/context),
 [contexts and structs](https://go.dev/blog/context-and-structs),

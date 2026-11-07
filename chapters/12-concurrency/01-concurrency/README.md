@@ -164,8 +164,9 @@ grows with the batch. A streaming result API would also need a consumer-stop pro
 
 Results are sorted by job ID only for display. A worker may receive several
 jobs or none; tests check each result exactly once, not assignment or arrival
-order. Later pattern lessons will extend these finite examples with fan-out,
-fan-in, cooperative early exit, error propagation, and backpressure.
+order. The [pattern lesson](../02-concurrency-patterns/README.md) extends these
+finite examples with fan-out, fan-in, cooperative early exit, error propagation,
+and backpressure. Read the dedicated context lesson before that extension.
 
 References: [Go memory model](https://go.dev/ref/mem),
 [channels](https://go.dev/ref/spec#Channel_types),

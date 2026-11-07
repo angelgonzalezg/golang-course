@@ -116,7 +116,7 @@ func poolWorker(id int, jobs <-chan Job, results chan<- JobResult) {
 
 // runWorkerPool completes a finite batch, drains every result, and joins its work.
 // The caller keeps jobs unchanged until return. Results arrive in unspecified order.
-// This example has no early-exit protocol; cancellable pools come in a later lesson.
+// This example requires full consumption; see 02-concurrency-patterns for early exit.
 func runWorkerPool(jobs []Job, workerCount int) ([]JobResult, error) {
 	if workerCount < 1 {
 		return nil, ErrInvalidWorkerCount
