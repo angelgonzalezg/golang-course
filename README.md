@@ -7,6 +7,7 @@ The directories under `chapters/` follow the book's chapter numbers. Lessons
 within a chapter introduce the prerequisites used by its practice project.
 Most lessons and projects are separate `main` packages, with tests alongside them.
 Chapter 10 also introduces library packages and an isolated lab with nested modules.
+Chapter 15 uses library packages with executable tests, examples, and benchmarks.
 
 ## Requirements
 
@@ -31,7 +32,7 @@ Change the package path to run another lesson or project from the tables below.
    again. Then try the practice project for that chapter. Projects combine the
    same fundamentals with validation and rules for managing shared data.
 3. Follow each lesson's prerequisites before its extensions. Tests can check
-   your changes now; chapter 15 will explain how to write them.
+   your changes now; chapter 15 explains how to write them.
 
 For chapter 6, use this progression:
 [pointer basics](chapters/06-pointers/01-pointers/main.go) →
@@ -57,6 +58,7 @@ pooling example also uses interfaces and concurrency from later chapters.
 | 12. Concurrency in Go | [Concurrency fundamentals, ownership, and shutdown](chapters/12-concurrency/01-concurrency/README.md), [fan-out, fan-in, cancellable pipelines, and backpressure](chapters/12-concurrency/02-concurrency-patterns/README.md) |
 | 13. The standard library | [I/O, buffering, files, and filesystem interfaces](chapters/13-standard-library/01-io-and-files/README.md), [time, calendars, timers, and tickers](chapters/13-standard-library/02-time/README.md), [JSON, field semantics, and validation](chapters/13-standard-library/03-json/README.md), [HTTP handlers, clients, and shutdown](chapters/13-standard-library/04-http/README.md), [structured logging with slog](chapters/13-standard-library/05-structured-logging/README.md) |
 | 14. The context | [Propagation, cancellation, deadlines, request values, and lifecycle](chapters/14-context/01-context/README.md) |
+| 15. Writing tests | [Unit tests, subtests, cleanup, doubles, HTTP tests, fuzzing, benchmarks, and races](chapters/15-testing/README.md) |
 
 The concurrency lesson introduces `context`; chapter 14 extends it with deadlines,
 propagation across API boundaries, request values, and explicit lifetime ownership.
@@ -118,11 +120,21 @@ go test -run='^$' -bench=. -benchmem ./chapters/06-pointers/02-pointer-performan
 go test -run='^$' -bench=. -benchmem ./chapters/06-pointers/03-garbage-collector
 ```
 
+Run chapter 15's tests, active fuzzing, and short benchmark samples:
+
+```sh
+go test -race -timeout=30s ./chapters/15-testing/...
+go test -fuzz='^FuzzNormalize$' -fuzztime=5s -parallel=2 ./chapters/15-testing/04-fuzzing
+go test -run='^$' -bench=. -benchmem -benchtime=100ms -count=3 ./chapters/15-testing/05-benchmarks-and-races
+```
+
+Ordinary `go test ./...` also runs the fuzz seed corpus and documentation
+examples. Active fuzzing and benchmarks require the explicit commands above.
+
 ## Planned chapters and extensions
 
 The remaining units cover:
 
-- Chapter 15: writing tests.
 - Chapter 16: reflection, unsafe, and cgo.
 
 Final review will check documentation, exercise progression, and validation across

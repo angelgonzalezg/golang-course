@@ -97,7 +97,8 @@ build. `gofmt -l` over the directory also inspects the alternate tagged file.
 Static analyzers find classes of mistakes without executing the program; review
 their reports alongside compilation and behavioral checks. The existing
 [pointer benchmarks](../06-pointers/02-pointer-performance/README.md) demonstrate
-measurement, and chapter 15 will develop testing techniques further.
+measurement. Continue with [chapter 15](../15-testing/README.md) for unit tests,
+test doubles, HTTP tests, fuzzing, benchmarks, and race checks.
 
 ## Select an implementation with build tags
 
