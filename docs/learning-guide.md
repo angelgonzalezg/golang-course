@@ -1,0 +1,81 @@
+# Learning guide
+
+The chapter numbers organize selected examples around *Learning Go, Second
+Edition*. Use the route below to follow dependencies while keeping a first pass
+focused on fundamentals. The [main index](../README.md) lists every lesson.
+
+## Read, predict, run, and change
+
+Read a small helper alongside the numbered section of `main` that calls it.
+Predict its output, run the package, then change one input and explain the
+result. Once that behavior is familiar, apply it in the chapter's practice
+project. Projects add validation and rules for managing data; each builds on
+the smaller examples.
+
+Most lessons are independent commands, run from the repository root with
+`go run ./chapters/...`. Run package paths so companion files are included.
+The testing chapter uses library packages and `go test`. The module-versioning
+and optional cgo labs have their own `go.mod` files and use `go -C`.
+
+## Suggested route
+
+| Stage | Read and practice | Check your understanding |
+| --- | --- | --- |
+| 1. Values and control flow | Chapters 2–4 in the [index](../README.md). | Explain zero values, `len` versus `cap`, map lookup with `ok`, byte versus rune, and when a slice shares storage. |
+| 2. Functions | Chapter 5, then the [sales order project](../chapters/05-functions/06-project-sales-order/README.md). | Trace inputs, returned values, early returns, closures, and deferred work. Distinguish a valid zero result from a failed lookup. |
+| 3. Pointers and ownership | [Pointer basics](../chapters/06-pointers/01-pointers/main.go), [small contact lookup](../chapters/06-pointers/04-project-contact-list/01-pointer-lookup/README.md), then the [contact book](../chapters/06-pointers/04-project-contact-list/README.md). | Explain which object changes, when a returned pointer aliases storage, and why the expanded book uses snapshots and stable IDs. |
+| 4. Types and reusable behavior | Chapters 7–9: methods, interfaces, generics, and errors. Complete [log levels](../chapters/07-types-methods-and-interfaces/05-project-log-levels/README.md) and [math helpers](../chapters/09-errors/03-project-math-helpers/README.md). | Explain value/pointer method sets, choose an interface or constraint, and inspect wrapped errors with `errors.Is` and `errors.As`. |
+| 5. Package and build boundaries | [Modules and packages](../chapters/10-modules-and-packages/README.md), the [versioning lab](../chapters/10-modules-and-packages/02-module-versions/README.md), and [Go tooling](../chapters/11-go-tooling/README.md). | Explain exports, `internal`, module replacements, build tags, embedding, and when generated source is refreshed. |
+| 6. Concurrent work and APIs | [Concurrency fundamentals](../chapters/12-concurrency/01-concurrency/README.md), then chapter 13's I/O, time, JSON, HTTP, and logging lessons. | Identify shared state, channel/close ownership, resource cleanup, API validation, and caller-controlled time budgets. |
+| 7. Cancellation across stages | [Context](../chapters/14-context/01-context/README.md), then return to [concurrency patterns](../chapters/12-concurrency/02-concurrency-patterns/README.md). | Trace fan-out, fan-in, bounded queues, failure propagation, cancellation, and joining every started stage. |
+| 8. Testing techniques | [Writing tests](../chapters/15-testing/README.md). Start its unit-test examples after functions and errors; return for HTTP, concurrency, and fuzzing prerequisites. | Choose observable contracts, isolated fixtures, doubles, generated-input properties, and meaningful concurrent checks. |
+| 9. Measurement and GC | Revisit [pointer performance](../chapters/06-pointers/02-pointer-performance/README.md) and [GC](../chapters/06-pointers/03-garbage-collector/README.md). | Separate copying from allocations, explain reachability and reuse, and describe exactly what each benchmark measures. |
+| 10. Advanced boundaries | [Reflection, unsafe, and optional cgo](../chapters/16-reflect-unsafe-and-cgo/README.md). | Justify runtime inspection or memory access, document lifetimes and bounds, and name the owner of each foreign allocation. |
+
+The optional cgo lab needs a C compiler. The rest of the course can be tested
+with `CGO_ENABLED=0`.
+
+## First pass through pointers
+
+Sections 1–5 of the pointer lesson cover address/dereference, nil, `new`,
+parameters, and structs. Sections 8–10 connect those mechanics to maps, slices,
+and the final choice rule. Sections 6–7 preview interface destinations and JSON
+presence; revisit them after the interface and JSON lessons.
+
+The small contact practice keeps the caller's slice structure stable while a
+pointer is used. The full book adds a name index, unique normalized names,
+stable IDs, and operations that maintain those relationships. These are two
+editing contracts to compare. Copying `Contact` provides independent fields
+because its fields are scalar values and strings.
+
+For other models, copying a struct can still share referenced slices or maps.
+A read-only operation may use a value or pointer receiver. Shared identity,
+mutation, noncopyable state, copying costs, and method-set requirements guide
+that choice. See the [method examples](../chapters/07-types-methods-and-interfaces/02-methods/main.go)
+and the official [receiver guidance](https://go.dev/wiki/CodeReviewComments#receiver-type).
+
+## Toolchain and API versions
+
+Use the Go version declared by the module, currently Go 1.27. The examples use
+current APIs while preserving the underlying language concepts. In particular:
+
+- The pointer lesson uses `encoding/json` for destination and optional-value
+  examples. Chapter 13 compares it with `encoding/json/v2` and `jsontext`.
+- Benchmarks use `testing.B.Loop`; the testing chapter explains its timing model.
+- Time and cancellation tests use `testing/synctest` to control virtual time.
+- Reflection uses `reflect.TypeFor` to obtain type metadata directly.
+
+Consult the [Go 1.27 release notes](https://go.dev/doc/go1.27) and each lesson's
+references when comparing API spelling or behavior with another Go version.
+The content is a selection of language and library topics; further-practice
+items invite extensions beyond the implemented examples.
+
+## Decide when to continue
+
+Before moving on, explain one successful path and one rejected or missing-input
+path. For code that shares data, identify who owns it and who may mutate it.
+For concurrent code, explain how each goroutine finishes and who waits for it.
+For performance claims, identify the workload, measurement, and limitations.
+
+Use the [validation guide](validation.md) to check changes, including the
+separate modules and optional instrumentation.

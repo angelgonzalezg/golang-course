@@ -373,6 +373,9 @@ func main() {
 	/* Section 6: Pointers through interface/any */
 	fmt.Println("\n== 6. Pointer passed through interface/any ==")
 
+	// These two sections also use interfaces and JSON.
+	// You can return to them after reading chapters 7 and 13.
+	// They use encoding/json. Chapter 13 also covers encoding/json/v2.
 	var profile Profile
 	// Pass &profile to satisfy json.Unmarshal's destination contract.
 	err := decodeProfile(`{"name":"Mia","age":27}`, &profile)
@@ -499,8 +502,8 @@ func main() {
 	/* Section 10: Final pointer rule */
 	fmt.Println("\n== 10. Final pointer rule ==")
 
-	// Go does not have pointer arithmetic.
-	// You can use pointers safely, but you cannot do agePointer++ like in C.
+	// Normal Go pointers do not allow operations like agePointer++.
+	// Chapter 16 explains unsafe.Add for working directly with memory addresses.
 	// Prefer values first. Use pointers when they represent sharing, mutation, nil, or API needs.
 	fmt.Println("Prefer values first; use pointers for sharing, mutation, nil, or API needs.")
 }

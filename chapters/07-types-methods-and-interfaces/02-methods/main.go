@@ -287,8 +287,11 @@ func main() {
 	// Use methods when behavior belongs to a type.
 	// Examples: employee.FullName(), salary.Monthly(), account.Deposit().
 	// Methods make code read like the value is doing the action.
-	// Use value receivers for read-only behavior and small immutable-style updates.
-	// Use pointer receivers when the method must update the original value.
+	// Use value receivers for small values or when returning an updated copy.
+	// Use pointer receivers when the method needs to change the original value.
+	// A value receiver can still change data in shared slices or maps.
+	// Methods that only read data can use either kind of receiver.
+	// Use pointers for values that must not be copied.
 	// If one method needs a pointer receiver, it is common to use pointer receivers consistently.
 	fmt.Println("Methods attach behavior to types; choose value or pointer receivers intentionally.")
 }

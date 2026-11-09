@@ -1,5 +1,4 @@
-// Functions 2
-// Lesson focus: function values, callbacks, returned functions, closures, and recursion.
+// Function values, closures, and recursion
 // Topic: functions can be values, arguments, return values, closures, and recursive calls.
 // Args/Input: examples use numbers, names, and simple counters.
 // Usage: use these patterns when behavior should be reusable or customizable.

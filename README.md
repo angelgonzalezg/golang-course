@@ -26,6 +26,9 @@ Change the package path to run another lesson or project from the tables below.
 
 ## Learning path
 
+The [learning guide](docs/learning-guide.md) groups the lessons into stages and
+explains when to revisit previews and optional deeper material.
+
 1. Start with the small lessons in chapters 2–5: declarations, collections,
    control flow, and functions. In each `main.go`, read the helper definitions
    alongside the numbered examples in `main`.
@@ -78,91 +81,26 @@ Read that context chapter before the advanced concurrency pattern lesson in chap
 ## Validate the course
 
 ```sh
-go test ./...
+go test -count=1 -timeout=60s ./...
 go vet ./...
+gofmt -l chapters
 ```
 
-Check chapter 11's alternate build configuration:
+Use the [validation guide](docs/validation.md) for the complete procedure:
+all independent modules, executable lessons, build tags, generated source,
+race checks, fuzzing, benchmarks, unsafe instrumentation, and the optional cgo lab.
 
-```sh
-go test -tags=diagnostic ./chapters/11-go-tooling/...
-go vet -tags=diagnostic ./chapters/11-go-tooling/...
-```
+The root commands cover the main module. Chapter 10's three versioning modules
+and chapter 16's cgo module have their own boundaries and explicit commands.
+The main course also passes with `CGO_ENABLED=0`; the optional cgo lab needs a
+C compiler.
 
-The chapter 10 versioning lab has three nested modules. Validate them separately;
-the root commands above stop at nested module boundaries:
+## Review status
 
-```sh
-go -C chapters/10-modules-and-packages/02-module-versions/app test ./...
-go -C chapters/10-modules-and-packages/02-module-versions/greeting-v1 test ./...
-go -C chapters/10-modules-and-packages/02-module-versions/greeting-v2 test ./...
-go -C chapters/10-modules-and-packages/02-module-versions/app vet ./...
-go -C chapters/10-modules-and-packages/02-module-versions/greeting-v1 vet ./...
-go -C chapters/10-modules-and-packages/02-module-versions/greeting-v2 vet ./...
-```
+The agreed content updates and final review are complete. The
+[review record](docs/validation.md#review-record) documents the checked toolchain,
+original-lesson continuity, program inventory, results, and limits.
 
-Validate both concurrency lessons with the race detector:
-
-```sh
-go test -race -timeout=60s ./chapters/12-concurrency/...
-go run -race ./chapters/12-concurrency/01-concurrency
-go run -race ./chapters/12-concurrency/02-concurrency-patterns
-```
-
-Validate the dedicated context lesson, including its local HTTP cancellation test:
-
-```sh
-go test -race -timeout=30s ./chapters/14-context/01-context
-```
-
-Run the pointer and GC benchmarks explicitly:
-
-```sh
-go test -run='^$' -bench=. -benchmem ./chapters/06-pointers/02-pointer-performance
-go test -run='^$' -bench=. -benchmem ./chapters/06-pointers/03-garbage-collector
-```
-
-Run chapter 15's tests, active fuzzing, and short benchmark samples:
-
-```sh
-go test -race -timeout=30s ./chapters/15-testing/...
-go test -fuzz='^FuzzNormalize$' -fuzztime=5s -parallel=2 ./chapters/15-testing/04-fuzzing
-go test -run='^$' -bench=. -benchmem -benchtime=100ms -count=3 ./chapters/15-testing/05-benchmarks-and-races
-```
-
-Ordinary `go test ./...` also runs the fuzz seed corpus and documentation
-examples. Active fuzzing and benchmarks require the explicit commands above.
-
-Run chapter 16's reflection and unsafe walkthroughs:
-
-```sh
-go run ./chapters/16-reflect-unsafe-and-cgo/01-reflection
-go run ./chapters/16-reflect-unsafe-and-cgo/02-unsafe
-go test ./chapters/16-reflect-unsafe-and-cgo/...
-```
-
-Validate unsafe with pointer instrumentation and measure it separately:
-
-```sh
-go test -gcflags=all=-d=checkptr=2 ./chapters/16-reflect-unsafe-and-cgo/02-unsafe
-go run -gcflags=all=-d=checkptr=2 ./chapters/16-reflect-unsafe-and-cgo/02-unsafe
-go test -run='^$' -bench=. -benchmem -benchtime=100ms -count=3 ./chapters/16-reflect-unsafe-and-cgo/02-unsafe
-```
-
-The optional cgo lab has its own module boundary. With a C compiler installed,
-run it and its checks separately:
-
-```sh
-CGO_ENABLED=1 go -C chapters/16-reflect-unsafe-and-cgo/03-cgo run .
-CGO_ENABLED=1 go -C chapters/16-reflect-unsafe-and-cgo/03-cgo test ./...
-CGO_ENABLED=1 go -C chapters/16-reflect-unsafe-and-cgo/03-cgo vet ./...
-```
-
-Root `go test ./...` skips this lab. The main course can also be checked with
-`CGO_ENABLED=0 go test ./...`. See the [lab guide](chapters/16-reflect-unsafe-and-cgo/03-cgo/README.md)
-for stronger pointer checks and benchmarks.
-
-## Remaining work
-
-Final review will check documentation, exercise progression, and validation across
-the complete course.
+Individual "Further practice" sections describe optional extensions for the
+reader. Use the [learning guide](docs/learning-guide.md) to choose a stage and
+check your understanding before adding those extensions.
