@@ -84,6 +84,18 @@ modules use the explicit `go -C ... run .` commands in this guide. Lessons run
 finite demonstrations, including local HTTP servers that shut down themselves;
 I/O examples own temporary storage and cleanup.
 
+The [REST project](../chapters/13-standard-library/06-project-rest-api/README.md)
+also runs a finite demo by default and is included in the bulk pass. Its
+optional `-serve` flag keeps a server running for manual requests; omit that
+flag in automated validation. To validate this extension on its own:
+
+```sh
+go run ./chapters/13-standard-library/06-project-rest-api
+go test -count=1 -timeout=30s ./chapters/13-standard-library/06-project-rest-api/...
+go test -race -count=3 -cpu=1,2 -timeout=30s ./chapters/13-standard-library/06-project-rest-api/...
+go vet ./chapters/13-standard-library/06-project-rest-api/...
+```
+
 ## Race detector
 
 On a platform supported by Go's race detector:
@@ -163,6 +175,9 @@ Apple clang 21.0.0 available for the optional cgo module. It checked the content
 through `abe5818`, together with this review's documentation and comment
 clarifications. The agreed improvement sequence is complete.
 
+This snapshot predates the later REST project and planned gRPC extension. Its
+package and program counts describe the reviewed baseline, not those additions.
+
 | Area | Result |
 | --- | --- |
 | Main module | All 57 packages passed uncached tests and vet; test suites also passed with the race detector and with cgo disabled. |
@@ -190,3 +205,14 @@ or target platform. Native out-of-memory conditions were not induced, and Go's
 race checks do not instrument this lab's C source for C memory races. Benchmark
 results are observations of their stated workloads. Individual "Further
 practice" items remain optional exercises beyond the agreed improvement plan.
+
+### REST extension validation
+
+The later contacts REST project was checked on the same Go 1.27.0 darwin/arm64
+toolchain. Its finite demo completed, all root-module tests and `go vet ./...`
+passed, and its three packages passed the race detector with `-count=3 -cpu=1,2`.
+Tests also exercised interactive-mode cancellation, an active request during
+shutdown, concurrent HTTP requests, and HEAD on a real connection. Formatting,
+whitespace, and local Markdown path checks passed. The independent modules and
+the earlier review's specialized checks were unaffected and were not rerun for
+this extension.

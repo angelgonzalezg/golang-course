@@ -1,0 +1,141 @@
+package contacts
+
+import (
+	"cmp"
+	"context"
+	"math"
+	"slices"
+	"sync"
+)
+
+// Store owns its data. Use its pointer; copying it would copy a mutex and share maps.
+// Its zero value is ready to use. All operations return independent contact values.
+type Store struct {
+	mu     sync.Mutex
+	byID   map[int64]Contact
+	byName map[string]int64
+	lastID int64
+}
+
+func NewStore() *Store { return &Store{} }
+
+func (s *Store) Create(ctx context.Context, input Input) (Contact, error) {
+	if err := ctx.Err(); err != nil {
+		return Contact{}, err
+	}
+	input, err := normalize(input)
+	if err != nil {
+		return Contact{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// Cancellation while waiting for the lock must also prevent a new write.
+	if err := ctx.Err(); err != nil {
+		return Contact{}, err
+	}
+	if _, exists := s.byName[input.Name]; exists {
+		return Contact{}, ErrNameTaken
+	}
+	if s.lastID == math.MaxInt64 {
+		return Contact{}, ErrIDExhausted
+	}
+	if s.byID == nil {
+		s.byID = make(map[int64]Contact)
+		s.byName = make(map[string]int64)
+	}
+	s.lastID++
+	contact := Contact{ID: s.lastID, Name: input.Name, Email: input.Email, Phone: input.Phone}
+	s.byID[contact.ID] = contact
+	s.byName[contact.Name] = contact.ID
+	return contact, nil
+}
+
+func (s *Store) Get(ctx context.Context, id int64) (Contact, error) {
+	if err := ctx.Err(); err != nil {
+		return Contact{}, err
+	}
+	if err := validateID(id); err != nil {
+		return Contact{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return Contact{}, err
+	}
+	contact, exists := s.byID[id]
+	if !exists {
+		return Contact{}, ErrNotFound
+	}
+	return contact, nil
+}
+
+func (s *Store) List(ctx context.Context) ([]Contact, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	result := make([]Contact, 0, len(s.byID))
+	for _, contact := range s.byID {
+		result = append(result, contact)
+	}
+	// Map order is unspecified. Stable ID order makes responses predictable.
+	slices.SortFunc(result, func(a, b Contact) int { return cmp.Compare(a.ID, b.ID) })
+	return result, nil
+}
+
+// Replace keeps the ID and replaces Name, Email, and Phone. Empty optional
+// fields clear their previous values.
+func (s *Store) Replace(ctx context.Context, id int64, input Input) (Contact, error) {
+	if err := ctx.Err(); err != nil {
+		return Contact{}, err
+	}
+	if err := validateID(id); err != nil {
+		return Contact{}, err
+	}
+	input, err := normalize(input)
+	if err != nil {
+		return Contact{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return Contact{}, err
+	}
+	old, exists := s.byID[id]
+	if !exists {
+		return Contact{}, ErrNotFound
+	}
+	if owner, exists := s.byName[input.Name]; exists && owner != id {
+		return Contact{}, ErrNameTaken
+	}
+	updated := Contact{ID: id, Name: input.Name, Email: input.Email, Phone: input.Phone}
+	delete(s.byName, old.Name)
+	s.byName[input.Name] = id
+	s.byID[id] = updated
+	return updated, nil
+}
+
+func (s *Store) Delete(ctx context.Context, id int64) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := validateID(id); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	contact, exists := s.byID[id]
+	if !exists {
+		return ErrNotFound
+	}
+	delete(s.byID, id)
+	delete(s.byName, contact.Name)
+	return nil
+}

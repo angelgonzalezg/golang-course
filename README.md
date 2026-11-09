@@ -77,6 +77,7 @@ Read that context chapter before the advanced concurrency pattern lesson in chap
 | Contact book | 6. Pointers | [Start with a small lookup](chapters/06-pointers/04-project-contact-list/01-pointer-lookup/README.md), then [build the complete book](chapters/06-pointers/04-project-contact-list/README.md) |
 | Log levels | 7. Types, methods, and interfaces | [Run after Stringer](chapters/07-types-methods-and-interfaces/05-project-log-levels/README.md) |
 | Math helpers with errors | 9. Errors | [Run after error handling](chapters/09-errors/03-project-math-helpers/README.md) |
+| Contact resources over HTTP | 13. The standard library | [REST API with CRUD, validation, context, and tests](chapters/13-standard-library/06-project-rest-api/README.md); revisit after chapters 14–15. |
 
 ## Validate the course
 
@@ -97,10 +98,18 @@ C compiler.
 
 ## Review status
 
-The agreed content updates and final review are complete. The
+The original content updates and final review are complete. The
 [review record](docs/validation.md#review-record) documents the checked toolchain,
 original-lesson continuity, program inventory, results, and limits.
 
 Individual "Further practice" sections describe optional extensions for the
 reader. Use the [learning guide](docs/learning-guide.md) to choose a stage and
 check your understanding before adding those extensions.
+
+## Backend extensions
+
+The [contacts REST project](chapters/13-standard-library/06-project-rest-api/README.md)
+extends the HTTP lesson with resource URLs, CRUD operations, problem responses,
+and a reusable contact store. Its default demo is finite; use `-serve` for
+interactive requests. Protobuf and gRPC are the next extension, using the same
+contact rules with a different transport.
