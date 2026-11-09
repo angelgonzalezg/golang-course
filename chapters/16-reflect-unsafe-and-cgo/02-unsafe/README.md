@@ -157,3 +157,6 @@ and use case.
    `strings.Builder`. Include ownership and retained memory in the comparison.
 4. Explain why returning a string view of pooled bytes would conflict with
    reusing that buffer. Keep invalid lifetime examples out of executable code.
+
+Continue with the optional [cgo lab](../03-cgo/README.md) for calls into C,
+pointer-passing contracts, and explicit cleanup of C-owned allocations.

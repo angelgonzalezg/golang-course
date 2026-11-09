@@ -8,7 +8,9 @@ small enough to document and test.
 | --- | --- |
 | Reflection | [Types, values, tags, runtime edits, construction, calls, and equality](01-reflection/README.md) |
 | Unsafe | [Layout, pointer arithmetic, bounded views, and string ownership](02-unsafe/README.md) |
-| Cgo | Planned as an optional isolated lab. |
+| Cgo | [Optional independent module: calls, type conversions, borrowed memory, and owned copies](03-cgo/README.md) |
 
 Start with reflection, then study unsafe's memory representation and ownership
-contracts. The optional cgo lab will address the boundary between Go and C.
+contracts. The optional cgo lab addresses the boundary between Go and C. It has
+its own `go.mod` and requires a C compiler; run its commands separately from the
+root module's checks.

@@ -8,6 +8,7 @@ within a chapter introduce the prerequisites used by its practice project.
 Most lessons and projects are separate `main` packages, with tests alongside them.
 Chapter 10 also introduces library packages and an isolated lab with nested modules.
 Chapter 15 uses library packages with executable tests, examples, and benchmarks.
+Chapter 16's optional cgo lab is another independent module and needs a C compiler.
 
 ## Requirements
 
@@ -59,7 +60,7 @@ pooling example also uses interfaces and concurrency from later chapters.
 | 13. The standard library | [I/O, buffering, files, and filesystem interfaces](chapters/13-standard-library/01-io-and-files/README.md), [time, calendars, timers, and tickers](chapters/13-standard-library/02-time/README.md), [JSON, field semantics, and validation](chapters/13-standard-library/03-json/README.md), [HTTP handlers, clients, and shutdown](chapters/13-standard-library/04-http/README.md), [structured logging with slog](chapters/13-standard-library/05-structured-logging/README.md) |
 | 14. The context | [Propagation, cancellation, deadlines, request values, and lifecycle](chapters/14-context/01-context/README.md) |
 | 15. Writing tests | [Unit tests, subtests, cleanup, doubles, HTTP tests, fuzzing, benchmarks, and races](chapters/15-testing/README.md) |
-| 16. Here be dragons: reflect, unsafe, and cgo | [Reflection and unsafe: runtime metadata, memory layout, pointer arithmetic, and ownership](chapters/16-reflect-unsafe-and-cgo/README.md) |
+| 16. Here be dragons: reflect, unsafe, and cgo | [Reflection, unsafe, and an optional cgo lab: runtime metadata, memory layout, and ownership across boundaries](chapters/16-reflect-unsafe-and-cgo/README.md) |
 
 The concurrency lesson introduces `context`; chapter 14 extends it with deadlines,
 propagation across API boundaries, request values, and explicit lifetime ownership.
@@ -148,11 +149,20 @@ go run -gcflags=all=-d=checkptr=2 ./chapters/16-reflect-unsafe-and-cgo/02-unsafe
 go test -run='^$' -bench=. -benchmem -benchtime=100ms -count=3 ./chapters/16-reflect-unsafe-and-cgo/02-unsafe
 ```
 
-## Planned chapters and extensions
+The optional cgo lab has its own module boundary. With a C compiler installed,
+run it and its checks separately:
 
-The remaining units cover:
+```sh
+CGO_ENABLED=1 go -C chapters/16-reflect-unsafe-and-cgo/03-cgo run .
+CGO_ENABLED=1 go -C chapters/16-reflect-unsafe-and-cgo/03-cgo test ./...
+CGO_ENABLED=1 go -C chapters/16-reflect-unsafe-and-cgo/03-cgo vet ./...
+```
 
-- Chapter 16: an optional isolated cgo lab. Reflection and unsafe are available.
+Root `go test ./...` skips this lab. The main course can also be checked with
+`CGO_ENABLED=0 go test ./...`. See the [lab guide](chapters/16-reflect-unsafe-and-cgo/03-cgo/README.md)
+for stronger pointer checks and benchmarks.
+
+## Remaining work
 
 Final review will check documentation, exercise progression, and validation across
 the complete course.
