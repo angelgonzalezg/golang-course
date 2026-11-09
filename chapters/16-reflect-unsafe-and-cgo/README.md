@@ -7,8 +7,8 @@ small enough to document and test.
 | Topic | Status |
 | --- | --- |
 | Reflection | [Types, values, tags, runtime edits, construction, calls, and equality](01-reflection/README.md) |
-| Unsafe | Planned as a separate lesson. |
+| Unsafe | [Layout, pointer arithmetic, bounded views, and string ownership](02-unsafe/README.md) |
 | Cgo | Planned as an optional isolated lab. |
 
-Start with reflection. Its examples use ordinary Go values and public reflection
-operations. The later lessons will address memory representation and C boundaries.
+Start with reflection, then study unsafe's memory representation and ownership
+contracts. The optional cgo lab will address the boundary between Go and C.

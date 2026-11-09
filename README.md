@@ -59,7 +59,7 @@ pooling example also uses interfaces and concurrency from later chapters.
 | 13. The standard library | [I/O, buffering, files, and filesystem interfaces](chapters/13-standard-library/01-io-and-files/README.md), [time, calendars, timers, and tickers](chapters/13-standard-library/02-time/README.md), [JSON, field semantics, and validation](chapters/13-standard-library/03-json/README.md), [HTTP handlers, clients, and shutdown](chapters/13-standard-library/04-http/README.md), [structured logging with slog](chapters/13-standard-library/05-structured-logging/README.md) |
 | 14. The context | [Propagation, cancellation, deadlines, request values, and lifecycle](chapters/14-context/01-context/README.md) |
 | 15. Writing tests | [Unit tests, subtests, cleanup, doubles, HTTP tests, fuzzing, benchmarks, and races](chapters/15-testing/README.md) |
-| 16. Here be dragons: reflect, unsafe, and cgo | [Reflection: runtime types, values, tags, and controlled mutation](chapters/16-reflect-unsafe-and-cgo/README.md) |
+| 16. Here be dragons: reflect, unsafe, and cgo | [Reflection and unsafe: runtime metadata, memory layout, pointer arithmetic, and ownership](chapters/16-reflect-unsafe-and-cgo/README.md) |
 
 The concurrency lesson introduces `context`; chapter 14 extends it with deadlines,
 propagation across API boundaries, request values, and explicit lifetime ownership.
@@ -132,18 +132,27 @@ go test -run='^$' -bench=. -benchmem -benchtime=100ms -count=3 ./chapters/15-tes
 Ordinary `go test ./...` also runs the fuzz seed corpus and documentation
 examples. Active fuzzing and benchmarks require the explicit commands above.
 
-Run chapter 16's reflection walkthrough:
+Run chapter 16's reflection and unsafe walkthroughs:
 
 ```sh
 go run ./chapters/16-reflect-unsafe-and-cgo/01-reflection
+go run ./chapters/16-reflect-unsafe-and-cgo/02-unsafe
 go test ./chapters/16-reflect-unsafe-and-cgo/...
+```
+
+Validate unsafe with pointer instrumentation and measure it separately:
+
+```sh
+go test -gcflags=all=-d=checkptr=2 ./chapters/16-reflect-unsafe-and-cgo/02-unsafe
+go run -gcflags=all=-d=checkptr=2 ./chapters/16-reflect-unsafe-and-cgo/02-unsafe
+go test -run='^$' -bench=. -benchmem -benchtime=100ms -count=3 ./chapters/16-reflect-unsafe-and-cgo/02-unsafe
 ```
 
 ## Planned chapters and extensions
 
 The remaining units cover:
 
-- Chapter 16: unsafe and an optional isolated cgo lab. Reflection is available.
+- Chapter 16: an optional isolated cgo lab. Reflection and unsafe are available.
 
 Final review will check documentation, exercise progression, and validation across
 the complete course.

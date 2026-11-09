@@ -124,3 +124,6 @@ values can use `==`; collections or domain objects may need dedicated rules.
    `FieldByIndexErr`. Specify how nil embedded pointers should behave first.
 4. Benchmark repeated metadata lookup against a typed operation. If caching is
    justified, cache type metadata separately from values tied to an instance.
+
+Continue with [unsafe](../02-unsafe/README.md) for memory layout, pointer
+arithmetic, and explicit ownership of shared storage.
