@@ -86,8 +86,39 @@ message DeleteContactRequest {
 // A dedicated response can gain fields later without changing the RPC type.
 message DeleteContactResponse {}
 
-// These unary methods are the first transport stage. Request/response types
-// define the contract here; later lessons implement the shared store adapter.
+// ImportContacts accepts at most 100 requests. Each successful create commits
+// immediately. On failure, previous creates remain, but no summary is returned.
+message ImportContactsResponse {
+  int32 created_count = 1;
+  repeated int64 ids = 2; // Creation order, bounded by the batch limit.
+}
+
+message LookupContactsRequest {
+  uint64 request_id = 1; // Client-chosen correlation value; echoed unchanged.
+  int64 id = 2;
+}
+
+enum LookupFailureCode {
+  LOOKUP_FAILURE_CODE_UNSPECIFIED = 0;
+  LOOKUP_FAILURE_CODE_INVALID_ARGUMENT = 1;
+  LOOKUP_FAILURE_CODE_NOT_FOUND = 2;
+}
+
+message LookupFailure {
+  LookupFailureCode code = 1;
+  string message = 2;
+}
+
+message LookupContactsResponse {
+  uint64 request_id = 1;
+  // Exactly one outcome is set by the service. A bad ID or missing contact is
+  // an item failure; cancellation/internal errors terminate the entire RPC.
+  oneof result {
+    Contact contact = 2;
+    LookupFailure failure = 3;
+  }
+}
+
 service ContactService {
   rpc CreateContact(CreateContactRequest) returns (Contact);
   rpc GetContact(GetContactRequest) returns (Contact);
@@ -95,4 +126,12 @@ service ContactService {
   rpc ReplaceContact(ReplaceContactRequest) returns (Contact);
   rpc UpdateContact(UpdateContactRequest) returns (Contact);
   rpc DeleteContact(DeleteContactRequest) returns (DeleteContactResponse);
+
+  // A finite snapshot of one page, with ListContacts filtering/order/limits.
+  // Use unary ListContacts when total/next_offset metadata is needed.
+  rpc StreamContacts(ListContactsRequest) returns (stream Contact);
+  rpc ImportContacts(stream CreateContactRequest) returns (ImportContactsResponse);
+  // One response per request, in request order; replies can arrive before the
+  // client half-closes. This is a lookup conversation, not a live change feed.
+  rpc LookupContacts(stream LookupContactsRequest) returns (stream LookupContactsResponse);
 }

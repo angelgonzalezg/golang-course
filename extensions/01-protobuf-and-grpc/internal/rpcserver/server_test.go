@@ -3,6 +3,8 @@ package rpcserver
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"net"
 	"sync"
 	"testing"
@@ -34,24 +36,45 @@ func (l *observedListener) Close() error {
 	return err
 }
 
-func (s *blockedService) GetContact(ctx context.Context, request *contactsv1.GetContactRequest) (*contactsv1.Contact, error) {
+func (s *blockedService) wait(ctx context.Context) error {
 	close(s.entered)
-	defer close(s.exited)
 	select {
 	case <-s.release:
-		return &contactsv1.Contact{Id: request.GetId(), Name: "Completed"}, nil
+		return nil
 	case <-ctx.Done():
-		return nil, status.FromContextError(ctx.Err()).Err()
+		return status.FromContextError(ctx.Err()).Err()
 	}
 }
 
+func (s *blockedService) GetContact(ctx context.Context, request *contactsv1.GetContactRequest) (*contactsv1.Contact, error) {
+	defer close(s.exited)
+	if err := s.wait(ctx); err != nil {
+		return nil, err
+	}
+	return &contactsv1.Contact{Id: request.GetId(), Name: "Completed"}, nil
+}
+
+func (s *blockedService) StreamContacts(_ *contactsv1.ListContactsRequest, stream grpc.ServerStreamingServer[contactsv1.Contact]) error {
+	defer close(s.exited)
+	if err := s.wait(stream.Context()); err != nil {
+		return err
+	}
+	return stream.Send(&contactsv1.Contact{Id: 1, Name: "Completed"})
+}
+
 func TestGracefulShutdownWaitsForAnActiveRPC(t *testing.T) {
-	for _, force := range []bool{false, true} {
-		name := "graceful"
-		if force {
-			name = "forced fallback"
-		}
-		t.Run(name, func(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		force     bool
+		streaming bool
+	}{
+		{"unary/graceful", false, false},
+		{"unary/forced fallback", true, false},
+		{"streaming/graceful", false, true},
+		{"streaming/forced fallback", true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			force := tc.force
 			listener, err := net.Listen("tcp", "127.0.0.1:0")
 			if err != nil {
 				t.Fatal(err)
@@ -79,7 +102,23 @@ func TestGracefulShutdownWaitsForAnActiveRPC(t *testing.T) {
 			defer cancel()
 			requested := make(chan error, 1)
 			go func() {
-				result, err := contactsv1.NewContactServiceClient(connection).GetContact(ctx, &contactsv1.GetContactRequest{Id: 1})
+				client := contactsv1.NewContactServiceClient(connection)
+				var result *contactsv1.Contact
+				var err error
+				if tc.streaming {
+					stream, openErr := client.StreamContacts(ctx, &contactsv1.ListContactsRequest{})
+					err = openErr
+					if err == nil {
+						result, err = stream.Recv()
+						if err == nil {
+							if _, terminal := stream.Recv(); terminal != io.EOF {
+								err = fmt.Errorf("stream completion: got %v, want EOF", terminal)
+							}
+						}
+					}
+				} else {
+					result, err = client.GetContact(ctx, &contactsv1.GetContactRequest{Id: 1})
+				}
 				if err == nil && result.GetName() != "Completed" {
 					err = errors.New("active RPC returned wrong result")
 				}

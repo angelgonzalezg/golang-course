@@ -55,8 +55,12 @@ field numbers, optional presence, field masks, binary versus ProtoJSON, and
 generated-code ownership. Then run the
 [unary application](../extensions/01-protobuf-and-grpc/02-unary/README.md), trace
 RPC-to-domain conversion, and explain status details, channel/context ownership,
-atomic versions, and shutdown with an active call. The lab uses its own module;
-its guide distinguishes completed stages from pending streaming/infrastructure.
+atomic versions, and shutdown with an active call. Continue with
+[streaming](../extensions/01-protobuf-and-grpc/03-streaming/README.md): distinguish
+request half-close from final status, partial import commits from rollback, and
+item failures from terminal errors. Trace concurrent sending/receiving and sender
+cleanup after cancellation. The lab uses its own module; its guide tracks the
+remaining infrastructure and resilience stages.
 
 ## First pass through pointers
 

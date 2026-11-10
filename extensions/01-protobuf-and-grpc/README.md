@@ -10,20 +10,23 @@ the main course module. Use Go 1.27. The first run downloads pinned dependencies
 subsequent runs can reuse the module cache. Generated source is checked in, so
 running the lesson and ordinary tests does not require protoc.
 
-## Available stages: Protobuf and unary application
+## Available stages: Protobuf, unary application, and streaming
 
 The implemented first stage provides a versioned `.proto` contract, generated
 message types and gRPC interfaces, a finite local serialization demo, and tests
 for presence, masks, wire compatibility, and cloning. This first lesson works
 locally. The [second stage](02-unary/README.md) now implements the six unary RPCs
 with a shared-store adapter, real client/server demos, status errors, contexts,
-and in-memory/TCP integration tests.
+and in-memory/TCP integration tests. The [third stage](03-streaming/README.md)
+adds server streaming, bounded client-stream imports, and bidirectional lookups
+with per-item outcomes, cancellation, flow control, and lifecycle tests.
 
 From the repository root:
 
 ```sh
 go -C extensions/01-protobuf-and-grpc run ./01-protobuf
 go -C extensions/01-protobuf-and-grpc run ./02-unary
+go -C extensions/01-protobuf-and-grpc run ./03-streaming
 go -C extensions/01-protobuf-and-grpc test -count=1 -timeout=30s ./...
 go -C extensions/01-protobuf-and-grpc vet ./...
 go -C extensions/01-protobuf-and-grpc mod tidy -diff
@@ -33,13 +36,13 @@ The demo prints a successful binary round-trip, ProtoJSON with a string ID,
 absent versus explicitly empty optional versions, a mask selecting an empty
 email value, and an independently edited clone. These are executable concept
 examples, rather than serialization benchmarks.
-The unary demo starts a temporary local server, makes real RPC calls, and
-shuts down automatically. Its guide also shows separate server/client modes.
+The unary and streaming demos each start a temporary local server, make real
+RPC calls, and shut down automatically. Their guides show separate server/client modes.
 
 ## Read in order
 
 1. [contacts.proto](proto/contacts/v1/contacts.proto): the versioned package,
-   field numbers, messages, enum, optional field, field mask, and unary service.
+   field numbers, messages, enums, optional field, field mask, and service.
 2. [main.go](01-protobuf/main.go): each numbered example constructs messages
    and exercises the relevant encoding or ownership rule.
 3. [main_test.go](01-protobuf/main_test.go): observable contracts, including an
@@ -61,7 +64,7 @@ Protobuf describes structured messages and their binary encoding. gRPC adds a
 remote-call contract and transport machinery. Generated methods make invocation
 typed, while real calls still need deadlines, cancellation, failure handling,
 and connection ownership. ProtoJSON is an additional representation for
-inspection or interchange; this lab's eventual gRPC calls use Protobuf binary.
+inspection or interchange; this lab's gRPC calls use Protobuf binary.
 
 ```mermaid
 flowchart LR
@@ -70,6 +73,7 @@ flowchart LR
     G --> I[RPC interfaces: contacts_grpc.pb.go]
     M --> D[Current serialization lesson]
     I --> A[Unary stage: client and shared-store adapter]
+    I --> S[Streaming stage: three call shapes and lifecycle]
 ```
 
 | Defined unary RPC | Intended service behavior |
@@ -86,6 +90,12 @@ The [unary adapter](rpcapi/service.go) enforces these semantics using the
 No domain validation runs merely because a protobuf message was decoded.
 Negative IDs, absent input messages, and blank names need service validation.
 Strings must still contain valid UTF-8 for proto3 encoding.
+
+The [streaming adapter](rpcapi/streaming.go) adds `StreamContacts` (one snapshot
+page), `ImportContacts` (at most 100 sequential creates with partial commits),
+and `LookupContacts` (bidirectional replies using a `oneof` outcome). See the
+[streaming guide](03-streaming/README.md) for ordering, half-close versus final
+status, item versus RPC failures, and bounded application work.
 
 ## Presence and partial updates
 
@@ -175,7 +185,7 @@ go -C extensions/01-protobuf-and-grpc run ./internal/cmd/protogen \
 | --- | --- |
 | 1. Protobuf foundation | Implemented: contract, generated bindings, presence, masks, local serialization, compatibility examples, reproducible generation. |
 | 2. Unary application | Implemented: [shared-store adapter and client/server demos](02-unary/README.md), typed status errors, channel ownership, deadlines/cancellation, graceful/forced shutdown, and bufconn/TCP/shared-REST tests. |
-| 3. Streaming | Pending: server streaming, client streaming, bidirectional streaming, completion versus failure, cancellation, ordering, bounded work, and flow control. |
+| 3. Streaming | Implemented: [three streaming call shapes](03-streaming/README.md), completion versus failure, partial imports, item outcomes, cancellation/deadlines, ordering, bounded work, flow control, and active-stream shutdown tests. |
 | 4. Service infrastructure | Pending: metadata, unary/stream interceptors, logging, TLS and authentication/authorization examples, health checks, reflection, and grpcurl use. |
 | 5. Resilience and final review | Pending: message limits, bounded retries with an explicit idempotency policy, observability, failure tests, and end-to-end documentation/validation. |
 

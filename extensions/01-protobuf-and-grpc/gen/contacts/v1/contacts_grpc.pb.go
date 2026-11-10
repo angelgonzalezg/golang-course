@@ -25,14 +25,14 @@ const (
 	ContactService_ReplaceContact_FullMethodName = "/contacts.v1.ContactService/ReplaceContact"
 	ContactService_UpdateContact_FullMethodName  = "/contacts.v1.ContactService/UpdateContact"
 	ContactService_DeleteContact_FullMethodName  = "/contacts.v1.ContactService/DeleteContact"
+	ContactService_StreamContacts_FullMethodName = "/contacts.v1.ContactService/StreamContacts"
+	ContactService_ImportContacts_FullMethodName = "/contacts.v1.ContactService/ImportContacts"
+	ContactService_LookupContacts_FullMethodName = "/contacts.v1.ContactService/LookupContacts"
 )
 
 // ContactServiceClient is the client API for ContactService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-//
-// These unary methods are the first transport stage. Request/response types
-// define the contract here; later lessons implement the shared store adapter.
 type ContactServiceClient interface {
 	CreateContact(ctx context.Context, in *CreateContactRequest, opts ...grpc.CallOption) (*Contact, error)
 	GetContact(ctx context.Context, in *GetContactRequest, opts ...grpc.CallOption) (*Contact, error)
@@ -40,6 +40,13 @@ type ContactServiceClient interface {
 	ReplaceContact(ctx context.Context, in *ReplaceContactRequest, opts ...grpc.CallOption) (*Contact, error)
 	UpdateContact(ctx context.Context, in *UpdateContactRequest, opts ...grpc.CallOption) (*Contact, error)
 	DeleteContact(ctx context.Context, in *DeleteContactRequest, opts ...grpc.CallOption) (*DeleteContactResponse, error)
+	// A finite snapshot of one page, with ListContacts filtering/order/limits.
+	// Use unary ListContacts when total/next_offset metadata is needed.
+	StreamContacts(ctx context.Context, in *ListContactsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Contact], error)
+	ImportContacts(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[CreateContactRequest, ImportContactsResponse], error)
+	// One response per request, in request order; replies can arrive before the
+	// client half-closes. This is a lookup conversation, not a live change feed.
+	LookupContacts(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[LookupContactsRequest, LookupContactsResponse], error)
 }
 
 type contactServiceClient struct {
@@ -110,12 +117,54 @@ func (c *contactServiceClient) DeleteContact(ctx context.Context, in *DeleteCont
 	return out, nil
 }
 
+func (c *contactServiceClient) StreamContacts(ctx context.Context, in *ListContactsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Contact], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ContactService_ServiceDesc.Streams[0], ContactService_StreamContacts_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ListContactsRequest, Contact]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ContactService_StreamContactsClient = grpc.ServerStreamingClient[Contact]
+
+func (c *contactServiceClient) ImportContacts(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[CreateContactRequest, ImportContactsResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ContactService_ServiceDesc.Streams[1], ContactService_ImportContacts_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[CreateContactRequest, ImportContactsResponse]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ContactService_ImportContactsClient = grpc.ClientStreamingClient[CreateContactRequest, ImportContactsResponse]
+
+func (c *contactServiceClient) LookupContacts(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[LookupContactsRequest, LookupContactsResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ContactService_ServiceDesc.Streams[2], ContactService_LookupContacts_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[LookupContactsRequest, LookupContactsResponse]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ContactService_LookupContactsClient = grpc.BidiStreamingClient[LookupContactsRequest, LookupContactsResponse]
+
 // ContactServiceServer is the server API for ContactService service.
 // All implementations must embed UnimplementedContactServiceServer
 // for forward compatibility.
-//
-// These unary methods are the first transport stage. Request/response types
-// define the contract here; later lessons implement the shared store adapter.
 type ContactServiceServer interface {
 	CreateContact(context.Context, *CreateContactRequest) (*Contact, error)
 	GetContact(context.Context, *GetContactRequest) (*Contact, error)
@@ -123,6 +172,13 @@ type ContactServiceServer interface {
 	ReplaceContact(context.Context, *ReplaceContactRequest) (*Contact, error)
 	UpdateContact(context.Context, *UpdateContactRequest) (*Contact, error)
 	DeleteContact(context.Context, *DeleteContactRequest) (*DeleteContactResponse, error)
+	// A finite snapshot of one page, with ListContacts filtering/order/limits.
+	// Use unary ListContacts when total/next_offset metadata is needed.
+	StreamContacts(*ListContactsRequest, grpc.ServerStreamingServer[Contact]) error
+	ImportContacts(grpc.ClientStreamingServer[CreateContactRequest, ImportContactsResponse]) error
+	// One response per request, in request order; replies can arrive before the
+	// client half-closes. This is a lookup conversation, not a live change feed.
+	LookupContacts(grpc.BidiStreamingServer[LookupContactsRequest, LookupContactsResponse]) error
 	mustEmbedUnimplementedContactServiceServer()
 }
 
@@ -150,6 +206,15 @@ func (UnimplementedContactServiceServer) UpdateContact(context.Context, *UpdateC
 }
 func (UnimplementedContactServiceServer) DeleteContact(context.Context, *DeleteContactRequest) (*DeleteContactResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteContact not implemented")
+}
+func (UnimplementedContactServiceServer) StreamContacts(*ListContactsRequest, grpc.ServerStreamingServer[Contact]) error {
+	return status.Error(codes.Unimplemented, "method StreamContacts not implemented")
+}
+func (UnimplementedContactServiceServer) ImportContacts(grpc.ClientStreamingServer[CreateContactRequest, ImportContactsResponse]) error {
+	return status.Error(codes.Unimplemented, "method ImportContacts not implemented")
+}
+func (UnimplementedContactServiceServer) LookupContacts(grpc.BidiStreamingServer[LookupContactsRequest, LookupContactsResponse]) error {
+	return status.Error(codes.Unimplemented, "method LookupContacts not implemented")
 }
 func (UnimplementedContactServiceServer) mustEmbedUnimplementedContactServiceServer() {}
 func (UnimplementedContactServiceServer) testEmbeddedByValue()                        {}
@@ -280,6 +345,31 @@ func _ContactService_DeleteContact_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ContactService_StreamContacts_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ListContactsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ContactServiceServer).StreamContacts(m, &grpc.GenericServerStream[ListContactsRequest, Contact]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ContactService_StreamContactsServer = grpc.ServerStreamingServer[Contact]
+
+func _ContactService_ImportContacts_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ContactServiceServer).ImportContacts(&grpc.GenericServerStream[CreateContactRequest, ImportContactsResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ContactService_ImportContactsServer = grpc.ClientStreamingServer[CreateContactRequest, ImportContactsResponse]
+
+func _ContactService_LookupContacts_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ContactServiceServer).LookupContacts(&grpc.GenericServerStream[LookupContactsRequest, LookupContactsResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ContactService_LookupContactsServer = grpc.BidiStreamingServer[LookupContactsRequest, LookupContactsResponse]
+
 // ContactService_ServiceDesc is the grpc.ServiceDesc for ContactService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -312,6 +402,23 @@ var ContactService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ContactService_DeleteContact_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StreamContacts",
+			Handler:       _ContactService_StreamContacts_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ImportContacts",
+			Handler:       _ContactService_ImportContacts_Handler,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "LookupContacts",
+			Handler:       _ContactService_LookupContacts_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "contacts/v1/contacts.proto",
 }

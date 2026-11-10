@@ -47,12 +47,14 @@ expected result for unchanged examples. See the [module lab](../chapters/10-modu
 
 The [gRPC lab](../extensions/01-protobuf-and-grpc/README.md) is another independent
 module. Its first stage runs local serialization examples; its second stage
-implements the unary transport. Initial use downloads its pinned Go
+implements the unary transport, and its third adds three streaming call shapes.
+Initial use downloads its pinned Go
 dependencies, kept outside the main course module:
 
 ```sh
 go -C extensions/01-protobuf-and-grpc run ./01-protobuf
 go -C extensions/01-protobuf-and-grpc run ./02-unary
+go -C extensions/01-protobuf-and-grpc run ./03-streaming
 go -C extensions/01-protobuf-and-grpc test -count=1 -timeout=30s ./...
 go -C extensions/01-protobuf-and-grpc vet ./...
 go -C extensions/01-protobuf-and-grpc mod tidy -diff
@@ -291,8 +293,8 @@ a fixed wire-compatibility fixture, unknown binary fields, malformed input,
 and the stable service identity. Formatting and local Markdown links passed.
 
 The main module's dependency file is unchanged. At that stage only local
-serialization ran. The unary transport described below now implements RPCs;
-the lab guide tracks streaming, service infrastructure, and resilience as later
+serialization ran. The unary transport described below implements RPCs;
+at that point streaming, service infrastructure, and resilience remained later
 stages. Generated interfaces alone do not implement an application.
 
 ### Unary gRPC validation
@@ -313,5 +315,33 @@ redacted from client statuses. Formatting and local Markdown paths passed.
 
 The root dependency file and shared contact implementation are unchanged;
 the lab uses a local module replacement to import them. The protobuf contract,
-generated bindings, and compiler/plugin pins did not change. Streaming and
-infrastructure/resilience remain subsequent stages.
+generated bindings, and compiler/plugin pins did not change during stage 2.
+Streaming and infrastructure/resilience were subsequent stages; streaming
+validation follows below.
+
+### Streaming gRPC validation
+
+Stage 3 passed the finite loopback TCP demo, the earlier Protobuf/unary demos,
+uncached module tests, vet, and `mod tidy -diff` with Go 1.27.0 on darwin/arm64.
+The complete lab passed `-race -count=3 -cpu=1,2 -timeout=45s`, including the
+streaming context and lifecycle tests. Regeneration check mode matched both
+generated files with the recorded compiler and pinned plugins. Formatting,
+whitespace, and local Markdown paths in the updated guides passed.
+
+Bufconn tests covered filtered ordered pages, empty streams, invalid queries,
+import summaries, the 100-create cap, partial commits before validation errors,
+bidirectional correlation, item failures, and a terminal error after a delivered
+reply. Controlled operations confirmed cancellation/deadline propagation for
+all three stream shapes and preserved earlier import commits when canceled.
+A gated Send verified sequential production, snapshot ownership, released store
+locks, and cancellation while sending; it models backpressure without claiming
+to measure HTTP2 window sizes. Client tests verified final-status reading after
+send EOF and joining a blocked sender after receive failure. TCP tests covered
+the default demo, repeated standalone clients, and graceful/forced shutdown of
+an active stream.
+
+The three streaming methods and their messages were added without changing
+existing field numbers or unary method identities. Dependency files, tool pins,
+and the shared contact implementation are unchanged. The server stream selects
+one bounded page; imports commit individually rather than transactionally.
+Service infrastructure and resilience remain stages 4 and 5 in the lab guide.

@@ -184,8 +184,9 @@ shutdown and Serve completion, preserving errors from the fallback.
 bufconn avoids port allocation and external services while retaining gRPC's
 actual serialization and dispatch. TCP tests complement it with real sockets.
 Repeated race checks cover executed schedules; they do not prove every timing
-or failure condition. Streaming, TLS/auth, metadata/interceptors, health, and
-retry/size policies remain in the [later stages](../README.md#remaining-stages).
+or failure condition. Continue with the [streaming stage](../03-streaming/README.md).
+TLS/auth, metadata/interceptors, health, and retry/size policies remain in the
+[later stages](../README.md#remaining-stages).
 
 References: [`grpc.NewClient`](https://pkg.go.dev/google.golang.org/grpc@v1.85.0#NewClient),
 [status codes](https://grpc.io/docs/guides/status-codes/),

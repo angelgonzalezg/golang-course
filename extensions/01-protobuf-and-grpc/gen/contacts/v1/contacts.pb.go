@@ -77,6 +77,55 @@ func (SortOrder) EnumDescriptor() ([]byte, []int) {
 	return file_contacts_v1_contacts_proto_rawDescGZIP(), []int{0}
 }
 
+type LookupFailureCode int32
+
+const (
+	LookupFailureCode_LOOKUP_FAILURE_CODE_UNSPECIFIED      LookupFailureCode = 0
+	LookupFailureCode_LOOKUP_FAILURE_CODE_INVALID_ARGUMENT LookupFailureCode = 1
+	LookupFailureCode_LOOKUP_FAILURE_CODE_NOT_FOUND        LookupFailureCode = 2
+)
+
+// Enum value maps for LookupFailureCode.
+var (
+	LookupFailureCode_name = map[int32]string{
+		0: "LOOKUP_FAILURE_CODE_UNSPECIFIED",
+		1: "LOOKUP_FAILURE_CODE_INVALID_ARGUMENT",
+		2: "LOOKUP_FAILURE_CODE_NOT_FOUND",
+	}
+	LookupFailureCode_value = map[string]int32{
+		"LOOKUP_FAILURE_CODE_UNSPECIFIED":      0,
+		"LOOKUP_FAILURE_CODE_INVALID_ARGUMENT": 1,
+		"LOOKUP_FAILURE_CODE_NOT_FOUND":        2,
+	}
+)
+
+func (x LookupFailureCode) Enum() *LookupFailureCode {
+	p := new(LookupFailureCode)
+	*p = x
+	return p
+}
+
+func (x LookupFailureCode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (LookupFailureCode) Descriptor() protoreflect.EnumDescriptor {
+	return file_contacts_v1_contacts_proto_enumTypes[1].Descriptor()
+}
+
+func (LookupFailureCode) Type() protoreflect.EnumType {
+	return &file_contacts_v1_contacts_proto_enumTypes[1]
+}
+
+func (x LookupFailureCode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use LookupFailureCode.Descriptor instead.
+func (LookupFailureCode) EnumDescriptor() ([]byte, []int) {
+	return file_contacts_v1_contacts_proto_rawDescGZIP(), []int{1}
+}
+
 // Contact is a transport representation. The application assigns ID/version.
 // Empty email/phone mean missing optional data, as in the shared contact store.
 type Contact struct {
@@ -672,6 +721,257 @@ func (*DeleteContactResponse) Descriptor() ([]byte, []int) {
 	return file_contacts_v1_contacts_proto_rawDescGZIP(), []int{9}
 }
 
+// ImportContacts accepts at most 100 requests. Each successful create commits
+// immediately. On failure, previous creates remain, but no summary is returned.
+type ImportContactsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CreatedCount  int32                  `protobuf:"varint,1,opt,name=created_count,json=createdCount,proto3" json:"created_count,omitempty"`
+	Ids           []int64                `protobuf:"varint,2,rep,packed,name=ids,proto3" json:"ids,omitempty"` // Creation order, bounded by the batch limit.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ImportContactsResponse) Reset() {
+	*x = ImportContactsResponse{}
+	mi := &file_contacts_v1_contacts_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImportContactsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImportContactsResponse) ProtoMessage() {}
+
+func (x *ImportContactsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_contacts_v1_contacts_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImportContactsResponse.ProtoReflect.Descriptor instead.
+func (*ImportContactsResponse) Descriptor() ([]byte, []int) {
+	return file_contacts_v1_contacts_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ImportContactsResponse) GetCreatedCount() int32 {
+	if x != nil {
+		return x.CreatedCount
+	}
+	return 0
+}
+
+func (x *ImportContactsResponse) GetIds() []int64 {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
+type LookupContactsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RequestId     uint64                 `protobuf:"varint,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"` // Client-chosen correlation value; echoed unchanged.
+	Id            int64                  `protobuf:"varint,2,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LookupContactsRequest) Reset() {
+	*x = LookupContactsRequest{}
+	mi := &file_contacts_v1_contacts_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LookupContactsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LookupContactsRequest) ProtoMessage() {}
+
+func (x *LookupContactsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_contacts_v1_contacts_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LookupContactsRequest.ProtoReflect.Descriptor instead.
+func (*LookupContactsRequest) Descriptor() ([]byte, []int) {
+	return file_contacts_v1_contacts_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *LookupContactsRequest) GetRequestId() uint64 {
+	if x != nil {
+		return x.RequestId
+	}
+	return 0
+}
+
+func (x *LookupContactsRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+type LookupFailure struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          LookupFailureCode      `protobuf:"varint,1,opt,name=code,proto3,enum=contacts.v1.LookupFailureCode" json:"code,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LookupFailure) Reset() {
+	*x = LookupFailure{}
+	mi := &file_contacts_v1_contacts_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LookupFailure) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LookupFailure) ProtoMessage() {}
+
+func (x *LookupFailure) ProtoReflect() protoreflect.Message {
+	mi := &file_contacts_v1_contacts_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LookupFailure.ProtoReflect.Descriptor instead.
+func (*LookupFailure) Descriptor() ([]byte, []int) {
+	return file_contacts_v1_contacts_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *LookupFailure) GetCode() LookupFailureCode {
+	if x != nil {
+		return x.Code
+	}
+	return LookupFailureCode_LOOKUP_FAILURE_CODE_UNSPECIFIED
+}
+
+func (x *LookupFailure) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type LookupContactsResponse struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	RequestId uint64                 `protobuf:"varint,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	// Exactly one outcome is set by the service. A bad ID or missing contact is
+	// an item failure; cancellation/internal errors terminate the entire RPC.
+	//
+	// Types that are valid to be assigned to Result:
+	//
+	//	*LookupContactsResponse_Contact
+	//	*LookupContactsResponse_Failure
+	Result        isLookupContactsResponse_Result `protobuf_oneof:"result"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LookupContactsResponse) Reset() {
+	*x = LookupContactsResponse{}
+	mi := &file_contacts_v1_contacts_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LookupContactsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LookupContactsResponse) ProtoMessage() {}
+
+func (x *LookupContactsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_contacts_v1_contacts_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LookupContactsResponse.ProtoReflect.Descriptor instead.
+func (*LookupContactsResponse) Descriptor() ([]byte, []int) {
+	return file_contacts_v1_contacts_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *LookupContactsResponse) GetRequestId() uint64 {
+	if x != nil {
+		return x.RequestId
+	}
+	return 0
+}
+
+func (x *LookupContactsResponse) GetResult() isLookupContactsResponse_Result {
+	if x != nil {
+		return x.Result
+	}
+	return nil
+}
+
+func (x *LookupContactsResponse) GetContact() *Contact {
+	if x != nil {
+		if x, ok := x.Result.(*LookupContactsResponse_Contact); ok {
+			return x.Contact
+		}
+	}
+	return nil
+}
+
+func (x *LookupContactsResponse) GetFailure() *LookupFailure {
+	if x != nil {
+		if x, ok := x.Result.(*LookupContactsResponse_Failure); ok {
+			return x.Failure
+		}
+	}
+	return nil
+}
+
+type isLookupContactsResponse_Result interface {
+	isLookupContactsResponse_Result()
+}
+
+type LookupContactsResponse_Contact struct {
+	Contact *Contact `protobuf:"bytes,2,opt,name=contact,proto3,oneof"`
+}
+
+type LookupContactsResponse_Failure struct {
+	Failure *LookupFailure `protobuf:"bytes,3,opt,name=failure,proto3,oneof"`
+}
+
+func (*LookupContactsResponse_Contact) isLookupContactsResponse_Result() {}
+
+func (*LookupContactsResponse_Failure) isLookupContactsResponse_Result() {}
+
 var File_contacts_v1_contacts_proto protoreflect.FileDescriptor
 
 const file_contacts_v1_contacts_proto_rawDesc = "" +
@@ -720,13 +1020,33 @@ const file_contacts_v1_contacts_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12.\n" +
 	"\x10expected_version\x18\x02 \x01(\tH\x00R\x0fexpectedVersion\x88\x01\x01B\x13\n" +
 	"\x11_expected_version\"\x17\n" +
-	"\x15DeleteContactResponse*\x89\x01\n" +
+	"\x15DeleteContactResponse\"O\n" +
+	"\x16ImportContactsResponse\x12#\n" +
+	"\rcreated_count\x18\x01 \x01(\x05R\fcreatedCount\x12\x10\n" +
+	"\x03ids\x18\x02 \x03(\x03R\x03ids\"F\n" +
+	"\x15LookupContactsRequest\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\x04R\trequestId\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\x03R\x02id\"]\n" +
+	"\rLookupFailure\x122\n" +
+	"\x04code\x18\x01 \x01(\x0e2\x1e.contacts.v1.LookupFailureCodeR\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xab\x01\n" +
+	"\x16LookupContactsResponse\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\x04R\trequestId\x120\n" +
+	"\acontact\x18\x02 \x01(\v2\x14.contacts.v1.ContactH\x00R\acontact\x126\n" +
+	"\afailure\x18\x03 \x01(\v2\x1a.contacts.v1.LookupFailureH\x00R\afailureB\b\n" +
+	"\x06result*\x89\x01\n" +
 	"\tSortOrder\x12\x1a\n" +
 	"\x16SORT_ORDER_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11SORT_ORDER_ID_ASC\x10\x01\x12\x16\n" +
 	"\x12SORT_ORDER_ID_DESC\x10\x02\x12\x17\n" +
 	"\x13SORT_ORDER_NAME_ASC\x10\x03\x12\x18\n" +
-	"\x14SORT_ORDER_NAME_DESC\x10\x042\xe1\x03\n" +
+	"\x14SORT_ORDER_NAME_DESC\x10\x04*\x85\x01\n" +
+	"\x11LookupFailureCode\x12#\n" +
+	"\x1fLOOKUP_FAILURE_CODE_UNSPECIFIED\x10\x00\x12(\n" +
+	"$LOOKUP_FAILURE_CODE_INVALID_ARGUMENT\x10\x01\x12!\n" +
+	"\x1dLOOKUP_FAILURE_CODE_NOT_FOUND\x10\x022\xe8\x05\n" +
 	"\x0eContactService\x12H\n" +
 	"\rCreateContact\x12!.contacts.v1.CreateContactRequest\x1a\x14.contacts.v1.Contact\x12B\n" +
 	"\n" +
@@ -734,7 +1054,10 @@ const file_contacts_v1_contacts_proto_rawDesc = "" +
 	"\fListContacts\x12 .contacts.v1.ListContactsRequest\x1a!.contacts.v1.ListContactsResponse\x12J\n" +
 	"\x0eReplaceContact\x12\".contacts.v1.ReplaceContactRequest\x1a\x14.contacts.v1.Contact\x12H\n" +
 	"\rUpdateContact\x12!.contacts.v1.UpdateContactRequest\x1a\x14.contacts.v1.Contact\x12V\n" +
-	"\rDeleteContact\x12!.contacts.v1.DeleteContactRequest\x1a\".contacts.v1.DeleteContactResponseB8Z6example.com/course/grpc-lab/gen/contacts/v1;contactsv1b\x06proto3"
+	"\rDeleteContact\x12!.contacts.v1.DeleteContactRequest\x1a\".contacts.v1.DeleteContactResponse\x12J\n" +
+	"\x0eStreamContacts\x12 .contacts.v1.ListContactsRequest\x1a\x14.contacts.v1.Contact0\x01\x12Z\n" +
+	"\x0eImportContacts\x12!.contacts.v1.CreateContactRequest\x1a#.contacts.v1.ImportContactsResponse(\x01\x12]\n" +
+	"\x0eLookupContacts\x12\".contacts.v1.LookupContactsRequest\x1a#.contacts.v1.LookupContactsResponse(\x010\x01B8Z6example.com/course/grpc-lab/gen/contacts/v1;contactsv1b\x06proto3"
 
 var (
 	file_contacts_v1_contacts_proto_rawDescOnce sync.Once
@@ -748,46 +1071,60 @@ func file_contacts_v1_contacts_proto_rawDescGZIP() []byte {
 	return file_contacts_v1_contacts_proto_rawDescData
 }
 
-var file_contacts_v1_contacts_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_contacts_v1_contacts_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_contacts_v1_contacts_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_contacts_v1_contacts_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_contacts_v1_contacts_proto_goTypes = []any{
-	(SortOrder)(0),                // 0: contacts.v1.SortOrder
-	(*Contact)(nil),               // 1: contacts.v1.Contact
-	(*ContactInput)(nil),          // 2: contacts.v1.ContactInput
-	(*CreateContactRequest)(nil),  // 3: contacts.v1.CreateContactRequest
-	(*GetContactRequest)(nil),     // 4: contacts.v1.GetContactRequest
-	(*ListContactsRequest)(nil),   // 5: contacts.v1.ListContactsRequest
-	(*ListContactsResponse)(nil),  // 6: contacts.v1.ListContactsResponse
-	(*ReplaceContactRequest)(nil), // 7: contacts.v1.ReplaceContactRequest
-	(*UpdateContactRequest)(nil),  // 8: contacts.v1.UpdateContactRequest
-	(*DeleteContactRequest)(nil),  // 9: contacts.v1.DeleteContactRequest
-	(*DeleteContactResponse)(nil), // 10: contacts.v1.DeleteContactResponse
-	(*fieldmaskpb.FieldMask)(nil), // 11: google.protobuf.FieldMask
+	(SortOrder)(0),                 // 0: contacts.v1.SortOrder
+	(LookupFailureCode)(0),         // 1: contacts.v1.LookupFailureCode
+	(*Contact)(nil),                // 2: contacts.v1.Contact
+	(*ContactInput)(nil),           // 3: contacts.v1.ContactInput
+	(*CreateContactRequest)(nil),   // 4: contacts.v1.CreateContactRequest
+	(*GetContactRequest)(nil),      // 5: contacts.v1.GetContactRequest
+	(*ListContactsRequest)(nil),    // 6: contacts.v1.ListContactsRequest
+	(*ListContactsResponse)(nil),   // 7: contacts.v1.ListContactsResponse
+	(*ReplaceContactRequest)(nil),  // 8: contacts.v1.ReplaceContactRequest
+	(*UpdateContactRequest)(nil),   // 9: contacts.v1.UpdateContactRequest
+	(*DeleteContactRequest)(nil),   // 10: contacts.v1.DeleteContactRequest
+	(*DeleteContactResponse)(nil),  // 11: contacts.v1.DeleteContactResponse
+	(*ImportContactsResponse)(nil), // 12: contacts.v1.ImportContactsResponse
+	(*LookupContactsRequest)(nil),  // 13: contacts.v1.LookupContactsRequest
+	(*LookupFailure)(nil),          // 14: contacts.v1.LookupFailure
+	(*LookupContactsResponse)(nil), // 15: contacts.v1.LookupContactsResponse
+	(*fieldmaskpb.FieldMask)(nil),  // 16: google.protobuf.FieldMask
 }
 var file_contacts_v1_contacts_proto_depIdxs = []int32{
-	2,  // 0: contacts.v1.CreateContactRequest.input:type_name -> contacts.v1.ContactInput
+	3,  // 0: contacts.v1.CreateContactRequest.input:type_name -> contacts.v1.ContactInput
 	0,  // 1: contacts.v1.ListContactsRequest.sort:type_name -> contacts.v1.SortOrder
-	1,  // 2: contacts.v1.ListContactsResponse.contacts:type_name -> contacts.v1.Contact
-	2,  // 3: contacts.v1.ReplaceContactRequest.input:type_name -> contacts.v1.ContactInput
-	2,  // 4: contacts.v1.UpdateContactRequest.input:type_name -> contacts.v1.ContactInput
-	11, // 5: contacts.v1.UpdateContactRequest.update_mask:type_name -> google.protobuf.FieldMask
-	3,  // 6: contacts.v1.ContactService.CreateContact:input_type -> contacts.v1.CreateContactRequest
-	4,  // 7: contacts.v1.ContactService.GetContact:input_type -> contacts.v1.GetContactRequest
-	5,  // 8: contacts.v1.ContactService.ListContacts:input_type -> contacts.v1.ListContactsRequest
-	7,  // 9: contacts.v1.ContactService.ReplaceContact:input_type -> contacts.v1.ReplaceContactRequest
-	8,  // 10: contacts.v1.ContactService.UpdateContact:input_type -> contacts.v1.UpdateContactRequest
-	9,  // 11: contacts.v1.ContactService.DeleteContact:input_type -> contacts.v1.DeleteContactRequest
-	1,  // 12: contacts.v1.ContactService.CreateContact:output_type -> contacts.v1.Contact
-	1,  // 13: contacts.v1.ContactService.GetContact:output_type -> contacts.v1.Contact
-	6,  // 14: contacts.v1.ContactService.ListContacts:output_type -> contacts.v1.ListContactsResponse
-	1,  // 15: contacts.v1.ContactService.ReplaceContact:output_type -> contacts.v1.Contact
-	1,  // 16: contacts.v1.ContactService.UpdateContact:output_type -> contacts.v1.Contact
-	10, // 17: contacts.v1.ContactService.DeleteContact:output_type -> contacts.v1.DeleteContactResponse
-	12, // [12:18] is the sub-list for method output_type
-	6,  // [6:12] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	2,  // 2: contacts.v1.ListContactsResponse.contacts:type_name -> contacts.v1.Contact
+	3,  // 3: contacts.v1.ReplaceContactRequest.input:type_name -> contacts.v1.ContactInput
+	3,  // 4: contacts.v1.UpdateContactRequest.input:type_name -> contacts.v1.ContactInput
+	16, // 5: contacts.v1.UpdateContactRequest.update_mask:type_name -> google.protobuf.FieldMask
+	1,  // 6: contacts.v1.LookupFailure.code:type_name -> contacts.v1.LookupFailureCode
+	2,  // 7: contacts.v1.LookupContactsResponse.contact:type_name -> contacts.v1.Contact
+	14, // 8: contacts.v1.LookupContactsResponse.failure:type_name -> contacts.v1.LookupFailure
+	4,  // 9: contacts.v1.ContactService.CreateContact:input_type -> contacts.v1.CreateContactRequest
+	5,  // 10: contacts.v1.ContactService.GetContact:input_type -> contacts.v1.GetContactRequest
+	6,  // 11: contacts.v1.ContactService.ListContacts:input_type -> contacts.v1.ListContactsRequest
+	8,  // 12: contacts.v1.ContactService.ReplaceContact:input_type -> contacts.v1.ReplaceContactRequest
+	9,  // 13: contacts.v1.ContactService.UpdateContact:input_type -> contacts.v1.UpdateContactRequest
+	10, // 14: contacts.v1.ContactService.DeleteContact:input_type -> contacts.v1.DeleteContactRequest
+	6,  // 15: contacts.v1.ContactService.StreamContacts:input_type -> contacts.v1.ListContactsRequest
+	4,  // 16: contacts.v1.ContactService.ImportContacts:input_type -> contacts.v1.CreateContactRequest
+	13, // 17: contacts.v1.ContactService.LookupContacts:input_type -> contacts.v1.LookupContactsRequest
+	2,  // 18: contacts.v1.ContactService.CreateContact:output_type -> contacts.v1.Contact
+	2,  // 19: contacts.v1.ContactService.GetContact:output_type -> contacts.v1.Contact
+	7,  // 20: contacts.v1.ContactService.ListContacts:output_type -> contacts.v1.ListContactsResponse
+	2,  // 21: contacts.v1.ContactService.ReplaceContact:output_type -> contacts.v1.Contact
+	2,  // 22: contacts.v1.ContactService.UpdateContact:output_type -> contacts.v1.Contact
+	11, // 23: contacts.v1.ContactService.DeleteContact:output_type -> contacts.v1.DeleteContactResponse
+	2,  // 24: contacts.v1.ContactService.StreamContacts:output_type -> contacts.v1.Contact
+	12, // 25: contacts.v1.ContactService.ImportContacts:output_type -> contacts.v1.ImportContactsResponse
+	15, // 26: contacts.v1.ContactService.LookupContacts:output_type -> contacts.v1.LookupContactsResponse
+	18, // [18:27] is the sub-list for method output_type
+	9,  // [9:18] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_contacts_v1_contacts_proto_init() }
@@ -799,13 +1136,17 @@ func file_contacts_v1_contacts_proto_init() {
 	file_contacts_v1_contacts_proto_msgTypes[6].OneofWrappers = []any{}
 	file_contacts_v1_contacts_proto_msgTypes[7].OneofWrappers = []any{}
 	file_contacts_v1_contacts_proto_msgTypes[8].OneofWrappers = []any{}
+	file_contacts_v1_contacts_proto_msgTypes[13].OneofWrappers = []any{
+		(*LookupContactsResponse_Contact)(nil),
+		(*LookupContactsResponse_Failure)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_contacts_v1_contacts_proto_rawDesc), len(file_contacts_v1_contacts_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   10,
+			NumEnums:      2,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -1,4 +1,4 @@
-// Package rpcapi translates unary RPCs into the shared contact operations.
+// Package rpcapi translates unary and streaming RPCs into shared contact operations.
 package rpcapi
 
 import (
