@@ -42,7 +42,7 @@ func run(out io.Writer) error {
 	fmt.Fprintf(out, "Absent version: getter=%q, present=%t\n", absent.GetExpectedVersion(), absent.ExpectedVersion != nil)
 	fmt.Fprintf(out, "Explicitly empty: getter=%q, present=%t\n", presentEmpty.GetExpectedVersion(), presentEmpty.ExpectedVersion != nil)
 	fmt.Fprintln(out, "The getter returns the same text; presence lets the service distinguish the requests.")
-	fmt.Fprintln(out, "The future service will reject a present empty version rather than treat it as unconditional.")
+	fmt.Fprintln(out, "The unary service rejects a present empty version rather than treating it as unconditional.")
 
 	fmt.Fprintln(out, "\n== 4. A mask selects a field even when its value is empty ==")
 	mask, err := fieldmaskpb.New(&contactsv1.ContactInput{}, "email")

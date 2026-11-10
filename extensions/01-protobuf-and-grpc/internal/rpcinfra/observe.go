@@ -16,6 +16,8 @@ import (
 
 type requestIDKey struct{}
 
+// RequestID returns the observer's validated/generated ID, or an empty string
+// when the metadata observer has not assigned one to this context.
 func RequestID(ctx context.Context) string {
 	id, _ := ctx.Value(requestIDKey{}).(string)
 	return id
@@ -69,6 +71,8 @@ func logCompletion(ctx context.Context, logger *slog.Logger, method, kind string
 	logger.LogAttrs(ctx, slog.LevelInfo, "rpc completed", attributes...)
 }
 
+// ObserveUnary adds response metadata and logs completion around downstream work.
+// Put it before authorization to observe rejected calls as well; nil discards logs.
 func ObserveUnary(logger *slog.Logger) grpc.UnaryServerInterceptor {
 	logger = usableLogger(logger)
 	return func(ctx context.Context, request any, info *grpc.UnaryServerInfo, next grpc.UnaryHandler) (response any, err error) {
@@ -86,6 +90,8 @@ func ObserveUnary(logger *slog.Logger) grpc.UnaryServerInterceptor {
 	}
 }
 
+// ObserveStream adds metadata and logs once when the entire stream handler ends.
+// It preserves stream methods while supplying the derived request-ID context.
 func ObserveStream(logger *slog.Logger) grpc.StreamServerInterceptor {
 	logger = usableLogger(logger)
 	return func(service any, stream grpc.ServerStream, info *grpc.StreamServerInfo, next grpc.StreamHandler) (err error) {

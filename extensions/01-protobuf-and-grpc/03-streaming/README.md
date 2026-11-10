@@ -203,4 +203,4 @@ failure can coexist with final OK, and why half-closing is different from
 receiving the final status. Then continue to the
 [infrastructure stage](../04-infrastructure/README.md) for TLS, metadata,
 interceptors, identity, health, reflection, and grpcurl. Resilience follows in
-[stage 5](../README.md#remaining-stages).
+[stage 5](../05-resilience/README.md).

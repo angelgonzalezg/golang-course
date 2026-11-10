@@ -22,6 +22,7 @@ type ContactStore interface {
 	DeleteIf(context.Context, int64, contacts.Conditions) error
 }
 
+// Links exposes relative resource/navigation URLs in HTTP representations.
 type Links struct {
 	Self       string `json:"self"`
 	Collection string `json:"collection,omitempty"`
@@ -30,6 +31,8 @@ type Links struct {
 	Prev       string `json:"prev,omitempty"`
 }
 
+// ContactResource is the HTTP representation, including server-owned ID/links.
+// It stays separate from writable input and the transport-independent Contact.
 type ContactResource struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
@@ -39,6 +42,7 @@ type ContactResource struct {
 	Links Links  `json:"links"`
 }
 
+// Collection combines one page with its navigation and snapshot pagination data.
 type Collection struct {
 	Contacts   []ContactResource `json:"contacts"`
 	Links      Links             `json:"links"`
@@ -63,6 +67,8 @@ func NewHandler(store ContactStore, logger *slog.Logger) http.Handler {
 	}
 	a := &api{store: store, logger: logger}
 	mux := http.NewServeMux()
+	// GET patterns also match HEAD. net/http suppresses the body on the wire;
+	// running the same handler still supplies matching headers and status.
 	mux.HandleFunc("GET /{$}", a.index)
 	mux.HandleFunc("/{$}", a.methodNotAllowed("GET, HEAD"))
 	mux.HandleFunc("GET /openapi.json", a.openAPI)

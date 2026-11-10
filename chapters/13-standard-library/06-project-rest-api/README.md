@@ -91,9 +91,12 @@ curl -i -X DELETE http://127.0.0.1:8080/contacts/1
 
 The earlier [contact book](../../06-pointers/04-project-contact-list/README.md)
 remains the pointer practice. This separate library adds the errors,
-synchronization, and context contract needed at a network boundary. A future
-gRPC adapter can use `contacts` without importing `httpapi` or duplicating its
-rules. `NewHandler` receives its store; it does not construct global state.
+synchronization, and context contract needed at a network boundary. The
+[gRPC adapter](../../../extensions/01-protobuf-and-grpc/rpcapi/service.go)
+already reuses `contacts` without importing `httpapi` or duplicating its rules.
+Each command creates its own store; sharing this package does not share memory
+between REST and gRPC processes. `NewHandler` receives its store; it does not
+construct global state.
 
 ## Resources and methods
 

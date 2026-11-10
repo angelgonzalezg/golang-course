@@ -10,6 +10,8 @@ import (
 
 // Store owns its data. Use its pointer; copying it would copy a mutex and share maps.
 // Its zero value is ready to use. All operations return independent contact values.
+// Mutex waits cannot be interrupted by context; operations check cancellation
+// again after acquiring the lock. Cancellation does not undo a completed write.
 type Store struct {
 	mu     sync.Mutex
 	byID   map[int64]Contact
@@ -17,8 +19,11 @@ type Store struct {
 	lastID int64
 }
 
+// NewStore creates an empty in-memory store. Its maps are allocated on first create.
 func NewStore() *Store { return &Store{} }
 
+// Create validates input and assigns a new ID. A rejected create leaves both
+// indexes and the next ID unchanged; duplicate normalized names return ErrNameTaken.
 func (s *Store) Create(ctx context.Context, input Input) (Contact, error) {
 	if err := ctx.Err(); err != nil {
 		return Contact{}, err
@@ -50,6 +55,7 @@ func (s *Store) Create(ctx context.Context, input Input) (Contact, error) {
 	return contact, nil
 }
 
+// Get returns an independent contact value, or ErrNotFound for an absent ID.
 func (s *Store) Get(ctx context.Context, id int64) (Contact, error) {
 	if err := ctx.Err(); err != nil {
 		return Contact{}, err
@@ -69,6 +75,8 @@ func (s *Store) Get(ctx context.Context, id int64) (Contact, error) {
 	return contact, nil
 }
 
+// List copies the entire collection in increasing ID order. Search uses this
+// snapshot internally; callers requesting a page should use Search.
 func (s *Store) List(ctx context.Context) ([]Contact, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -124,6 +132,8 @@ func (s *Store) Patch(ctx context.Context, id int64, changes Changes) (Contact, 
 	return s.PatchIf(ctx, id, changes, Conditions{})
 }
 
+// PatchIf applies selected fields and version conditions under the same lock.
+// Invalid changes or failed conditions leave every field and index unchanged.
 func (s *Store) PatchIf(ctx context.Context, id int64, changes Changes, conditions Conditions) (Contact, error) {
 	if err := ctx.Err(); err != nil {
 		return Contact{}, err
@@ -173,10 +183,14 @@ func (s *Store) replaceLocked(old Contact, input Input, conditions Conditions) (
 	return updated, nil
 }
 
+// Delete removes an existing contact without a version condition. Repeating a
+// successful delete returns ErrNotFound; it does not recreate or reuse the ID.
 func (s *Store) Delete(ctx context.Context, id int64) error {
 	return s.DeleteIf(ctx, id, Conditions{})
 }
 
+// DeleteIf checks conditions and removes both indexes atomically. An absent
+// contact returns ErrNotFound before conditions are evaluated.
 func (s *Store) DeleteIf(ctx context.Context, id int64, conditions Conditions) error {
 	if err := ctx.Err(); err != nil {
 		return err

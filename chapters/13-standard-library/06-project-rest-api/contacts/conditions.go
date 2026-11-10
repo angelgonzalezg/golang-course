@@ -9,6 +9,7 @@ import (
 
 // Version identifies the contact's current values. It is opaque to callers.
 // Equal content has an equal version, including after a no-op update.
+// It describes content, rather than counting writes or recording their times.
 func Version(contact Contact) string {
 	hash := sha256.New()
 	for _, value := range []string{strconv.FormatInt(contact.ID, 10), contact.Name, contact.Email, contact.Phone} {
@@ -26,9 +27,12 @@ type VersionMatch struct {
 	Versions []string
 }
 
+// Conditions combines optional version requirements. Nil fields impose no
+// restriction; a non-nil empty match list still matches nothing. The zero value
+// requests an unconditional operation. When both are supplied, Match is checked first.
 type Conditions struct {
-	Match     *VersionMatch
-	NoneMatch *VersionMatch
+	Match     *VersionMatch // If supplied, the current contact must match.
+	NoneMatch *VersionMatch // If supplied, a matching current contact is rejected.
 }
 
 func (m *VersionMatch) matches(contact Contact) bool {

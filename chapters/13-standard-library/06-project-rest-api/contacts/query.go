@@ -23,8 +23,9 @@ const (
 	SortNameDesc SortOrder = "-name"
 )
 
-// Query describes a bounded search without depending on URL or HTTP types.
-// Callers supply a limit; an empty sort selects increasing ID order.
+// Query selects one page without depending on URL or HTTP types. Callers must
+// supply a limit in 1..MaxLimit; transport adapters apply DefaultLimit themselves.
+// An empty sort selects increasing ID order. Limit bounds output, not search work.
 type Query struct {
 	Limit        int
 	Offset       int
@@ -32,8 +33,9 @@ type Query struct {
 	Sort         SortOrder
 }
 
-// Total counts all matches before pagination. Query contains normalized values
-// so a transport can describe the exact page and build navigation links.
+// Page owns its contact slice. Total counts all matches before pagination.
+// Query contains normalized values so a transport can describe the exact page
+// and build navigation links.
 type Page struct {
 	Contacts []Contact
 	Total    int

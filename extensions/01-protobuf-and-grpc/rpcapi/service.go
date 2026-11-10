@@ -21,6 +21,9 @@ type Store interface {
 	DeleteIf(context.Context, int64, contacts.Conditions) error
 }
 
+// Service adapts the shared store to generated unary and streaming RPCs.
+// Authentication, transport limits, and unary idempotency belong to the server's
+// configured middleware; calling a method directly does not run interceptors.
 type Service struct {
 	// Embed by value, as required by the generated registration code. Future
 	// methods retain a forward-compatible default until explicitly implemented.
@@ -29,6 +32,8 @@ type Service struct {
 	logger *slog.Logger
 }
 
+// New requires a usable store and panics when it is nil. A nil logger discards
+// internal-error logs without changing process-global logging configuration.
 func New(store Store, logger *slog.Logger) *Service {
 	if store == nil {
 		panic("rpcapi: a usable store is required")
@@ -41,6 +46,8 @@ func New(store Store, logger *slog.Logger) *Service {
 
 var _ contactsv1.ContactServiceServer = (*Service)(nil)
 
+// CreateContact requires input and returns the store-assigned ID/content version.
+// The base operation has no deduplication; stage 5 adds it around unary RPC calls.
 func (s *Service) CreateContact(ctx context.Context, request *contactsv1.CreateContactRequest) (*contactsv1.Contact, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, s.rpcError(ctx, err)
@@ -55,6 +62,8 @@ func (s *Service) CreateContact(ctx context.Context, request *contactsv1.CreateC
 	return resource(value), nil
 }
 
+// GetContact converts one stored value to an independent protobuf message.
+// Its version is opaque domain text, without HTTP ETag quoting or prefixes.
 func (s *Service) GetContact(ctx context.Context, request *contactsv1.GetContactRequest) (*contactsv1.Contact, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, s.rpcError(ctx, err)
@@ -69,6 +78,8 @@ func (s *Service) GetContact(ctx context.Context, request *contactsv1.GetContact
 	return resource(value), nil
 }
 
+// ListContacts applies RPC query defaults and returns one snapshot page.
+// NextOffset's presence, rather than its numeric zero value, signals another page.
 func (s *Service) ListContacts(ctx context.Context, request *contactsv1.ListContactsRequest) (*contactsv1.ListContactsResponse, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, s.rpcError(ctx, err)
@@ -98,6 +109,8 @@ func (s *Service) ListContacts(ctx context.Context, request *contactsv1.ListCont
 	return response, nil
 }
 
+// ReplaceContact supplies every editable field, so empty email/phone clear data.
+// An absent expected_version permits an unconditional write; a present empty one fails.
 func (s *Service) ReplaceContact(ctx context.Context, request *contactsv1.ReplaceContactRequest) (*contactsv1.Contact, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, s.rpcError(ctx, err)
@@ -117,6 +130,9 @@ func (s *Service) ReplaceContact(ctx context.Context, request *contactsv1.Replac
 	return resource(value), nil
 }
 
+// UpdateContact changes only mask-selected fields. Selecting an empty email or
+// phone clears it; unselected values are ignored. The store commits all changes
+// and any expected-version check atomically.
 func (s *Service) UpdateContact(ctx context.Context, request *contactsv1.UpdateContactRequest) (*contactsv1.Contact, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, s.rpcError(ctx, err)
@@ -140,6 +156,8 @@ func (s *Service) UpdateContact(ctx context.Context, request *contactsv1.UpdateC
 	return resource(value), nil
 }
 
+// DeleteContact atomically checks the optional version and removes an existing
+// contact. A repeated successful delete returns NotFound on its next invocation.
 func (s *Service) DeleteContact(ctx context.Context, request *contactsv1.DeleteContactRequest) (*contactsv1.DeleteContactResponse, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, s.rpcError(ctx, err)

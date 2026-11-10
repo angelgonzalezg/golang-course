@@ -12,9 +12,12 @@ import (
 )
 
 const (
-	MaxAttempts     = 3
-	MaxMessageBytes = 1024 // Deliberately small to make transport limits visible.
-	CallBudget      = 2 * time.Second
+	// MaxAttempts includes the first RPC; it counts application attempts.
+	MaxAttempts = 3
+	// MaxMessageBytes is the small encoded-message budget, not a whole-stream limit.
+	MaxMessageBytes = 1024
+	// CallBudget covers all attempts and backoffs; an earlier caller deadline wins.
+	CallBudget = 2 * time.Second
 )
 
 // Client exposes only reads and keyed creation as retryable operations. Other
@@ -25,18 +28,25 @@ type Client struct {
 	api contactsv1.ContactServiceClient
 }
 
+// NewClient wraps an existing generated client. It owns no connection; the caller
+// must close the underlying channel after its calls finish.
 func NewClient(api contactsv1.ContactServiceClient) *Client { return &Client{api: api} }
 
+// GetContact retries Unavailable within one budget; a later read may see newer data.
 func (c *Client) GetContact(ctx context.Context, request *contactsv1.GetContactRequest) (*contactsv1.Contact, error) {
 	return retryUnary(ctx, func(ctx context.Context) (*contactsv1.Contact, error) { return c.api.GetContact(ctx, request) })
 }
 
+// ListContacts retries the same page query, without freezing a snapshot across attempts.
 func (c *Client) ListContacts(ctx context.Context, request *contactsv1.ListContactsRequest) (*contactsv1.ListContactsResponse, error) {
 	return retryUnary(ctx, func(ctx context.Context) (*contactsv1.ListContactsResponse, error) {
 		return c.api.ListContacts(ctx, request)
 	})
 }
 
+// CreateOnce retries only a keyed creation. The server must install CreateCache
+// after authorization; a key alone supplies no guarantee on earlier endpoints.
+// Keep the same key and payload when manually repeating an uncertain operation.
 func (c *Client) CreateOnce(ctx context.Context, key string, request *contactsv1.CreateContactRequest) (*contactsv1.Contact, error) {
 	if !validKey(key) {
 		return nil, status.Error(codes.InvalidArgument, "a valid idempotency key is required before retrying creation")

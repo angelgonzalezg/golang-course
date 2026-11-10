@@ -13,6 +13,8 @@ import (
 // It does not make the batch transactional or impose a transport message limit.
 const MaxImportContacts = 100
 
+// StreamContacts sends one finite page in query order, rather than watching
+// future changes. Use unary ListContacts when total/next-offset metadata is needed.
 func (s *Service) StreamContacts(request *contactsv1.ListContactsRequest, stream grpc.ServerStreamingServer[contactsv1.Contact]) error {
 	ctx := stream.Context()
 	// Search returns one bounded snapshot and releases its lock before any Send.
@@ -34,6 +36,9 @@ func (s *Service) StreamContacts(request *contactsv1.ListContactsRequest, stream
 	return nil // The client must still read to io.EOF to observe successful completion.
 }
 
+// ImportContacts commits up to MaxImportContacts sequential creates and returns
+// a summary after client half-close. A failure preserves earlier commits and
+// ends the RPC without a successful summary.
 func (s *Service) ImportContacts(stream grpc.ClientStreamingServer[contactsv1.CreateContactRequest, contactsv1.ImportContactsResponse]) error {
 	ctx := stream.Context()
 	response := &contactsv1.ImportContactsResponse{}
@@ -53,6 +58,8 @@ func (s *Service) ImportContacts(stream grpc.ClientStreamingServer[contactsv1.Cr
 		if response.CreatedCount == MaxImportContacts {
 			return status.Errorf(codes.ResourceExhausted, "import accepts at most %d contacts", MaxImportContacts)
 		}
+		// This is a direct Go call, not another RPC. Unary interceptors do not
+		// run per item, including stage 5's idempotency cache for unary creation.
 		contact, err := s.CreateContact(ctx, request)
 		if err != nil {
 			// Earlier creates remain committed. No transaction or automatic retry
@@ -64,6 +71,8 @@ func (s *Service) ImportContacts(stream grpc.ClientStreamingServer[contactsv1.Cr
 	}
 }
 
+// LookupContacts echoes each request ID with one ordered outcome. Invalid IDs
+// and missing contacts are item failures; other failures terminate the whole RPC.
 func (s *Service) LookupContacts(stream grpc.BidiStreamingServer[contactsv1.LookupContactsRequest, contactsv1.LookupContactsResponse]) error {
 	ctx := stream.Context()
 	for {

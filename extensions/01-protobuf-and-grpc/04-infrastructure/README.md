@@ -106,8 +106,9 @@ them, so they are not proof of identity.
 The response header echoes `x-request-id`; the custom trailer `x-rpc-kind`
 identifies `unary` or `stream`. These are teaching metadata, separate from the
 standard gRPC final status. Unary clients use `grpc.Header`/`grpc.Trailer` call
-options. Streaming clients read `Header()` and read `Trailer()` only after
-`Recv` returns its terminal EOF/error or `CloseAndRecv` finishes. The
+options. A streaming client's `Header()` can wait for initial metadata before
+the stream ends. Read `Trailer()` after `Recv` returns its terminal EOF/error
+or `CloseAndRecv` finishes. The
 [metadata guide](https://grpc.io/docs/guides/metadata/) explains the header/trailer
 side channel; it does not replace request and response messages.
 
@@ -127,7 +128,8 @@ metrics and tracing are demonstrated in [stage 5](../05-resilience/README.md).
 
 The server presents a CA-signed certificate with SANs for `localhost`,
 `127.0.0.1`, and `::1`. The client trusts only the supplied local CA and verifies
-the target hostname/IP. TLS 1.3 is required. A wrong CA, wrong hostname, or
+the target hostname/IP. Both configs set `MinVersion: tls.VersionTLS13`, and tests
+check that TLS 1.3 is negotiated. A wrong CA, wrong hostname, or
 expired certificate fails verification. `InsecureSkipVerify` is never enabled.
 The CA private key is discarded after signing; the client needs only `ca.pem`.
 The server's private key is written with owner-only permissions on POSIX systems.

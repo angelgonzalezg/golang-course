@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/stats/opentelemetry"
 )
 
+// MaxExportedSpans bounds retained summaries, not all SDK or application memory.
 const MaxExportedSpans = 256
 
 // SpanSummary keeps only identifiers needed to inspect propagation. It excludes
@@ -33,6 +34,8 @@ type SpanSummary struct {
 	Kind     trace.SpanKind
 }
 
+// SpanBuffer is a concurrency-safe local exporter. Its zero value is usable;
+// after the retained-summary cap, it counts dropped summaries instead of growing.
 type SpanBuffer struct {
 	mu      sync.Mutex
 	spans   []SpanSummary
@@ -56,14 +59,19 @@ func (b *SpanBuffer) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpa
 	return nil
 }
 
+// Shutdown satisfies the SDK exporter interface; this local buffer has no
+// transport or background worker to close. Existing snapshots remain readable.
 func (*SpanBuffer) Shutdown(context.Context) error { return nil }
 
+// Snapshot returns independent summaries and the total number dropped so far.
 func (b *SpanBuffer) Snapshot() ([]SpanSummary, int) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return slices.Clone(b.spans), b.dropped
 }
 
+// Telemetry owns SDK providers for one lab run. Finish RPCs and transport
+// shutdown before final collection, then shut down the providers themselves.
 type Telemetry struct {
 	Reader *sdkmetric.ManualReader
 	Meter  *sdkmetric.MeterProvider
@@ -71,6 +79,8 @@ type Telemetry struct {
 	Spans  *SpanBuffer
 }
 
+// New creates a manual metric reader and a synchronous bounded span exporter.
+// No collector, background export loop, or process-global provider is installed.
 func New() *Telemetry {
 	reader := sdkmetric.NewManualReader()
 	spans := new(SpanBuffer)
@@ -82,6 +92,8 @@ func New() *Telemetry {
 	}
 }
 
+// Options instruments both peers with owned providers and trace propagation.
+// The same options can be used for the lab's client and server.
 func (t *Telemetry) Options() opentelemetry.Options {
 	known := make(map[string]bool)
 	for _, method := range contactsv1.ContactService_ServiceDesc.Methods {
@@ -106,12 +118,16 @@ func (t *Telemetry) Options() opentelemetry.Options {
 	}
 }
 
+// Collect reads the SDK's current cumulative metric snapshot without an exporter.
+// RPCs still in progress can contribute to a later snapshot instead.
 func (t *Telemetry) Collect(ctx context.Context) (metricdata.ResourceMetrics, error) {
 	var metrics metricdata.ResourceMetrics
 	err := t.Reader.Collect(ctx, &metrics)
 	return metrics, err
 }
 
+// Report prints totals across method/status series and the span buffer count.
+// Use Collect when inspecting individual outcomes and their attributes.
 func (t *Telemetry) Report(ctx context.Context, out io.Writer) error {
 	metrics, err := t.Collect(ctx)
 	if err != nil {
@@ -145,6 +161,8 @@ func (t *Telemetry) Report(ctx context.Context, out io.Writer) error {
 	return nil
 }
 
+// Shutdown closes both SDK providers. Call it after channels/server have stopped
+// so transport-completion telemetry can be recorded before provider shutdown.
 func (t *Telemetry) Shutdown(ctx context.Context) error {
 	return errors.Join(t.Tracer.Shutdown(ctx), t.Meter.Shutdown(ctx))
 }

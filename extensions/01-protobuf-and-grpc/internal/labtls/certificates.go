@@ -17,6 +17,8 @@ import (
 	"time"
 )
 
+// Material holds PEM-encoded public CA, server certificate, and server private
+// key bytes. Clients need only CA; never give them the server's Key.
 type Material struct{ CA, Certificate, Key []byte }
 
 func serialNumber() (*big.Int, error) {
@@ -30,6 +32,8 @@ func serialNumber() (*big.Int, error) {
 	return serial.Add(serial, big.NewInt(1)), nil
 }
 
+// Generate creates a 24-hour local CA/server pair for localhost and loopback IPs.
+// The CA private key is discarded after signing, so renewal requires a new pair.
 func Generate() (Material, error) {
 	caPublic, caKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -79,6 +83,8 @@ func Generate() (Material, error) {
 	}, nil
 }
 
+// ServerConfig loads this server's certificate/key and requires TLS 1.3 or newer.
+// Client identity is supplied by bearer credentials, not client certificates.
 func (m Material) ServerConfig() (*tls.Config, error) {
 	certificate, err := tls.X509KeyPair(m.Certificate, m.Key)
 	if err != nil {
@@ -87,6 +93,8 @@ func (m Material) ServerConfig() (*tls.Config, error) {
 	return &tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{certificate}}, nil
 }
 
+// ClientConfig requires TLS 1.3 or newer and trusts the supplied CA certificates.
+// The dial target determines the hostname/IP to verify during the handshake.
 func ClientConfig(caPEM []byte) (*tls.Config, error) {
 	roots := x509.NewCertPool()
 	if !roots.AppendCertsFromPEM(caPEM) {
@@ -97,6 +105,8 @@ func ClientConfig(caPEM []byte) (*tls.Config, error) {
 	return &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: roots}, nil
 }
 
+// WriteDirectory creates a new owner-only directory beneath an existing parent.
+// Existing directories fail; an I/O failure can leave partial files for inspection.
 func (m Material) WriteDirectory(directory string) error {
 	// Require a new directory. Existing certificates/keys are never overwritten.
 	if err := os.Mkdir(directory, 0o700); err != nil {
@@ -113,6 +123,7 @@ func (m Material) WriteDirectory(directory string) error {
 	return nil
 }
 
+// LoadServer reads server.pem/server-key.pem for the standalone TLS server.
 func LoadServer(directory string) (*tls.Config, error) {
 	certificate, err := tls.LoadX509KeyPair(filepath.Join(directory, "server.pem"), filepath.Join(directory, "server-key.pem"))
 	if err != nil {
@@ -121,6 +132,7 @@ func LoadServer(directory string) (*tls.Config, error) {
 	return &tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{certificate}}, nil
 }
 
+// LoadClient reads only ca.pem, so the standalone client needs no private key.
 func LoadClient(directory string) (*tls.Config, error) {
 	ca, err := os.ReadFile(filepath.Join(directory, "ca.pem"))
 	if err != nil {

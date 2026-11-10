@@ -13,8 +13,11 @@ import (
 	"golangcourse/chapters/13-standard-library/06-project-rest-api/contacts"
 )
 
+// MaxRequestBytes bounds each accepted JSON body, including whitespace. Field
+// limits count runes after trimming and are validated separately by the store.
 const MaxRequestBytes = 4 * 1024
 
+// MergePatchMediaType selects the omission/string/null semantics used by PATCH.
 const MergePatchMediaType = "application/merge-patch+json"
 
 type contactRequest struct {

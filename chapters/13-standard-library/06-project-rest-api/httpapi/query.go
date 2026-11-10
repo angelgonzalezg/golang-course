@@ -8,6 +8,8 @@ import (
 	"golangcourse/chapters/13-standard-library/06-project-rest-api/contacts"
 )
 
+// Pagination describes this snapshot's page. Total counts filtered matches
+// before applying Limit/Offset; a later request may see a changed collection.
 type Pagination struct {
 	Limit  int `json:"limit"`
 	Offset int `json:"offset"`

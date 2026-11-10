@@ -44,8 +44,9 @@ absent versus explicitly empty optional versions, a mask selecting an empty
 email value, and an independently edited clone. These are executable concept
 examples, rather than serialization benchmarks.
 The unary, streaming, infrastructure, and resilience demos start temporary local
-server, make real RPC calls, and shut down automatically. Their guides show
-separate server/client modes. The infrastructure demo creates its temporary CA,
+servers, make real RPC calls, and shut down automatically. Stages 2-4 also offer
+separate server/client modes; stage 5 runs controlled finite scenarios.
+The infrastructure demo creates its temporary CA,
 certificates, and credentials in memory; ordinary runs need no external tools.
 The resilience lesson also collects local metrics/traces without a collector.
 
@@ -190,7 +191,7 @@ go -C extensions/01-protobuf-and-grpc run ./internal/cmd/protogen \
   -check -include /absolute/path/to/protoc/include
 ```
 
-## Remaining stages
+## Stage status
 
 | Stage | Status and scope |
 | --- | --- |
@@ -201,8 +202,8 @@ go -C extensions/01-protobuf-and-grpc run ./internal/cmd/protogen \
 | 5. Resilience and final review | Implemented: [four message boundaries, three-attempt retry budgets, subject-scoped idempotency, OpenTelemetry, and failure tests](05-resilience/README.md), plus [end-to-end review/validation](05-resilience/review.md). |
 
 All five agreed stages are implemented. Keep the examples separate so
-serialization concepts remain readable before
-transport and operational behavior are introduced. Load balancing, gateways,
+serialization concepts remain readable before transport and operational behavior
+are introduced. Load balancing, gateways,
 and deployment-specific integration can follow as optional deeper exercises.
 
 References: [gRPC Go quick start](https://grpc.io/docs/languages/go/quickstart/),

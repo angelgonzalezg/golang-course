@@ -14,6 +14,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// KeyHeader carries the stage-5 unary-create deduplication key, separately from
+// the request ID used for logging and the subject established by authentication.
 const KeyHeader = "x-idempotency-key"
 
 type scopedKey struct{ subject, key string }
@@ -34,6 +36,8 @@ type CreateCache struct {
 	entries  map[scopedKey]*createEntry
 }
 
+// NewCreateCache limits the number of subject/key reservations, including
+// in-flight requests and cached failures. It panics if capacity is nonpositive.
 func NewCreateCache(capacity int) *CreateCache {
 	if capacity < 1 {
 		panic("idempotency cache capacity must be positive")
@@ -53,6 +57,8 @@ func validKey(key string) bool {
 	return true
 }
 
+// Unary requires a key on CreateContact and rejects keys on other unary methods.
+// Install it after authorization so every replay still checks current permissions.
 func (c *CreateCache) Unary() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, request any, info *grpc.UnaryServerInfo, next grpc.UnaryHandler) (any, error) {
 		md, _ := metadata.FromIncomingContext(ctx)
@@ -126,11 +132,15 @@ func (c *CreateCache) do(ctx context.Context, subject, key string, request *cont
 	// Do not hold the cache mutex during store operations, and do not detach
 	// from the caller's context. Cancellation does not undo a completed create.
 	result, err := create()
+	// Retain terminal errors too: rerunning after an ambiguous backend failure
+	// could repeat a mutation that committed before the error was reported.
 	entry.result, entry.err = cloneContact(result), err
 	close(entry.done) // Publishes immutable result/error to all waiting callers.
 	return cloneContact(entry.result), entry.err
 }
 
+// RejectStreamingKeys prevents callers from assuming a key makes an import or
+// lookup conversation replayable. Stream progress keeps its original semantics.
 func RejectStreamingKeys() grpc.StreamServerInterceptor {
 	return func(service any, stream grpc.ServerStream, info *grpc.StreamServerInfo, next grpc.StreamHandler) error {
 		md, _ := metadata.FromIncomingContext(stream.Context())

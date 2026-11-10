@@ -8,6 +8,8 @@ import (
 	"unicode/utf8"
 )
 
+// Contact is a stored value shared by both transports. Returned copies can be
+// edited by the caller without changing the store; JSON/protobuf types stay in adapters.
 type Contact struct {
 	ID    int64
 	Name  string
@@ -38,6 +40,8 @@ var (
 	ErrPreconditionFailed = errors.New("contact version precondition failed")
 )
 
+// ValidationError identifies a rejected field. Use errors.As to read the field
+// and errors.Is(err, ErrInvalidInput) to recognize any input validation failure.
 type ValidationError struct {
 	Field   string
 	Message string

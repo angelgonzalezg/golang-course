@@ -1,4 +1,4 @@
-// Package rpcinfra supplies the cross-cutting behavior used in stage 4.
+// Package rpcinfra supplies metadata, logging, and access control for stages 4 and 5.
 package rpcinfra
 
 import (
@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Role selects this lab's reader/writer method permissions.
 type Role string
 
 const (
@@ -25,12 +26,16 @@ const (
 	Writer Role = "writer"
 )
 
+// Identity is assigned by the verifier after authentication, independently of
+// any subject or role a caller might place in request metadata.
 type Identity struct {
 	Subject string // Which teaching client authenticated.
 	Role    Role   // Which operations that client may perform.
 }
 type identityKey struct{}
 
+// IdentityFromContext reports the verified caller. It returns false before
+// authentication and on the deliberately public health Check path.
 func IdentityFromContext(ctx context.Context) (Identity, bool) {
 	identity, ok := ctx.Value(identityKey{}).(Identity)
 	return identity, ok
@@ -41,6 +46,8 @@ func IdentityFromContext(ctx context.Context) (Identity, bool) {
 // never from a client-supplied role header or request field.
 type Policy struct{ readerHash, writerHash [sha256.Size]byte }
 
+// NewPolicy binds two distinct tokens to the lab identities and stores hashes.
+// Each token must contain 1-256 visible ASCII characters without whitespace.
 func NewPolicy(readerToken, writerToken string) (*Policy, error) {
 	if !validToken(readerToken) || !validToken(writerToken) || readerToken == writerToken {
 		return nil, errors.New("two distinct nonempty ASCII bearer tokens without whitespace are required")
@@ -113,6 +120,7 @@ func (p *Policy) authorize(ctx context.Context, method string) (context.Context,
 	return context.WithValue(ctx, identityKey{}, identity), nil
 }
 
+// Unary verifies credentials and permissions before dispatching a unary RPC.
 func (p *Policy) Unary() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, request any, info *grpc.UnaryServerInfo, next grpc.UnaryHandler) (any, error) {
 		ctx, err := p.authorize(ctx, info.FullMethod)
@@ -130,6 +138,8 @@ type contextStream struct {
 
 func (s contextStream) Context() context.Context { return s.ctx }
 
+// Stream verifies once at RPC start and passes the identity in a derived stream
+// context. It does not reauthenticate each message or revoke an already-open stream.
 func (p *Policy) Stream() grpc.StreamServerInterceptor {
 	return func(service any, stream grpc.ServerStream, info *grpc.StreamServerInfo, next grpc.StreamHandler) error {
 		ctx, err := p.authorize(stream.Context(), info.FullMethod)

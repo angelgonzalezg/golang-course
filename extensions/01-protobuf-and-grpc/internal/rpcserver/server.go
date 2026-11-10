@@ -22,6 +22,8 @@ type Config struct {
 	Reflection    bool
 }
 
+// Running owns the serving/shutdown lifecycle. Call Shutdown even when Done
+// has closed so active handlers and shutdown work are joined.
 type Running struct {
 	server   *grpc.Server
 	health   *health.Server
@@ -29,10 +31,15 @@ type Running struct {
 	serveErr error // Read only after done closes.
 }
 
+// Start registers contacts and serves on listener using the earlier lessons'
+// plaintext transport. The returned owner is responsible for Shutdown.
 func Start(listener net.Listener, service contactsv1.ContactServiceServer) *Running {
 	return StartWithConfig(listener, service, Config{})
 }
 
+// StartWithConfig registers all services before starting Serve. ServerOptions
+// select TLS/interceptors; Health's initial statuses belong to the caller.
+// Reflection must be opted into explicitly. WaitForHandlers remains enabled.
 func StartWithConfig(listener net.Listener, service contactsv1.ContactServiceServer, config Config) *Running {
 	// Stop must join handlers as well as network goroutines. Consequently,
 	// application handlers must cooperate with their request context.
@@ -58,6 +65,10 @@ func StartWithConfig(listener net.Listener, service contactsv1.ContactServiceSer
 // handlers finished; the owner must also wait for Shutdown.
 func (r *Running) Done() <-chan struct{} { return r.done }
 
+// Shutdown publishes health NOT_SERVING and drains active RPCs. If ctx is canceled
+// or expires, Stop cancels their contexts and joins handlers before returning the
+// context error, possibly joined with a Serve error.
+// Handlers must cooperate with cancellation; the budget cannot kill goroutines.
 func (r *Running) Shutdown(ctx context.Context) error {
 	if r.health != nil {
 		// Notify existing watchers before draining. Watch streams themselves
