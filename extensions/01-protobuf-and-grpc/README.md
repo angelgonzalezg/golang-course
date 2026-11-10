@@ -10,7 +10,7 @@ the main course module. Use Go 1.27. The first run downloads pinned dependencies
 subsequent runs can reuse the module cache. Generated source is checked in, so
 running the lesson and ordinary tests does not require protoc.
 
-## Available stages: Protobuf, unary application, and streaming
+## Available stages: Protobuf, unary, streaming, and infrastructure
 
 The implemented first stage provides a versioned `.proto` contract, generated
 message types and gRPC interfaces, a finite local serialization demo, and tests
@@ -19,7 +19,10 @@ locally. The [second stage](02-unary/README.md) now implements the six unary RPC
 with a shared-store adapter, real client/server demos, status errors, contexts,
 and in-memory/TCP integration tests. The [third stage](03-streaming/README.md)
 adds server streaming, bounded client-stream imports, and bidirectional lookups
-with per-item outcomes, cancellation, flow control, and lifecycle tests.
+with per-item outcomes, cancellation, flow control, and lifecycle tests. The
+[fourth stage](04-infrastructure/README.md) adds metadata, interceptor chains,
+completion logging, verified TLS, reader/writer access, health, reflection, and
+grpcurl exercises around the same service.
 
 From the repository root:
 
@@ -27,6 +30,7 @@ From the repository root:
 go -C extensions/01-protobuf-and-grpc run ./01-protobuf
 go -C extensions/01-protobuf-and-grpc run ./02-unary
 go -C extensions/01-protobuf-and-grpc run ./03-streaming
+go -C extensions/01-protobuf-and-grpc run ./04-infrastructure
 go -C extensions/01-protobuf-and-grpc test -count=1 -timeout=30s ./...
 go -C extensions/01-protobuf-and-grpc vet ./...
 go -C extensions/01-protobuf-and-grpc mod tidy -diff
@@ -36,8 +40,10 @@ The demo prints a successful binary round-trip, ProtoJSON with a string ID,
 absent versus explicitly empty optional versions, a mask selecting an empty
 email value, and an independently edited clone. These are executable concept
 examples, rather than serialization benchmarks.
-The unary and streaming demos each start a temporary local server, make real
-RPC calls, and shut down automatically. Their guides show separate server/client modes.
+The unary, streaming, and infrastructure demos each start a temporary local
+server, make real RPC calls, and shut down automatically. Their guides show
+separate server/client modes. The infrastructure demo creates its temporary CA,
+certificates, and credentials in memory; ordinary runs need no external tools.
 
 ## Read in order
 
@@ -186,7 +192,7 @@ go -C extensions/01-protobuf-and-grpc run ./internal/cmd/protogen \
 | 1. Protobuf foundation | Implemented: contract, generated bindings, presence, masks, local serialization, compatibility examples, reproducible generation. |
 | 2. Unary application | Implemented: [shared-store adapter and client/server demos](02-unary/README.md), typed status errors, channel ownership, deadlines/cancellation, graceful/forced shutdown, and bufconn/TCP/shared-REST tests. |
 | 3. Streaming | Implemented: [three streaming call shapes](03-streaming/README.md), completion versus failure, partial imports, item outcomes, cancellation/deadlines, ordering, bounded work, flow control, and active-stream shutdown tests. |
-| 4. Service infrastructure | Pending: metadata, unary/stream interceptors, logging, TLS and authentication/authorization examples, health checks, reflection, and grpcurl use. |
+| 4. Service infrastructure | Implemented: [metadata and interceptor chains](04-infrastructure/README.md), completion logging, verified TLS, reader/writer authentication/authorization, health Check/List/Watch and shutdown, opt-in reflection v1/v1alpha, and [grpcurl exercises](04-infrastructure/grpcurl.md). |
 | 5. Resilience and final review | Pending: message limits, bounded retries with an explicit idempotency policy, observability, failure tests, and end-to-end documentation/validation. |
 
 Keep these stages separate so serialization concepts remain readable before

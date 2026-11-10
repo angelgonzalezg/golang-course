@@ -125,5 +125,7 @@ and compatibility tests. Its unary stage implements the client/server transport
 using the same contact rules, with status errors, deadlines, cancellation, and
 integration tests. Its streaming stage adds ordered result streams, bounded
 imports with partial commits, bidirectional lookup outcomes, and lifecycle
-tests. See its guide for the remaining infrastructure and resilience stages.
-This lab is supplementary to the book's chapter mapping.
+tests. Its infrastructure stage adds verified TLS, metadata/interceptors,
+reader/writer access, health, reflection, and grpcurl exercises. Resilience and
+the lab's final review remain. This lab is supplementary to the book's chapter
+mapping.

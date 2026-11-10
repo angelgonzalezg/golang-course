@@ -47,7 +47,8 @@ expected result for unchanged examples. See the [module lab](../chapters/10-modu
 
 The [gRPC lab](../extensions/01-protobuf-and-grpc/README.md) is another independent
 module. Its first stage runs local serialization examples; its second stage
-implements the unary transport, and its third adds three streaming call shapes.
+implements the unary transport, its third adds three streaming call shapes,
+and its fourth adds TLS, metadata/interceptors, access control, and standard services.
 Initial use downloads its pinned Go
 dependencies, kept outside the main course module:
 
@@ -55,6 +56,7 @@ dependencies, kept outside the main course module:
 go -C extensions/01-protobuf-and-grpc run ./01-protobuf
 go -C extensions/01-protobuf-and-grpc run ./02-unary
 go -C extensions/01-protobuf-and-grpc run ./03-streaming
+go -C extensions/01-protobuf-and-grpc run ./04-infrastructure
 go -C extensions/01-protobuf-and-grpc test -count=1 -timeout=30s ./...
 go -C extensions/01-protobuf-and-grpc vet ./...
 go -C extensions/01-protobuf-and-grpc mod tidy -diff
@@ -344,4 +346,36 @@ The three streaming methods and their messages were added without changing
 existing field numbers or unary method identities. Dependency files, tool pins,
 and the shared contact implementation are unchanged. The server stream selects
 one bounded page; imports commit individually rather than transactionally.
-Service infrastructure and resilience remain stages 4 and 5 in the lab guide.
+At that stage, service infrastructure and resilience remained stages 4 and 5.
+
+### gRPC infrastructure validation
+
+Stage 4 passed its finite verified-TLS demo, uncached module tests, vet, and
+`mod tidy -diff` with Go 1.27.0 on darwin/arm64. The whole module passed
+`-race -count=3 -cpu=1,2 -timeout=45s`, retaining the earlier examples and
+server lifecycle tests. The root and nested module dependency files, contact
+rules, Protobuf contract, generated bindings, and compiler/plugin pins are unchanged.
+
+Real loopback TLS tests rejected untrusted CAs and wrong hostnames, while call
+credentials rejected plaintext channels. Tests exercised reader/writer access,
+unary and stream authentication failures, blocked mutations, ignored role-spoof
+headers, response metadata, invalid request IDs, generated IDs, and completion
+logs without tokens or contact payloads. Handler probes preserved identity,
+request IDs, TLS peer information, deadlines, and cancellation through both
+interceptor chains. Certificate tests checked name/expiry verification, private
+file permissions, refusal to replace existing keys, and CA-only client setup.
+
+Health tests covered Check/List/Watch, public Check versus protected discovery/
+subscriptions, readiness transitions, and NOT_SERVING notification before
+graceful/forced shutdown with an open Watch. Reflection tests checked explicit
+opt-in and access policy for v1 and v1alpha. Standalone tests generated local
+TLS files and ran repeated finite clients against the TLS server.
+
+An independent temporary-server check used grpcurl v1.9.4 over verified TLS for
+list/describe, unary creation/retrieval, all three streaming shapes, public
+health, missing-token and reader-write rejection, and reader calls using the
+local schema. It stopped its owned server and confirmed that completion logs
+contained neither fixture credentials nor contact payloads. grpcurl was run as
+a versioned external command; it was not added to the lab's dependencies.
+Formatting, whitespace, and local Markdown paths were checked. Stage 5 remains
+for message limits, retries/idempotency, observability, and final review.

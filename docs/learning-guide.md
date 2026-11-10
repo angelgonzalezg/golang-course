@@ -59,8 +59,12 @@ atomic versions, and shutdown with an active call. Continue with
 [streaming](../extensions/01-protobuf-and-grpc/03-streaming/README.md): distinguish
 request half-close from final status, partial import commits from rollback, and
 item failures from terminal errors. Trace concurrent sending/receiving and sender
-cleanup after cancellation. The lab uses its own module; its guide tracks the
-remaining infrastructure and resilience stages.
+cleanup after cancellation. Then run the
+[infrastructure stage](../extensions/01-protobuf-and-grpc/04-infrastructure/README.md)
+and trace transport credentials, call credentials, interceptor order, identity
+context, and header/trailer ownership. Compare authentication with authorization,
+readiness with connectivity, and reflection access with method access. The lab
+uses its own module; resilience and final review remain in stage 5.
 
 ## First pass through pointers
 
