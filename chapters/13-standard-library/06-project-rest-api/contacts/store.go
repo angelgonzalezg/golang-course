@@ -90,6 +90,11 @@ func (s *Store) List(ctx context.Context) ([]Contact, error) {
 // Replace keeps the ID and replaces Name, Email, and Phone. Empty optional
 // fields clear their previous values.
 func (s *Store) Replace(ctx context.Context, id int64, input Input) (Contact, error) {
+	return s.ReplaceIf(ctx, id, input, Conditions{})
+}
+
+// ReplaceIf also checks version conditions while holding the write lock.
+func (s *Store) ReplaceIf(ctx context.Context, id int64, input Input, conditions Conditions) (Contact, error) {
 	if err := ctx.Err(); err != nil {
 		return Contact{}, err
 	}
@@ -109,13 +114,17 @@ func (s *Store) Replace(ctx context.Context, id int64, input Input) (Contact, er
 	if !exists {
 		return Contact{}, ErrNotFound
 	}
-	return s.replaceLocked(old, input)
+	return s.replaceLocked(old, input, conditions)
 }
 
 // Patch changes only selected fields. Reading the current contact, applying
 // changes, validating, and saving all happen under one lock. Calling Get and
 // then Replace separately could overwrite another request's intervening edit.
 func (s *Store) Patch(ctx context.Context, id int64, changes Changes) (Contact, error) {
+	return s.PatchIf(ctx, id, changes, Conditions{})
+}
+
+func (s *Store) PatchIf(ctx context.Context, id int64, changes Changes, conditions Conditions) (Contact, error) {
 	if err := ctx.Err(); err != nil {
 		return Contact{}, err
 	}
@@ -145,14 +154,17 @@ func (s *Store) Patch(ctx context.Context, id int64, changes Changes) (Contact, 
 	if err != nil {
 		return Contact{}, err
 	}
-	return s.replaceLocked(old, input)
+	return s.replaceLocked(old, input, conditions)
 }
 
 // The caller holds the lock and supplies normalized input. Check the name
 // before changing either map so a rejected PUT or PATCH leaves both intact.
-func (s *Store) replaceLocked(old Contact, input Input) (Contact, error) {
+func (s *Store) replaceLocked(old Contact, input Input, conditions Conditions) (Contact, error) {
 	if owner, exists := s.byName[input.Name]; exists && owner != old.ID {
 		return Contact{}, ErrNameTaken
+	}
+	if err := conditions.check(old); err != nil {
+		return Contact{}, err
 	}
 	updated := Contact{ID: old.ID, Name: input.Name, Email: input.Email, Phone: input.Phone}
 	delete(s.byName, old.Name)
@@ -162,6 +174,10 @@ func (s *Store) replaceLocked(old Contact, input Input) (Contact, error) {
 }
 
 func (s *Store) Delete(ctx context.Context, id int64) error {
+	return s.DeleteIf(ctx, id, Conditions{})
+}
+
+func (s *Store) DeleteIf(ctx context.Context, id int64, conditions Conditions) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -176,6 +192,9 @@ func (s *Store) Delete(ctx context.Context, id int64) error {
 	contact, exists := s.byID[id]
 	if !exists {
 		return ErrNotFound
+	}
+	if err := conditions.check(contact); err != nil {
+		return err
 	}
 	delete(s.byID, id)
 	delete(s.byName, contact.Name)

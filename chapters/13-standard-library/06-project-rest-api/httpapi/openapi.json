@@ -1,0 +1,1580 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Learning Go Contacts REST API",
+    "version": "1.0.0",
+    "description": "Local in-memory teaching API. No authentication or persistence. Limits count UTF-8 runes after Unicode whitespace trimming; duplicate JSON keys and invalid UTF-8 are rejected. Request schemas describe syntax; resulting-contact rules and name uniqueness require runtime validation. Errors use RFC 9457 Problem Details. Reads use private, no-cache; errors and mutations use no-store. Date-based validators and ranges are not implemented."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Same origin. Default local interactive server: http://127.0.0.1:8080"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "discover",
+        "summary": "Discover resource and contract links",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current JSON representation. Private cache must revalidate before reuse.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Index"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      },
+      "head": {
+        "operationId": "discoverHead",
+        "summary": "Discover resource and contract links (headers only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Same validators and representation headers as GET; no body.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "304": {
+            "description": "Selected representation matches If-None-Match. No body or Content-Type.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request, query/header syntax, invalid input, or unsupported condition on POST/OPTIONS. HEAD returns representation headers only, never a body.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              }
+            }
+          },
+          "412": {
+            "description": "An entity-tag condition is false. No mutation occurred; fetch current state before deciding to retry. HEAD returns representation headers only, never a body.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected internal failure; implementation details are not exposed. HEAD returns representation headers only, never a body.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "getOpenAPI",
+        "summary": "Read this embedded OpenAPI document",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current JSON representation. Private cache must revalidate before reuse.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      },
+      "head": {
+        "operationId": "getOpenAPIHead",
+        "summary": "Read this embedded OpenAPI document (headers only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Same validators and representation headers as GET; no body.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "304": {
+            "description": "Selected representation matches If-None-Match. No body or Content-Type.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request, query/header syntax, invalid input, or unsupported condition on POST/OPTIONS. HEAD returns representation headers only, never a body.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              }
+            }
+          },
+          "412": {
+            "description": "An entity-tag condition is false. No mutation occurred; fetch current state before deciding to retry. HEAD returns representation headers only, never a body.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected internal failure; implementation details are not exposed. HEAD returns representation headers only, never a body.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/contacts": {
+      "get": {
+        "operationId": "listContacts",
+        "summary": "Filter, order, and paginate contacts",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/NameContains"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current JSON representation. Private cache must revalidate before reuse.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Collection"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "description": "Unknown, repeated, malformed, or invalid query parameters return 400. Filter, then order all matches, then paginate one snapshot. Offset traversal does not freeze data between requests."
+      },
+      "head": {
+        "operationId": "listContactsHead",
+        "summary": "Filter, order, and paginate contacts (headers only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/NameContains"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Same validators and representation headers as GET; no body.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "304": {
+            "description": "Selected representation matches If-None-Match. No body or Content-Type.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request, query/header syntax, invalid input, or unsupported condition on POST/OPTIONS. HEAD returns representation headers only, never a body.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              }
+            }
+          },
+          "412": {
+            "description": "An entity-tag condition is false. No mutation occurred; fetch current state before deciding to retry. HEAD returns representation headers only, never a body.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected internal failure; implementation details are not exposed. HEAD returns representation headers only, never a body.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              }
+            }
+          },
+          "503": {
+            "description": "Canceled/expired store operation, or exhausted IDs on creation. HEAD returns representation headers only, never a body.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              }
+            }
+          }
+        },
+        "description": "Unknown, repeated, malformed, or invalid query parameters return 400. Filter, then order all matches, then paginate one snapshot. Offset traversal does not freeze data between requests."
+      },
+      "post": {
+        "operationId": "createContact",
+        "summary": "Create a contact with a server-assigned ID",
+        "description": "If-Match and If-None-Match are rejected with 400 on this route. Uncompressed application/json body, maximum 4096 bytes. Names are unique after trimming and case sensitive.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactInput"
+              },
+              "example": {
+                "name": "Ana",
+                "email": "ana@example.com"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created contact. Location identifies the new resource; ETag matches its GET representation.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Location": {
+                "$ref": "#/components/headers/Location"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contact"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        }
+      }
+    },
+    "/contacts/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ContactID"
+        }
+      ],
+      "get": {
+        "operationId": "getContact",
+        "summary": "Retrieve a contact",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current JSON representation. Private cache must revalidate before reuse.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contact"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        }
+      },
+      "head": {
+        "operationId": "getContactHead",
+        "summary": "Retrieve contact headers",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Same representation headers as GET; no body.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "304": {
+            "description": "Selected representation matches If-None-Match. No body or Content-Type.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request, query/header syntax, invalid input, or unsupported condition on POST/OPTIONS. HEAD returns representation headers only, never a body.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              }
+            }
+          },
+          "404": {
+            "description": "Missing contact or route. Normal errors take precedence over valid preconditions. HEAD returns representation headers only, never a body.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              }
+            }
+          },
+          "412": {
+            "description": "An entity-tag condition is false. No mutation occurred; fetch current state before deciding to retry. HEAD returns representation headers only, never a body.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected internal failure; implementation details are not exposed. HEAD returns representation headers only, never a body.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              }
+            }
+          },
+          "503": {
+            "description": "Canceled/expired store operation, or exhausted IDs on creation. HEAD returns representation headers only, never a body.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "replaceContact",
+        "summary": "Replace all editable fields",
+        "description": "Omitted or null optional fields become empty and are absent from the response. Required name must be supplied. Update-only: a missing contact returns 404. Conditions are optional; omitting them permits last-write-wins. Compare and mutate under the same lock. Domain validation and ordinary errors precede condition evaluation. Body limit: 4096 bytes; no compression.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactInput"
+              },
+              "example": {
+                "name": "Ana Torres"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated contact. Input is normalized/transformed, so no success ETag is emitted. GET the resource for its new validator.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contact"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "patchContact",
+        "summary": "Change selected editable fields atomically",
+        "description": "Omitted members remain unchanged; null removes optional data. Removing required name fails. Empty/blank optional text normalizes to absence. Only object patches over writable fields are supported. Update-only: a missing contact returns 404. Conditions are optional; omitting them permits last-write-wins. Compare and mutate under the same lock. Domain validation and ordinary errors precede condition evaluation. Body limit: 4096 bytes; no compression.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/merge-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactPatch"
+              },
+              "example": {
+                "email": "new@example.com"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated contact. Includes its current ETag.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Accept-Patch": {
+                "$ref": "#/components/headers/AcceptPatch"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contact"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request, query/header syntax, invalid input, or unsupported condition on POST/OPTIONS.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Accept-Patch": {
+                "$ref": "#/components/headers/AcceptPatch"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Missing contact or route. Normal errors take precedence over valid preconditions.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Accept-Patch": {
+                "$ref": "#/components/headers/AcceptPatch"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Another contact already uses the normalized name.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Accept-Patch": {
+                "$ref": "#/components/headers/AcceptPatch"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "An entity-tag condition is false. No mutation occurred; fetch current state before deciding to retry.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Accept-Patch": {
+                "$ref": "#/components/headers/AcceptPatch"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds 4096 bytes, including whitespace.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Accept-Patch": {
+                "$ref": "#/components/headers/AcceptPatch"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported or missing request media type or unsupported content encoding.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Accept-Patch": {
+                "$ref": "#/components/headers/AcceptPatch"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected internal failure; implementation details are not exposed.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Accept-Patch": {
+                "$ref": "#/components/headers/AcceptPatch"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Canceled/expired store operation, or exhausted IDs on creation.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Accept-Patch": {
+                "$ref": "#/components/headers/AcceptPatch"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteContact",
+        "summary": "Delete an existing contact",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Contact removed; no body or ETag.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        }
+      },
+      "options": {
+        "operationId": "contactCapabilities",
+        "summary": "Discover methods and patch format",
+        "description": "Describes this route without checking contact existence. Entity-tag conditions are rejected with 400.",
+        "responses": {
+          "204": {
+            "description": "No body. Allow lists DELETE, GET, HEAD, OPTIONS, PATCH, PUT.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Allow": {
+                "$ref": "#/components/headers/Allow"
+              },
+              "Accept-Patch": {
+                "$ref": "#/components/headers/AcceptPatch"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Index": {
+        "type": "object",
+        "properties": {
+          "links": {
+            "type": "object",
+            "properties": {
+              "contacts": {
+                "const": "/contacts"
+              },
+              "openapi": {
+                "const": "/openapi.json"
+              }
+            },
+            "required": [
+              "contacts",
+              "openapi"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "links"
+        ],
+        "additionalProperties": false
+      },
+      "ContactLinks": {
+        "type": "object",
+        "properties": {
+          "self": {
+            "type": "string",
+            "description": "",
+            "pattern": "^/contacts/[1-9][0-9]*$"
+          },
+          "collection": {
+            "const": "/contacts"
+          }
+        },
+        "required": [
+          "self",
+          "collection"
+        ],
+        "additionalProperties": false
+      },
+      "PageLinks": {
+        "type": "object",
+        "properties": {
+          "self": {
+            "type": "string",
+            "description": "",
+            "pattern": "^/contacts\\?"
+          },
+          "first": {
+            "type": "string",
+            "description": "",
+            "pattern": "^/contacts\\?"
+          },
+          "next": {
+            "type": "string",
+            "description": "",
+            "pattern": "^/contacts\\?"
+          },
+          "prev": {
+            "type": "string",
+            "description": "",
+            "pattern": "^/contacts\\?"
+          }
+        },
+        "required": [
+          "self",
+          "first"
+        ],
+        "additionalProperties": false
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "limit",
+          "offset",
+          "total"
+        ],
+        "additionalProperties": false
+      },
+      "Contact": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          },
+          "name": {
+            "type": "string",
+            "description": "Trimmed required name.",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "email": {
+            "type": "string",
+            "description": "Optional trimmed text; absent when empty. No email-format validation.",
+            "minLength": 1,
+            "maxLength": 254
+          },
+          "phone": {
+            "type": "string",
+            "description": "Optional trimmed text; absent when empty.",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "links": {
+            "$ref": "#/components/schemas/ContactLinks"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "links"
+        ],
+        "additionalProperties": false
+      },
+      "ContactInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Required. After Unicode whitespace trimming: 1–80 runes. Unique case-sensitive name.",
+            "minLength": 1
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Trimmed optional text; at most 254 runes after trimming. Missing or null clears the field."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Trimmed optional text; at most 40 runes after trimming. Missing or null clears the field."
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "ContactPatch": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Omission preserves the name. A supplied string replaces it; null or blank fails resulting-contact validation. Maximum 80 runes after trimming."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Omission preserves email. String replaces it, null removes it. Empty/blank normalizes to missing data. Maximum 254 runes after trimming."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Omission preserves phone. String replaces it, null removes it. Empty/blank normalizes to missing data. Maximum 40 runes after trimming."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "Problem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "about:blank"
+          },
+          "title": {
+            "type": "string",
+            "description": ""
+          },
+          "status": {
+            "type": "integer",
+            "minimum": 400,
+            "maximum": 599
+          },
+          "detail": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail"
+        ],
+        "additionalProperties": false
+      },
+      "Collection": {
+        "type": "object",
+        "properties": {
+          "contacts": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/Contact"
+            }
+          },
+          "links": {
+            "$ref": "#/components/schemas/PageLinks"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        },
+        "required": [
+          "contacts",
+          "links",
+          "pagination"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "headers": {
+      "ETag": {
+        "description": "Opaque strong validator; preserve its double quotes.",
+        "schema": {
+          "type": "string",
+          "description": "",
+          "pattern": "^\"[^\"]*\"$"
+        },
+        "required": true
+      },
+      "CacheControl": {
+        "description": "Read representations require private revalidation; errors and mutations use no-store.",
+        "schema": {
+          "type": "string",
+          "description": ""
+        },
+        "required": true
+      },
+      "NoSniff": {
+        "description": "Disable content type sniffing.",
+        "schema": {
+          "type": "string",
+          "description": "",
+          "enum": [
+            "nosniff"
+          ]
+        },
+        "required": true
+      },
+      "Location": {
+        "description": "Relative URL of the created contact.",
+        "schema": {
+          "type": "string",
+          "description": "",
+          "pattern": "^/contacts/[1-9][0-9]*$"
+        },
+        "required": true
+      },
+      "Allow": {
+        "description": "Methods supported on the selected route.",
+        "schema": {
+          "type": "string",
+          "description": ""
+        },
+        "required": true
+      },
+      "AcceptPatch": {
+        "description": "Supported patch media type.",
+        "schema": {
+          "type": "string",
+          "description": "",
+          "enum": [
+            "application/merge-patch+json"
+          ]
+        },
+        "required": true
+      }
+    },
+    "parameters": {
+      "ContactID": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Canonical positive decimal int64: digits only, no leading zeros or plus sign.",
+        "schema": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "description": "Maximum response item count. Canonical decimal, appears at most once.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        }
+      },
+      "Offset": {
+        "name": "offset",
+        "in": "query",
+        "description": "Matches to skip. Canonical decimal fitting Go int; appears at most once.",
+        "schema": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        }
+      },
+      "NameContains": {
+        "name": "name_contains",
+        "in": "query",
+        "description": "Trimmed Unicode-lowercased substring comparison. At most 80 runes after trimming; no accent removal or Unicode normalization.",
+        "schema": {
+          "type": "string",
+          "description": "",
+          "default": ""
+        }
+      },
+      "Sort": {
+        "name": "sort",
+        "in": "query",
+        "description": "Name sort compares Unicode-lowercased strings; equal keys use increasing ID in either direction.",
+        "schema": {
+          "type": "string",
+          "description": "",
+          "enum": [
+            "id",
+            "-id",
+            "name",
+            "-name"
+          ],
+          "default": "id"
+        }
+      },
+      "IfMatch": {
+        "name": "If-Match",
+        "in": "header",
+        "description": "Optional * or quoted entity-tag list. Strong comparison; weak tags cannot satisfy it. Evaluated before If-None-Match. An empty list matches nothing.",
+        "schema": {
+          "type": "string",
+          "description": ""
+        },
+        "example": "\"contact-json-v1-opaque-version\""
+      },
+      "IfNoneMatch": {
+        "name": "If-None-Match",
+        "in": "header",
+        "description": "Optional * or quoted entity-tag list. Weak comparison. Matching GET/HEAD returns 304; matching contact mutation returns 412.",
+        "schema": {
+          "type": "string",
+          "description": ""
+        }
+      }
+    },
+    "responses": {
+      "400": {
+        "description": "Malformed request, query/header syntax, invalid input, or unsupported condition on POST/OPTIONS.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "404": {
+        "description": "Missing contact or route. Normal errors take precedence over valid preconditions.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "409": {
+        "description": "Another contact already uses the normalized name.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "412": {
+        "description": "An entity-tag condition is false. No mutation occurred; fetch current state before deciding to retry.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "413": {
+        "description": "Request body exceeds 4096 bytes, including whitespace.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "415": {
+        "description": "Unsupported or missing request media type or unsupported content encoding.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "500": {
+        "description": "Unexpected internal failure; implementation details are not exposed.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "503": {
+        "description": "Canceled/expired store operation, or exhausted IDs on creation.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "MethodNotAllowed": {
+        "description": "Unsupported method on a known route.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          },
+          "Allow": {
+            "$ref": "#/components/headers/Allow"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "NotModified": {
+        "description": "Selected representation matches If-None-Match. No body or Content-Type.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          },
+          "ETag": {
+            "$ref": "#/components/headers/ETag"
+          }
+        }
+      }
+    }
+  },
+  "x-method-not-allowed-response": {
+    "$ref": "#/components/responses/MethodNotAllowed"
+  },
+  "x-unknown-route-response": {
+    "$ref": "#/components/responses/404"
+  }
+}

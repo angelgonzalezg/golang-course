@@ -23,8 +23,9 @@ go vet ./chapters/13-standard-library/06-project-rest-api/...
 The default command binds an available loopback port, runs its own requests,
 then shuts down and joins the server goroutine. It demonstrates creation,
 listing, retrieval, a duplicate conflict, partial updates with PATCH, full
-replacement with PUT, repeated requests, and deletion. It requires no external
-service and exits by itself.
+replacement with PUT, repeated requests, deletion, and following filtered
+collection pages. It also demonstrates 304 revalidation and rejection of a
+stale write with 412. It requires no external service and exits by itself.
 
 For interactive requests, keep a server running in one terminal:
 
@@ -71,6 +72,10 @@ curl -i -X DELETE http://127.0.0.1:8080/contacts/1
    concurrently. Its tests check snapshots, rejected writes, cancellation, and
    concurrent operations. `Patch` reads, validates, and writes under one lock
    so requests updating different fields preserve both changes.
+   Then read [collection queries](collection-queries.md) for a bounded search
+   over independent snapshots.
+   [Conditional requests](conditional-requests.md) add atomic version checks;
+   the [OpenAPI guide](openapi.md) describes the served contract and validation.
 3. [httpapi/handler.go](httpapi/handler.go): a consumer-defined interface connects
    HTTP to those operations. Separate representation structs define JSON fields
    and navigation links without changing the contact model.
@@ -94,8 +99,9 @@ rules. `NewHandler` receives its store; it does not construct global state.
 
 | Request | Meaning | Successful response |
 | --- | --- | --- |
-| `GET /` | Discover the collection link. | `200`, JSON links. |
-| `GET /contacts` | List contacts in increasing ID order. | `200`, JSON collection, including `[]` when empty. |
+| `GET /` | Discover the collection and contract links. | `200`, JSON links. |
+| `GET /openapi.json` | Retrieve the embedded OpenAPI 3.1.1 contract. | `200`, JSON document. |
+| `GET /contacts` | Filter, order, and paginate contacts; defaults to 20 in increasing ID order. | `200`, JSON collection, including `[]` when empty. |
 | `GET /contacts/{id}` | Retrieve a contact. | `200`, JSON contact. |
 | `POST /contacts` | Create a contact; the server assigns its ID. | `201`, JSON contact and relative `Location` header. |
 | `PUT /contacts/{id}` | Replace all editable fields of an existing contact. | `200`, JSON contact with the same ID. |
@@ -103,7 +109,11 @@ rules. `NewHandler` receives its store; it does not construct global state.
 | `DELETE /contacts/{id}` | Remove a contact. | `204`, no response body. |
 | `OPTIONS /contacts/{id}` | Discover this route's supported methods and patch format. | `204`, `Allow` and `Accept-Patch` headers, no body. |
 
-GET also supports HEAD; the real HTTP server suppresses the body. IDs are
+GET also supports HEAD and entity-tag preconditions; matching If-None-Match
+returns 304 without a body. PUT/PATCH/DELETE optionally accept version conditions
+and return 412 if a condition fails. The [conditional request guide](conditional-requests.md)
+explains precedence, cache policy, and the successful PUT validator restriction.
+The real HTTP server suppresses every HEAD body. IDs are
 positive `int64` values written as decimal digits without leading zeros.
 Successful representations use `application/json`. A creation response includes:
 
@@ -122,17 +132,28 @@ missing optional data, stored as an empty string, and omitted from JSON with
 `omitempty`. This representation rule applies to every route. Clients should
 allow those two members to be absent. ID, name, and links remain present.
 
-A collection contains `contacts` and `links.self`. Clients can follow returned
-links and `Location`; they do not need to guess assigned IDs. URLs identify
-resources, HTTP methods express operations, and JSON represents their current
+A collection contains `contacts`, `pagination` with limit/offset/total, and
+navigation links: `self`, `first`, and, when applicable, `next` and `prev`.
+Clients can follow returned links and `Location`; they do not need to guess
+assigned IDs. URLs identify resources, HTTP methods express operations, and JSON represents their current
 state. Each request supplies its own input; the API keeps resource data rather
-than a per-client conversation. Responses explicitly use `Cache-Control:
-no-store` in this version.
+than a per-client conversation. Successful reads use `Cache-Control: private,
+no-cache` for revalidation; errors and mutation responses use `no-store`.
 
 REST is an architectural style with constraints, not a synonym for JSON or CRUD.
 This project practices resource identification, representations, links, method
-semantics, and an explicit cache policy. It leaves broader API design exercises
-for later, including conditional requests and richer navigation.
+semantics, conditional requests, and an explicit cache policy.
+
+### Collection queries
+
+Use `limit`, `offset`, `name_contains`, and `sort` to select a page. For example,
+`GET /contacts?limit=2&name_contains=ana&sort=name` filters names, sorts all
+matches, and returns the first two. The maximum limit is 100. Empty results
+return 200 with `[]`; invalid or repeated query parameters return 400.
+
+The [collection query guide](collection-queries.md) explains the full contract,
+encoded URLs, navigation links, deterministic ordering, concurrent changes
+between pages, tests, and the in-memory implementation's costs.
 
 ### PUT versus PATCH
 
@@ -224,10 +245,11 @@ value. Domain values remain independent of JSON decoding rules.
 
 | Failure | Status |
 | --- | --- |
-| Malformed JSON, invalid field, invalid ID, or body read failure | 400 |
+| Malformed JSON/query/condition header, invalid input, or body read failure | 400 |
 | Missing resource or unknown route | 404 |
 | Unsupported method on a known route; includes `Allow` | 405 |
 | Duplicate name on creation, replacement, or partial update | 409 |
+| Valid entity-tag precondition does not match current state | 412 |
 | Accepted JSON body exceeds the byte limit | 413 |
 | Missing/invalid/unsupported media type or content encoding | 415 |
 | Unexpected store error or response encoding failure | 500 |
@@ -266,13 +288,15 @@ Shutdown uses a fresh three-second context, waits for active requests, and joins
 Handlers do not start background work. JSON is encoded before committing a
 success status, and 204 responses have no JSON body.
 
-This is a small in-memory exercise. It has no persistence, pagination,
-authentication, or deployment configuration. Simultaneous writes to the same
-field use the last successful write; the API does not detect stale client input.
+This is a small in-memory exercise. It has no persistence, authentication,
+or deployment configuration. Without an If-Match condition, simultaneous writes
+to the same field use the last successful write. Conditional writes detect stale
+representations and reject them atomically.
 PATCH preserves concurrent edits to unselected fields, but a PUT intentionally
-replaces every editable field. Useful follow-ups are pagination, ETag/If-Match,
-persistence, and tests for those contracts. The next transport exercise is
-Protobuf and gRPC over the same contact operations.
+replaces every editable field. The agreed REST blocks are complete: paged
+queries, ETag/conditional requests, and a checked [OpenAPI contract](openapi.md).
+Persistence and authentication remain later extensions. Protobuf and gRPC are
+the next transport exercise over the same contact operations.
 
 References: [HTTP semantics, RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html),
 [PATCH, RFC 5789](https://www.rfc-editor.org/rfc/rfc5789.html),

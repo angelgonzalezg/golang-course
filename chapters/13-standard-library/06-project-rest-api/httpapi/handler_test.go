@@ -64,7 +64,7 @@ func TestContactResourceLifecycle(t *testing.T) {
 		t.Fatalf("discovery links = %v", index.Links)
 	}
 	empty := decodeResponse[Collection](t, request(handler, "GET", "/contacts", ""), 200)
-	if empty.Contacts == nil || len(empty.Contacts) != 0 || empty.Links.Self != "/contacts" {
+	if empty.Contacts == nil || len(empty.Contacts) != 0 || empty.Links.Self != "/contacts?limit=20&offset=0&sort=id" || empty.Pagination != (Pagination{Limit: 20}) {
 		t.Fatalf("empty collection = %+v", empty)
 	}
 	response := request(handler, "POST", "/contacts", `{"name":" Ana ","email":" ana@example.com ","phone":" 555-0100 "}`)

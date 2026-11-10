@@ -110,6 +110,8 @@ func (a *api) writeStoreError(w http.ResponseWriter, err error) {
 		a.writeProblem(w, http.StatusNotFound, "contact not found")
 	case errors.Is(err, contacts.ErrNameTaken):
 		a.writeProblem(w, http.StatusConflict, "another contact already uses that name")
+	case errors.Is(err, contacts.ErrPreconditionFailed):
+		a.writeProblem(w, http.StatusPreconditionFailed, "contact version precondition failed; read the current contact before retrying")
 	case errors.Is(err, contacts.ErrIDExhausted):
 		a.writeProblem(w, http.StatusServiceUnavailable, "no contact IDs are available")
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
@@ -134,6 +136,8 @@ func (a *api) writeJSON(w http.ResponseWriter, status int, value any) {
 }
 
 func (a *api) writeProblem(w http.ResponseWriter, status int, detail string) {
+	w.Header().Del("ETag")
+	w.Header().Set("Cache-Control", "no-store")
 	// This representation has only valid constant text, validated domain messages,
 	// and an integer status. It is encoded before any response is committed.
 	data, err := json.Marshal(Problem{Type: "about:blank", Title: http.StatusText(status), Status: status, Detail: detail})

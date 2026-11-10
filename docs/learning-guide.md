@@ -41,8 +41,15 @@ Trace a request from the HTTP representation to the contact store and back.
 Explain POST's Location, PUT's full replacement versus PATCH's selected changes,
 omitted fields versus null, idempotency, and how shared data stays consistent
 under simultaneous requests. The earlier pointer project remains the
-introductory contact exercise; this one combines later concepts.
-Protobuf and gRPC will follow as a separate transport extension.
+introductory contact exercise; this one combines later concepts. Continue with
+[collection queries](../chapters/13-standard-library/06-project-rest-api/collection-queries.md):
+filter before counting and paging, follow returned links, and explain how a
+mutation between requests can move results. Then read
+[conditional requests](../chapters/13-standard-library/06-project-rest-api/conditional-requests.md)
+and the [OpenAPI contract](../chapters/13-standard-library/06-project-rest-api/openapi.md).
+Explain the difference between 304 and 412, why compare-and-write must be
+atomic, and which runtime constraints go beyond a schema. These REST blocks
+are complete before the Protobuf/gRPC transport extension.
 
 ## First pass through pointers
 

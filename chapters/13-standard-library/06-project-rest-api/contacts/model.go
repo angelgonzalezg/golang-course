@@ -31,10 +31,11 @@ type Changes struct {
 }
 
 var (
-	ErrInvalidInput = errors.New("invalid contact input")
-	ErrNotFound     = errors.New("contact not found")
-	ErrNameTaken    = errors.New("contact name already exists")
-	ErrIDExhausted  = errors.New("contact IDs exhausted")
+	ErrInvalidInput       = errors.New("invalid contact input")
+	ErrNotFound           = errors.New("contact not found")
+	ErrNameTaken          = errors.New("contact name already exists")
+	ErrIDExhausted        = errors.New("contact IDs exhausted")
+	ErrPreconditionFailed = errors.New("contact version precondition failed")
 )
 
 type ValidationError struct {

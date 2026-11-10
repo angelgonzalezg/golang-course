@@ -110,6 +110,8 @@ check your understanding before adding those extensions.
 
 The [contacts REST project](chapters/13-standard-library/06-project-rest-api/README.md)
 extends the HTTP lesson with resource URLs, CRUD operations, PUT versus PATCH,
-problem responses, and a reusable contact store. Its default demo is finite;
-use `-serve` for interactive requests. Protobuf and gRPC are the next extension,
-using the same contact rules with a different transport.
+paged and filtered collections, problem responses, and a reusable contact store.
+It includes conditional requests with ETag and a served, checked OpenAPI
+contract. Its default demo is finite; use `-serve` for interactive requests.
+The agreed REST extension blocks are complete. Protobuf and gRPC follow, using
+the same contact rules with a different transport.

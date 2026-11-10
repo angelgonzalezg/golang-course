@@ -173,7 +173,7 @@ type patchStore struct {
 	patch func(context.Context, int64, contacts.Changes) (contacts.Contact, error)
 }
 
-func (s patchStore) Patch(ctx context.Context, id int64, changes contacts.Changes) (contacts.Contact, error) {
+func (s patchStore) PatchIf(ctx context.Context, id int64, changes contacts.Changes, _ contacts.Conditions) (contacts.Contact, error) {
 	return s.patch(ctx, id, changes)
 }
 

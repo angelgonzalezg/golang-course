@@ -224,3 +224,28 @@ member omission, PUT/PATCH differences, all-or-nothing rejection, cancellation,
 media types, body limits, OPTIONS discovery, and simultaneous patches to
 different fields. Formatting, whitespace, and local Markdown paths were also
 checked after this extension.
+
+The collection-query extension passed its finite demonstration, uncached
+root-module tests, `go vet ./...`, and the repeated REST race checks. Added tests
+cover bounded defaults, query validation, filtering before pagination, Unicode
+matching, deterministic ordering, metadata, escaped navigation links, empty and
+out-of-range pages, snapshot independence, cancellation, and concurrent writes.
+Formatting, whitespace, and local Markdown paths were checked. Conditional
+requests with ETag and the OpenAPI contract were the next REST blocks at that stage.
+
+The remaining REST blocks are now complete. The final demonstration exercises
+304 revalidation, a successful conditional edit, a rejected stale write with
+412, and conditional deletion. Root-module tests and vet passed; REST tests also
+passed `-race -count=3 -cpu=1,2`. They check entity-tag grammar, strong and weak
+comparison, wildcards and lists, normal error precedence, transformed PUT
+validator rules, page tags, actual HEAD behavior, and competing writers.
+
+The OpenAPI 3.1.1 document passed `openapi-spec-validator` 0.9.0. The optional
+Python check built a temporary binary, served it outside the source directory,
+and validated 37 live HTTP responses, required headers, successful request
+fixtures, and empty HEAD/204/304 bodies against the contract using JSON Schema
+2020-12. It stopped its owned server cleanly. These are selected fixtures, not
+exhaustive protocol coverage. The check's Python dependencies are isolated from
+the standard-library-only Go module. Formatting, whitespace, and local Markdown
+paths were checked. Persistence, authentication, and deployment remain optional
+extensions beyond the completed REST scope.

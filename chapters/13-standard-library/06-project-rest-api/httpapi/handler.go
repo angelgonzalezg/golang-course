@@ -16,15 +16,18 @@ import (
 type ContactStore interface {
 	Create(context.Context, contacts.Input) (contacts.Contact, error)
 	Get(context.Context, int64) (contacts.Contact, error)
-	List(context.Context) ([]contacts.Contact, error)
-	Replace(context.Context, int64, contacts.Input) (contacts.Contact, error)
-	Patch(context.Context, int64, contacts.Changes) (contacts.Contact, error)
-	Delete(context.Context, int64) error
+	Search(context.Context, contacts.Query) (contacts.Page, error)
+	ReplaceIf(context.Context, int64, contacts.Input, contacts.Conditions) (contacts.Contact, error)
+	PatchIf(context.Context, int64, contacts.Changes, contacts.Conditions) (contacts.Contact, error)
+	DeleteIf(context.Context, int64, contacts.Conditions) error
 }
 
 type Links struct {
 	Self       string `json:"self"`
 	Collection string `json:"collection,omitempty"`
+	First      string `json:"first,omitempty"`
+	Next       string `json:"next,omitempty"`
+	Prev       string `json:"prev,omitempty"`
 }
 
 type ContactResource struct {
@@ -37,8 +40,9 @@ type ContactResource struct {
 }
 
 type Collection struct {
-	Contacts []ContactResource `json:"contacts"`
-	Links    Links             `json:"links"`
+	Contacts   []ContactResource `json:"contacts"`
+	Links      Links             `json:"links"`
+	Pagination Pagination        `json:"pagination"`
 }
 
 type api struct {
@@ -61,6 +65,8 @@ func NewHandler(store ContactStore, logger *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", a.index)
 	mux.HandleFunc("/{$}", a.methodNotAllowed("GET, HEAD"))
+	mux.HandleFunc("GET /openapi.json", a.openAPI)
+	mux.HandleFunc("/openapi.json", a.methodNotAllowed("GET, HEAD"))
 	mux.HandleFunc("GET /contacts", a.list)
 	mux.HandleFunc("POST /contacts", a.create)
 	mux.HandleFunc("/contacts", a.methodNotAllowed("GET, HEAD, POST"))
@@ -74,8 +80,8 @@ func NewHandler(store ContactStore, logger *slog.Logger) http.Handler {
 		a.writeProblem(w, http.StatusNotFound, "resource not found")
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// This first version makes responses explicitly non-cacheable. A later
-		// exercise can add validators and conditional requests as a separate contract.
+		// Errors and mutation responses stay non-cacheable. Successful reads
+		// select private revalidation in writeReadBytes.
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		mux.ServeHTTP(w, r)
@@ -90,20 +96,28 @@ func resource(contact contacts.Contact) ContactResource {
 }
 
 func (a *api) index(w http.ResponseWriter, r *http.Request) {
-	a.writeJSON(w, http.StatusOK, map[string]any{"links": map[string]string{"contacts": "/contacts"}})
+	a.writeReadJSON(w, r, map[string]any{"links": map[string]string{"contacts": "/contacts", "openapi": "/openapi.json"}}, "")
 }
 
 func (a *api) list(w http.ResponseWriter, r *http.Request) {
-	values, err := a.store.List(r.Context())
+	query, ok := a.readQuery(w, r)
+	if !ok {
+		return
+	}
+	page, err := a.store.Search(r.Context(), query)
 	if err != nil {
 		a.writeStoreError(w, err)
 		return
 	}
-	result := Collection{Contacts: make([]ContactResource, 0, len(values)), Links: Links{Self: "/contacts"}}
-	for _, value := range values {
+	result := Collection{
+		Contacts:   make([]ContactResource, 0, len(page.Contacts)),
+		Links:      pageLinks(page),
+		Pagination: Pagination{Limit: page.Query.Limit, Offset: page.Query.Offset, Total: page.Total},
+	}
+	for _, value := range page.Contacts {
 		result.Contacts = append(result.Contacts, resource(value))
 	}
-	a.writeJSON(w, http.StatusOK, result)
+	a.writeReadJSON(w, r, result, "")
 }
 
 func (a *api) get(w http.ResponseWriter, r *http.Request) {
@@ -116,10 +130,13 @@ func (a *api) get(w http.ResponseWriter, r *http.Request) {
 		a.writeStoreError(w, err)
 		return
 	}
-	a.writeJSON(w, http.StatusOK, resource(value))
+	a.writeReadJSON(w, r, resource(value), contactTag(value))
 }
 
 func (a *api) create(w http.ResponseWriter, r *http.Request) {
+	if a.rejectConditions(w, r) {
+		return
+	}
 	input, ok := a.readInput(w, r)
 	if !ok {
 		return
@@ -132,6 +149,7 @@ func (a *api) create(w http.ResponseWriter, r *http.Request) {
 	result := resource(value)
 	// A relative Location avoids deriving an absolute URL from an untrusted Host.
 	w.Header().Set("Location", result.Links.Self)
+	w.Header().Set("ETag", contactTag(value))
 	a.writeJSON(w, http.StatusCreated, result)
 }
 
@@ -145,11 +163,17 @@ func (a *api) replace(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	value, err := a.store.Replace(r.Context(), id, input)
+	conditions, ok := a.readConditions(w, r)
+	if !ok {
+		return
+	}
+	value, err := a.store.ReplaceIf(r.Context(), id, input, conditions)
 	if err != nil {
 		a.writeStoreError(w, err)
 		return
 	}
+	// PUT normalizes input and constructs a representation. HTTP forbids a
+	// success validator after such a transformation; GET supplies the new ETag.
 	a.writeJSON(w, http.StatusOK, resource(value))
 }
 
@@ -164,15 +188,23 @@ func (a *api) patch(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	value, err := a.store.Patch(r.Context(), id, changes)
+	conditions, ok := a.readConditions(w, r)
+	if !ok {
+		return
+	}
+	value, err := a.store.PatchIf(r.Context(), id, changes, conditions)
 	if err != nil {
 		a.writeStoreError(w, err)
 		return
 	}
+	w.Header().Set("ETag", contactTag(value))
 	a.writeJSON(w, http.StatusOK, resource(value))
 }
 
 func (a *api) options(w http.ResponseWriter, r *http.Request) {
+	if a.rejectConditions(w, r) {
+		return
+	}
 	if _, ok := a.readID(w, r); !ok {
 		return
 	}
@@ -187,7 +219,11 @@ func (a *api) delete(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := a.store.Delete(r.Context(), id); err != nil {
+	conditions, ok := a.readConditions(w, r)
+	if !ok {
+		return
+	}
+	if err := a.store.DeleteIf(r.Context(), id, conditions); err != nil {
 		a.writeStoreError(w, err)
 		return
 	}
