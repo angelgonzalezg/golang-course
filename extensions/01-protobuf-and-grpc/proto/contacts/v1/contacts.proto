@@ -1,0 +1,98 @@
+syntax = "proto3";
+
+package contacts.v1;
+
+option go_package = "example.com/course/grpc-lab/gen/contacts/v1;contactsv1";
+
+import "google/protobuf/field_mask.proto";
+
+// Contact is a transport representation. The application assigns ID/version.
+// Empty email/phone mean missing optional data, as in the shared contact store.
+message Contact {
+  int64 id = 1;
+  string name = 2;
+  string email = 3;
+  string phone = 4;
+  string version = 5;
+
+  // Example of protecting a retired field: never reuse its number or name.
+  reserved 6;
+  reserved "legacy_notes";
+}
+
+// ContactInput contains only editable fields. Decoding a protobuf message does
+// not enforce business rules: the service must trim and validate these values.
+message ContactInput {
+  string name = 1;
+  string email = 2;
+  string phone = 3;
+}
+
+message CreateContactRequest {
+  ContactInput input = 1; // Required by the service; protobuf itself permits absence.
+}
+
+message GetContactRequest {
+  int64 id = 1;
+}
+
+enum SortOrder {
+  SORT_ORDER_UNSPECIFIED = 0; // Service default: increasing ID.
+  SORT_ORDER_ID_ASC = 1;
+  SORT_ORDER_ID_DESC = 2;
+  SORT_ORDER_NAME_ASC = 3;
+  SORT_ORDER_NAME_DESC = 4;
+}
+
+message ListContactsRequest {
+  // Zero uses the service default of 20; other values must be between 1 and 100.
+  int32 limit = 1;
+  int64 offset = 2; // Nonnegative; must fit the server's Go int.
+  string name_contains = 3;
+  SortOrder sort = 4;
+}
+
+message ListContactsResponse {
+  repeated Contact contacts = 1;
+  int64 total = 2; // All matches, before selecting a page.
+  int32 limit = 3;
+  int64 offset = 4;
+  optional int64 next_offset = 5; // Absent on the last page, including empty pages.
+}
+
+message ReplaceContactRequest {
+  int64 id = 1;
+  ContactInput input = 2; // Required; replaces all editable fields.
+  // Absent means unconditional. Present must be a nonempty version copied from
+  // a previous Contact. An explicitly empty string is invalid, not "absent".
+  optional string expected_version = 3;
+}
+
+message UpdateContactRequest {
+  int64 id = 1;
+  ContactInput input = 2; // Required, even when selected values are empty.
+  // Required, nonempty paths drawn from name/email/phone; no wildcard, nested,
+  // or duplicate paths. Only selected fields change; other values are ignored.
+  // Selecting email with its zero value "" clears it. Selecting blank name fails.
+  google.protobuf.FieldMask update_mask = 3;
+  optional string expected_version = 4;
+}
+
+message DeleteContactRequest {
+  int64 id = 1;
+  optional string expected_version = 2;
+}
+
+// A dedicated response can gain fields later without changing the RPC type.
+message DeleteContactResponse {}
+
+// These unary methods are the first transport stage. Request/response types
+// define the contract here; later lessons implement the shared store adapter.
+service ContactService {
+  rpc CreateContact(CreateContactRequest) returns (Contact);
+  rpc GetContact(GetContactRequest) returns (Contact);
+  rpc ListContacts(ListContactsRequest) returns (ListContactsResponse);
+  rpc ReplaceContact(ReplaceContactRequest) returns (Contact);
+  rpc UpdateContact(UpdateContactRequest) returns (Contact);
+  rpc DeleteContact(DeleteContactRequest) returns (DeleteContactResponse);
+}

@@ -9,6 +9,9 @@ Most lessons and projects are separate `main` packages, with tests alongside the
 Chapter 10 also introduces library packages and an isolated lab with nested modules.
 Chapter 15 uses library packages with executable tests, examples, and benchmarks.
 Chapter 16's optional cgo lab is another independent module and needs a C compiler.
+The supplementary [Protobuf/gRPC lab](extensions/01-protobuf-and-grpc/README.md)
+also has an independent module, with external dependencies kept outside the
+main course module.
 
 ## Requirements
 
@@ -78,13 +81,14 @@ Read that context chapter before the advanced concurrency pattern lesson in chap
 | Log levels | 7. Types, methods, and interfaces | [Run after Stringer](chapters/07-types-methods-and-interfaces/05-project-log-levels/README.md) |
 | Math helpers with errors | 9. Errors | [Run after error handling](chapters/09-errors/03-project-math-helpers/README.md) |
 | Contact resources over HTTP | 13. The standard library | [REST API with CRUD, validation, context, and tests](chapters/13-standard-library/06-project-rest-api/README.md); revisit after chapters 14–15. |
+| Protobuf and gRPC contacts lab | Supplement after REST | [Contract and serialization foundation](extensions/01-protobuf-and-grpc/README.md); transport stages follow separately. |
 
 ## Validate the course
 
 ```sh
 go test -count=1 -timeout=60s ./...
 go vet ./...
-gofmt -l chapters
+gofmt -l chapters extensions
 ```
 
 Use the [validation guide](docs/validation.md) for the complete procedure:
@@ -93,6 +97,7 @@ race checks, fuzzing, benchmarks, unsafe instrumentation, and the optional cgo l
 
 The root commands cover the main module. Chapter 10's three versioning modules
 and chapter 16's cgo module have their own boundaries and explicit commands.
+The Protobuf/gRPC lab also uses explicit `go -C` commands from its guide.
 The main course also passes with `CGO_ENABLED=0`; the optional cgo lab needs a
 C compiler.
 
@@ -113,5 +118,9 @@ extends the HTTP lesson with resource URLs, CRUD operations, PUT versus PATCH,
 paged and filtered collections, problem responses, and a reusable contact store.
 It includes conditional requests with ETag and a served, checked OpenAPI
 contract. Its default demo is finite; use `-serve` for interactive requests.
-The agreed REST extension blocks are complete. Protobuf and gRPC follow, using
-the same contact rules with a different transport.
+The agreed REST extension blocks are complete. The
+[Protobuf/gRPC lab](extensions/01-protobuf-and-grpc/README.md) starts with a
+versioned contact contract, generated bindings, local serialization examples,
+and compatibility tests. Its next stage implements the unary transport using
+the same contact rules. See its guide for the remaining streaming and service
+infrastructure stages. This lab is supplementary to the book's chapter mapping.

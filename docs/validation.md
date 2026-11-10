@@ -10,7 +10,7 @@ a matching C compiler and `CGO_ENABLED=1`.
 ```sh
 go test -count=1 -timeout=60s ./...
 go vet ./...
-gofmt -l chapters
+gofmt -l chapters extensions
 ```
 
 Formatting should list no files. `-count=1` requests an uncached test run. Tests
@@ -42,6 +42,33 @@ go -C chapters/10-modules-and-packages/02-module-versions/app run .
 
 `mod tidy -diff` checks metadata without applying changes. An empty diff is the
 expected result for unchanged examples. See the [module lab](../chapters/10-modules-and-packages/02-module-versions/README.md).
+
+## Supplementary Protobuf/gRPC module
+
+The [gRPC lab](../extensions/01-protobuf-and-grpc/README.md) is another independent
+module. Its first stage runs local serialization examples and tests; later
+stages implement the network transport. Initial use downloads its pinned Go
+dependencies, kept outside the main course module:
+
+```sh
+go -C extensions/01-protobuf-and-grpc run ./01-protobuf
+go -C extensions/01-protobuf-and-grpc test -count=1 -timeout=30s ./...
+go -C extensions/01-protobuf-and-grpc vet ./...
+go -C extensions/01-protobuf-and-grpc mod tidy -diff
+```
+
+Generated Go files are checked in, so ordinary runs/tests need no protoc.
+To verify regeneration, install the lab's recorded protoc 35.1 with its standard
+include files, then run:
+
+```sh
+go -C extensions/01-protobuf-and-grpc generate .
+go -C extensions/01-protobuf-and-grpc run ./internal/cmd/protogen -check
+```
+
+The check compares newly generated files in temporary storage with the
+checked-in outputs. The Go plugins are module tool dependencies; their versions
+are pinned in the lab's `go.mod`. Its README documents custom include layouts.
 
 ## Alternate builds and generated source
 
@@ -79,8 +106,8 @@ done
 ```
 
 The internal generator command is checked through `go generate` and its tests.
-Chapter 15's library packages run through `go test`. The two independent command
-modules use the explicit `go -C ... run .` commands in this guide. Lessons run
+Chapter 15's library packages run through `go test`. The independent command
+modules use the explicit `go -C` run commands in this guide. Lessons run
 finite demonstrations, including local HTTP servers that shut down themselves;
 I/O examples own temporary storage and cleanup.
 
@@ -175,8 +202,9 @@ Apple clang 21.0.0 available for the optional cgo module. It checked the content
 through `abe5818`, together with this review's documentation and comment
 clarifications. The agreed improvement sequence is complete.
 
-This snapshot predates the later REST project and planned gRPC extension. Its
-package and program counts describe the reviewed baseline, not those additions.
+This snapshot predates the later REST project and supplementary Protobuf/gRPC
+lab. Its package and program counts describe the reviewed baseline, not those
+additions.
 
 | Area | Result |
 | --- | --- |
@@ -249,3 +277,18 @@ exhaustive protocol coverage. The check's Python dependencies are isolated from
 the standard-library-only Go module. Formatting, whitespace, and local Markdown
 paths were checked. Persistence, authentication, and deployment remain optional
 extensions beyond the completed REST scope.
+
+### Protobuf/gRPC foundation validation
+
+The supplementary module's first stage passed its serialization demonstration,
+uncached tests, vet, and `mod tidy -diff` with Go 1.27.0 on darwin/arm64. Its
+recorded protoc 35.1 and pinned Go plugins regenerated both checked-in binding
+files exactly, verified by the generator's `-check` mode. Tests cover binary
+round-trips, independent clones, optional presence, masked clearing, ProtoJSON,
+a fixed wire-compatibility fixture, unknown binary fields, malformed input,
+and the stable service identity. Formatting and local Markdown links passed.
+
+The main module's dependency file is unchanged. This stage does not run RPC
+calls: implementing the shared-store unary transport and its integration tests
+is next. The lab guide tracks streaming, service infrastructure, and resilience
+as later stages; the generated interfaces alone are not a complete application.

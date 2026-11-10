@@ -295,8 +295,10 @@ representations and reject them atomically.
 PATCH preserves concurrent edits to unselected fields, but a PUT intentionally
 replaces every editable field. The agreed REST blocks are complete: paged
 queries, ETag/conditional requests, and a checked [OpenAPI contract](openapi.md).
-Persistence and authentication remain later extensions. Protobuf and gRPC are
-the next transport exercise over the same contact operations.
+Persistence and authentication remain later extensions. The supplementary
+[Protobuf/gRPC lab](../../../extensions/01-protobuf-and-grpc/README.md) begins
+with the contact contract and serialization, followed by a transport adapter
+over the same contact operations.
 
 References: [HTTP semantics, RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html),
 [PATCH, RFC 5789](https://www.rfc-editor.org/rfc/rfc5789.html),

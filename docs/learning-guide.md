@@ -49,7 +49,11 @@ mutation between requests can move results. Then read
 and the [OpenAPI contract](../chapters/13-standard-library/06-project-rest-api/openapi.md).
 Explain the difference between 304 and 412, why compare-and-write must be
 atomic, and which runtime constraints go beyond a schema. These REST blocks
-are complete before the Protobuf/gRPC transport extension.
+are complete. Continue with the supplementary
+[Protobuf/gRPC lab](../extensions/01-protobuf-and-grpc/README.md): first trace
+field numbers, optional presence, field masks, binary versus ProtoJSON, and
+generated-code ownership. The lab uses its own module; its guide distinguishes
+the implemented foundation from the later transport stages.
 
 ## First pass through pointers
 
