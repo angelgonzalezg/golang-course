@@ -52,8 +52,11 @@ atomic, and which runtime constraints go beyond a schema. These REST blocks
 are complete. Continue with the supplementary
 [Protobuf/gRPC lab](../extensions/01-protobuf-and-grpc/README.md): first trace
 field numbers, optional presence, field masks, binary versus ProtoJSON, and
-generated-code ownership. The lab uses its own module; its guide distinguishes
-the implemented foundation from the later transport stages.
+generated-code ownership. Then run the
+[unary application](../extensions/01-protobuf-and-grpc/02-unary/README.md), trace
+RPC-to-domain conversion, and explain status details, channel/context ownership,
+atomic versions, and shutdown with an active call. The lab uses its own module;
+its guide distinguishes completed stages from pending streaming/infrastructure.
 
 ## First pass through pointers
 

@@ -46,15 +46,17 @@ expected result for unchanged examples. See the [module lab](../chapters/10-modu
 ## Supplementary Protobuf/gRPC module
 
 The [gRPC lab](../extensions/01-protobuf-and-grpc/README.md) is another independent
-module. Its first stage runs local serialization examples and tests; later
-stages implement the network transport. Initial use downloads its pinned Go
+module. Its first stage runs local serialization examples; its second stage
+implements the unary transport. Initial use downloads its pinned Go
 dependencies, kept outside the main course module:
 
 ```sh
 go -C extensions/01-protobuf-and-grpc run ./01-protobuf
+go -C extensions/01-protobuf-and-grpc run ./02-unary
 go -C extensions/01-protobuf-and-grpc test -count=1 -timeout=30s ./...
 go -C extensions/01-protobuf-and-grpc vet ./...
 go -C extensions/01-protobuf-and-grpc mod tidy -diff
+go -C extensions/01-protobuf-and-grpc test -race -count=3 -cpu=1,2 -timeout=45s ./...
 ```
 
 Generated Go files are checked in, so ordinary runs/tests need no protoc.
@@ -288,7 +290,28 @@ round-trips, independent clones, optional presence, masked clearing, ProtoJSON,
 a fixed wire-compatibility fixture, unknown binary fields, malformed input,
 and the stable service identity. Formatting and local Markdown links passed.
 
-The main module's dependency file is unchanged. This stage does not run RPC
-calls: implementing the shared-store unary transport and its integration tests
-is next. The lab guide tracks streaming, service infrastructure, and resilience
-as later stages; the generated interfaces alone are not a complete application.
+The main module's dependency file is unchanged. At that stage only local
+serialization ran. The unary transport described below now implements RPCs;
+the lab guide tracks streaming, service infrastructure, and resilience as later
+stages. Generated interfaces alone do not implement an application.
+
+### Unary gRPC validation
+
+Stage 2 passed the finite loopback TCP demo, uncached module tests, vet, and
+`mod tidy -diff`. The whole lab also passed `-race -count=3 -cpu=1,2 -timeout=45s`.
+New tests exercise all six RPCs through bufconn, field-mask semantics, typed
+BadRequest details, default/filtered pages, rejected multi-field updates,
+stale versions, and competing writers using the same version.
+
+Controlled in-flight calls confirmed deadline and cancellation propagation to
+the store. TCP tests covered the demo and standalone server/client functions,
+lazy channel construction, a controlled unavailable transport, active-call
+graceful draining, and forced-stop cancellation with handler completion. A
+shared-store integration test made a REST write visible through gRPC and
+invalidated an earlier RPC version. Internal-error details were logged but
+redacted from client statuses. Formatting and local Markdown paths passed.
+
+The root dependency file and shared contact implementation are unchanged;
+the lab uses a local module replacement to import them. The protobuf contract,
+generated bindings, and compiler/plugin pins did not change. Streaming and
+infrastructure/resilience remain subsequent stages.

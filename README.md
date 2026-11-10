@@ -81,7 +81,7 @@ Read that context chapter before the advanced concurrency pattern lesson in chap
 | Log levels | 7. Types, methods, and interfaces | [Run after Stringer](chapters/07-types-methods-and-interfaces/05-project-log-levels/README.md) |
 | Math helpers with errors | 9. Errors | [Run after error handling](chapters/09-errors/03-project-math-helpers/README.md) |
 | Contact resources over HTTP | 13. The standard library | [REST API with CRUD, validation, context, and tests](chapters/13-standard-library/06-project-rest-api/README.md); revisit after chapters 14–15. |
-| Protobuf and gRPC contacts lab | Supplement after REST | [Contract and serialization foundation](extensions/01-protobuf-and-grpc/README.md); transport stages follow separately. |
+| Protobuf and gRPC contacts lab | Supplement after REST | [Contract and serialization foundation](extensions/01-protobuf-and-grpc/README.md), then [unary client/server application](extensions/01-protobuf-and-grpc/02-unary/README.md). |
 
 ## Validate the course
 
@@ -121,6 +121,7 @@ contract. Its default demo is finite; use `-serve` for interactive requests.
 The agreed REST extension blocks are complete. The
 [Protobuf/gRPC lab](extensions/01-protobuf-and-grpc/README.md) starts with a
 versioned contact contract, generated bindings, local serialization examples,
-and compatibility tests. Its next stage implements the unary transport using
-the same contact rules. See its guide for the remaining streaming and service
+and compatibility tests. Its unary stage implements the client/server transport
+using the same contact rules, with status errors, deadlines, cancellation, and
+integration tests. See its guide for the remaining streaming and service
 infrastructure stages. This lab is supplementary to the book's chapter mapping.
