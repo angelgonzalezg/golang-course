@@ -26,6 +26,15 @@ grpcurl exercises around the same service. The [fifth stage](05-resilience/READM
 completes the lab with byte limits, bounded retries, keyed creation, local
 OpenTelemetry metrics/traces, controlled failures, and a [final review](05-resilience/review.md).
 
+Start with the [dedicated Protobuf lesson](01-protobuf/README.md), then follow
+the short passes in each stage's guide. Read the worked request/result examples,
+follow their code, and finish with the operational details. The
+[unary](02-unary/README.md#learn-in-passes),
+[streaming](03-streaming/README.md#learn-in-passes),
+[infrastructure](04-infrastructure/README.md#learn-in-passes), and
+[resilience](05-resilience/README.md#learn-in-passes) guides define new terms
+where they first become useful.
+
 From the repository root:
 
 ```sh
@@ -51,6 +60,10 @@ certificates, and credentials in memory; ordinary runs need no external tools.
 The resilience lesson also collects local metrics/traces without a collector.
 
 ## Read in order
+
+Use the [five foundation passes](01-protobuf/README.md#learn-in-passes) for the
+first lesson. When inspecting how its contract, demo, tests, and generated code
+fit together, use this source map:
 
 1. [contacts.proto](proto/contacts/v1/contacts.proto): the versioned package,
    field numbers, messages, enums, optional field, field mask, and service.

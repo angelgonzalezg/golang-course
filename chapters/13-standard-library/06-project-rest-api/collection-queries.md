@@ -4,6 +4,10 @@ Read the [REST project](README.md) and run its ordinary CRUD demonstration first
 This extension bounds collection responses and lets a client navigate selected
 results. The choices below are this API's query contract.
 
+A **page** is a selected part of the matching contacts. A **filter** chooses
+which contacts match, **sort** chooses their order, **offset** skips matches,
+and **limit** caps the number returned. The total still counts all matches.
+
 ## Parameters
 
 | Parameter | Default | Accepted values |
@@ -116,7 +120,7 @@ A database implementation would apply filtering, ordering, and limits in its
 query and choose appropriate indexes. Cursor pagination is a possible later
 exercise when a workload needs different traversal behavior.
 
-Use the [project's validation commands](README.md#run-the-demonstration) to run
+Use the [project's validation commands](README.md#validate-what-you-learned) to run
 all query tests and the finite demo, which follows two filtered pages itself.
 Before continuing, predict which page changes after deleting an earlier match,
 and explain why filtering must happen before counting and pagination.

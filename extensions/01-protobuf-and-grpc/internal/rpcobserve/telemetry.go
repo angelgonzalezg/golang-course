@@ -1,5 +1,6 @@
-// Package rpcobserve configures local OpenTelemetry metrics and traces for the
-// finite resilience lab. It needs no collector and installs no global provider.
+// Package rpcobserve connects gRPC to OpenTelemetry in the finite resilience lab.
+// It records numbers about calls (metrics) and related pieces of work (traces)
+// locally, without a separate collector process or global provider settings.
 package rpcobserve
 
 import (
@@ -24,18 +25,20 @@ import (
 // MaxExportedSpans bounds retained summaries, not all SDK or application memory.
 const MaxExportedSpans = 256
 
-// SpanSummary keeps only identifiers needed to inspect propagation. It excludes
-// metadata, message payloads, status descriptions, and unbounded event lists.
+// SpanSummary describes one part of a trace, such as a server handling a call.
+// Its IDs show which trace it belongs to and which span started it. The summary
+// excludes metadata, payloads, status descriptions, and event lists.
 type SpanSummary struct {
 	Name     string
 	TraceID  trace.TraceID
 	SpanID   trace.SpanID
-	ParentID trace.SpanID
+	ParentID trace.SpanID // ID of the span that started this work; empty for a root span.
 	Kind     trace.SpanKind
 }
 
-// SpanBuffer is a concurrency-safe local exporter. Its zero value is usable;
-// after the retained-summary cap, it counts dropped summaries instead of growing.
+// SpanBuffer receives completed spans from the SDK (its exporter role) and keeps
+// a limited set of summaries in memory. Its zero value is usable concurrently;
+// summaries beyond the limit are counted as dropped.
 type SpanBuffer struct {
 	mu      sync.Mutex
 	spans   []SpanSummary
@@ -70,8 +73,9 @@ func (b *SpanBuffer) Snapshot() ([]SpanSummary, int) {
 	return slices.Clone(b.spans), b.dropped
 }
 
-// Telemetry owns SDK providers for one lab run. Finish RPCs and transport
-// shutdown before final collection, then shut down the providers themselves.
+// Telemetry owns the SDK objects that create metrics and spans for one lab run.
+// Finish calls and stop the server before reading the final measurements, then
+// shut down these objects so no work is recorded after collection has ended.
 type Telemetry struct {
 	Reader *sdkmetric.ManualReader
 	Meter  *sdkmetric.MeterProvider
@@ -86,8 +90,9 @@ func New() *Telemetry {
 	spans := new(SpanBuffer)
 	return &Telemetry{
 		Reader: reader, Meter: sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)), Spans: spans,
-		// AlwaysSample and synchronous export make this small local lesson
-		// inspectable. Production sampling/export queues need separate sizing.
+		// Record every trace in this small lesson and send completed spans
+		// straight to our memory buffer. A deployed system needs a deliberate
+		// sampling policy: which traces to record and how many to retain.
 		Tracer: sdktrace.NewTracerProvider(sdktrace.WithSampler(sdktrace.AlwaysSample()), sdktrace.WithSyncer(spans)),
 	}
 }
@@ -108,8 +113,9 @@ func (t *Telemetry) Options() opentelemetry.Options {
 	return opentelemetry.Options{
 		MetricsOptions: opentelemetry.MetricsOptions{
 			MeterProvider: t.Meter,
-			// Keep unknown method names in the plugin's "other" bucket. Never
-			// turn request IDs, idempotency keys, or contact names into labels.
+			// Each method label can create another metric series (a combination
+			// of label values). Keep known method names and group others together.
+			// Request IDs, keys, and contact names would create ever more series.
 			MethodAttributeFilter: func(method string) bool { return known[strings.TrimPrefix(method, "/")] },
 		},
 		// In the pinned gRPC version, trace configuration still uses this
@@ -126,8 +132,9 @@ func (t *Telemetry) Collect(ctx context.Context) (metricdata.ResourceMetrics, er
 	return metrics, err
 }
 
-// Report prints totals across method/status series and the span buffer count.
-// Use Collect when inspecting individual outcomes and their attributes.
+// Report combines the counts for all methods/statuses and prints the span total.
+// For durations it prints how many samples were recorded, not their elapsed time.
+// Collect exposes the full measurements when individual results are needed.
 func (t *Telemetry) Report(ctx context.Context, out io.Writer) error {
 	metrics, err := t.Collect(ctx)
 	if err != nil {

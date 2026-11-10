@@ -15,6 +15,8 @@ import (
 func run(out io.Writer) error {
 	fmt.Fprintln(out, "== 1. A message and its binary representation ==")
 	contact := &contactsv1.Contact{Id: 42, Name: "Ana López", Email: "ana@example.com", Version: "example-version"}
+	// Marshal turns this structured Go message into bytes. Unmarshal reads
+	// those bytes into a separate message, as a receiving process would do.
 	data, err := proto.Marshal(contact)
 	if err != nil {
 		return err
@@ -38,6 +40,8 @@ func run(out io.Writer) error {
 
 	fmt.Fprintln(out, "\n== 3. Presence is different from a zero value ==")
 	absent := &contactsv1.DeleteContactRequest{Id: 42}
+	// The pointer records presence: nil means absent, while a pointer to ""
+	// means the caller supplied an empty string. The getter alone hides that difference.
 	presentEmpty := &contactsv1.DeleteContactRequest{Id: 42, ExpectedVersion: proto.String("")}
 	fmt.Fprintf(out, "Absent version: getter=%q, present=%t\n", absent.GetExpectedVersion(), absent.ExpectedVersion != nil)
 	fmt.Fprintf(out, "Explicitly empty: getter=%q, present=%t\n", presentEmpty.GetExpectedVersion(), presentEmpty.ExpectedVersion != nil)
@@ -52,6 +56,8 @@ func run(out io.Writer) error {
 	update := &contactsv1.UpdateContactRequest{
 		Id: 42, Input: &contactsv1.ContactInput{Email: ""}, UpdateMask: mask,
 	}
+	// The mask selects email even though its value is empty. This local lesson
+	// encodes the request; stage 2's service applies the selected change.
 	jsonData, err = (protojson.MarshalOptions{Indent: "  "}).Marshal(update)
 	if err != nil {
 		return err

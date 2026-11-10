@@ -37,7 +37,9 @@ with `CGO_ENABLED=0`.
 
 After stages 6–8, complete the
 [contacts REST project](../chapters/13-standard-library/06-project-rest-api/README.md).
-Trace a request from the HTTP representation to the contact store and back.
+Use its [learning passes](../chapters/13-standard-library/06-project-rest-api/README.md#learn-in-passes):
+trace one create/read before moving to updates, failures, collection queries,
+conditions, and OpenAPI. Trace a request from HTTP to the contact store and back.
 Explain POST's Location, PUT's full replacement versus PATCH's selected changes,
 omitted fields versus null, idempotency, and how shared data stays consistent
 under simultaneous requests. The earlier pointer project remains the
@@ -50,15 +52,19 @@ and the [OpenAPI contract](../chapters/13-standard-library/06-project-rest-api/o
 Explain the difference between 304 and 412, why compare-and-write must be
 atomic, and which runtime constraints go beyond a schema. These REST blocks
 are complete. Continue with the supplementary
-[Protobuf/gRPC lab](../extensions/01-protobuf-and-grpc/README.md): first trace
-field numbers, optional presence, field masks, binary versus ProtoJSON, and
-generated-code ownership. Then run the
+[Protobuf/gRPC lab](../extensions/01-protobuf-and-grpc/README.md): start with the
+[foundation lesson](../extensions/01-protobuf-and-grpc/01-protobuf/README.md).
+Follow messages to bytes and back, then optional presence, field masks, and
+independent clones. Its guide leads into compatibility and generation after
+those basic examples. Then run the
 [unary application](../extensions/01-protobuf-and-grpc/02-unary/README.md), trace
 RPC-to-domain conversion, and explain status details, channel/context ownership,
 atomic versions, and shutdown with an active call. Continue with
 [streaming](../extensions/01-protobuf-and-grpc/03-streaming/README.md): distinguish
 request half-close from final status, partial import commits from rollback, and
-item failures from terminal errors. Trace concurrent sending/receiving and sender
+item failures from terminal errors. The [streaming passes](../extensions/01-protobuf-and-grpc/03-streaming/README.md#learn-in-passes)
+introduce server messages first, then an import summary, then the two-way exchange.
+Trace concurrent sending/receiving and sender
 cleanup after cancellation. Then run the
 [infrastructure stage](../extensions/01-protobuf-and-grpc/04-infrastructure/README.md)
 and trace transport credentials, call credentials, interceptor order, identity
@@ -67,6 +73,11 @@ readiness with connectivity, and reflection access with method access. Finish wi
 [resilience](../extensions/01-protobuf-and-grpc/05-resilience/README.md): explain
 safe retries, payload-bound keys, partial stream failure, and transport versus
 handler observations. Inspect metrics, trace propagation, and correlated logs.
+Use the [stage-4 passes](../extensions/01-protobuf-and-grpc/04-infrastructure/README.md#learn-in-passes)
+to follow one permitted/rejected call before setting up separate processes.
+Then use the [stage-5 passes](../extensions/01-protobuf-and-grpc/05-resilience/README.md#learn-in-passes):
+first understand the retry and saved-result examples, then message limits,
+and finally logs/metrics/traces. Each guide defines its new terms beside the example.
 The lab uses its own module; all five stages and the
 [final review](../extensions/01-protobuf-and-grpc/05-resilience/review.md) are complete.
 

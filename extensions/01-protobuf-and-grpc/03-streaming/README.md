@@ -1,17 +1,14 @@
 # Streaming contacts over gRPC
 
-Read the [unary stage](../02-unary/README.md) first. This stage adds three RPCs
-to the same service and reuses the same contact validation, status conversion,
-store, and server lifecycle. It introduces streaming without replacing the
-six unary examples.
+Read the [unary stage](../02-unary/README.md) first. A unary call has one request
+and one response. A **streaming** call can exchange several messages during
+that one RPC. Learn one direction at a time before sending and receiving together.
+The contact validation, store, and server lifecycle are shared with earlier stages.
 
 ## Run from the repository root
 
 ```sh
 go -C extensions/01-protobuf-and-grpc run ./03-streaming
-go -C extensions/01-protobuf-and-grpc test -count=1 -timeout=30s ./...
-go -C extensions/01-protobuf-and-grpc test -race -count=3 -cpu=1,2 -timeout=45s ./...
-go -C extensions/01-protobuf-and-grpc vet ./...
 ```
 
 The default demo starts a temporary loopback TCP server, imports three contacts,
@@ -20,23 +17,44 @@ item failures and cancellation, deletes its contacts, and shuts down. Names
 include a per-run suffix so repeated client runs can share a running server.
 An interrupted or failed run can leave contacts in that process's store.
 
-For separate terminals, start the server:
+## Learn in passes
 
-```sh
-go -C extensions/01-protobuf-and-grpc run ./03-streaming -serve
+The executable imports its sample data first. For learning the call shapes,
+read server streaming first, then import, then bidirectional lookup:
+
+| Pass | Focus | Check your understanding |
+| --- | --- | --- |
+| 1 | Follow the server stream: two contacts arrive, then `io.EOF`. | Explain why receiving one contact does not establish successful completion. |
+| 2 | Follow the client import: several sends, then one summary. | Explain why finishing the request direction still leaves a response to read. |
+| 3 | Follow bidirectional lookup and its item failures. | Explain how a missing contact can coexist with a successful whole RPC. |
+| 4 | Read cancellation, flow control, and the sender goroutine in [client.go](client.go). | Identify who sends, who receives, and how both finish on an error. |
+
+Find these summaries among the output:
+
+```text
+ImportContacts -> OK: created=3, ids=[1 2 3]
+StreamContacts -> EOF / OK: received=2
+LookupContacts -> EOF / OK: replies=4
 ```
 
-Then run the finite client:
+The IDs above come from a fresh temporary server. Names include a changing
+suffix, omitted from the small examples below.
 
-```sh
-go -C extensions/01-protobuf-and-grpc run ./03-streaming -target 127.0.0.1:50051
-```
+## Words and methods used by a stream
 
-Stop the server with Ctrl+C. Use `-addr 127.0.0.1:50052` and a matching `-target`
-if the default port is busy. Both the unary and streaming commands register the
-complete service; either running server supports both clients. Standalone
-processes each own an independent in-memory store. This stage still uses local
-plaintext credentials; TLS, metadata, and interceptors follow in stage 4.
+| Term / method | Meaning here |
+| --- | --- |
+| `Send(message)` | Hand the next message to gRPC for sending. This can wait and does not acknowledge the peer's business operation. |
+| `Recv()` | Wait for the next incoming message or the end/error of that direction. |
+| Half-close | Finish sending while continuing to receive. The other direction stays open. |
+| `CloseSend()` | Half-close the client's request direction. It does not read the RPC's final status. |
+| `CloseAndRecv()` | For client streaming, finish sending and wait for the single response plus final status. |
+| `io.EOF` | The end of incoming messages. On the server it means the client finished sending; on the receiving client it means the response stream ended OK. |
+| Snapshot | A copy of data selected for this query. Later store edits do not change that copy. |
+
+`Recv` returns a message with nil error when one arrives. An `io.EOF` result is
+an ordinary end to handle; another error means the call failed. The location
+matters: server-side request EOF may still require sending the final response.
 
 ## Choose a call shape
 
@@ -60,6 +78,18 @@ bindings. As in stage 1, edit the contract and regenerate, not the bindings.
 
 ## Server streaming: one page, one snapshot
 
+Follow the selected page from the default demo, which imported Ana, Bea, and Carla:
+
+```text
+Input: StreamContacts(limit=2, name sort descending)
+Client Recv: Contact Carla
+Client Recv: Contact Bea
+Client Recv: io.EOF -> final OK
+```
+
+There is one request and several response messages. The client reads through
+the end to learn whether the whole RPC succeeded.
+
 `StreamContacts` accepts the same query as `ListContacts`: zero limit selects
 20, other limits must be 1–100, offset must be nonnegative, and filter/sort rules
 are shared. The handler obtains one page, releases the store lock, and sends
@@ -79,6 +109,20 @@ invalid limit becomes `InvalidArgument` when the client receives the terminal
 status. Receiving some contacts also does not guarantee the RPC will end OK.
 
 ## Client streaming: bounded import with partial commits
+
+For a small successful import into an empty store:
+
+```text
+Client Send: create Ana
+Client Send: create Bea
+Client CloseAndRecv: finish request direction and wait
+Server Recv: io.EOF -> send count=2, ids=[1, 2]
+Client result: summary, nil error -> final OK
+```
+
+The server saves each item as it reads it; it can start work before the client
+finishes sending. A transactional batch would save all items or none. This
+import saves immediately, so a later failure can leave earlier contacts stored.
 
 The client sends `CreateContactRequest` messages, then calls `CloseAndRecv`.
 That call half-closes the request direction and waits for the summary and final
@@ -113,6 +157,20 @@ does not mean the batch succeeded. These lifecycle rules are documented by
 [`ClientStreamingClient`](https://pkg.go.dev/google.golang.org/grpc@v1.85.0#ClientStreamingClient).
 
 ## Bidirectional: per-item outcomes and terminal failures
+
+Both sides can exchange messages before either direction finishes. A short
+conversation after contact 1 exists could be:
+
+```text
+Client Send: request_id=1, contact id=1 -> server replies with the contact
+Client Send: request_id=2, contact id=0 -> server replies with an item failure
+Client CloseSend: no more lookup requests
+Client keeps receiving, then sees io.EOF -> final OK
+```
+
+The request ID connects each reply to the input that caused it. The invalid
+contact ID is represented inside one reply; it does not terminate this API's
+conversation. The demo sends and receives concurrently, as explained below.
 
 Each `LookupContactsRequest` contains a contact ID and a client-chosen
 `request_id`. The server echoes the correlation value and sends one response
@@ -160,6 +218,9 @@ the stream and joins its sender before returning. See
 | `CloseAndRecv` returns response, nil | Client-streaming RPC completed successfully with its summary. |
 
 `Send` can block when a receiver is slow and transport buffers/windows fill.
+This waiting is **backpressure**: the sending side slows down when the receiving
+side cannot keep up. **Flow control** is the transport's mechanism for regulating
+how much data can be sent before more capacity becomes available.
 Wait for it; creating a goroutine or an unbounded queue per outgoing message
 would only move the pressure into application memory. The handlers here add
 no such queue and hold no store lock during sends. Actual gRPC/HTTP2 buffers
@@ -184,6 +245,14 @@ generated message pointers nor a stream make shared mutable state safe.
 
 ## What the tests verify
 
+After following the message flows, run the checks:
+
+```sh
+go -C extensions/01-protobuf-and-grpc test -count=1 -timeout=30s ./...
+go -C extensions/01-protobuf-and-grpc test -race -count=3 -cpu=1,2 -timeout=45s ./...
+go -C extensions/01-protobuf-and-grpc vet ./...
+```
+
 - Bufconn RPCs check filtered ordering, empty streams, invalid queries, import
   summaries, the batch cap, partial commits, correlation, item failures,
   request half-close, and a terminal failure after a delivered reply.
@@ -197,6 +266,26 @@ generated message pointers nor a stream make shared mutable state safe.
 - TCP tests run the finite demo, repeated clients against a standalone server,
   and graceful/forced shutdown with an active streaming call. Race checks cover
   sending and receiving concurrently.
+
+## Separate server and client
+
+After the finite demo, keep a server running in one terminal:
+
+```sh
+go -C extensions/01-protobuf-and-grpc run ./03-streaming -serve
+```
+
+Then run the finite client in another terminal:
+
+```sh
+go -C extensions/01-protobuf-and-grpc run ./03-streaming -target 127.0.0.1:50051
+```
+
+Stop the server with Ctrl+C. Use `-addr 127.0.0.1:50052` and a matching `-target`
+if the default port is busy. Both the unary and streaming commands register the
+complete service; either running server supports both clients. Standalone
+processes each own an independent in-memory store. This stage still uses local
+plaintext credentials; TLS, metadata, and interceptors follow in stage 4.
 
 Before continuing, explain why a failed import can leave data, why an item
 failure can coexist with final OK, and why half-closing is different from

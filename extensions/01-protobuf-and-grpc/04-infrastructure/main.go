@@ -54,7 +54,8 @@ func startServer(listener net.Listener, service contactsv1.ContactServiceServer,
 		Health: readiness, Reflection: reflection,
 		ServerOptions: []grpc.ServerOption{
 			grpc.Creds(credentials.NewTLS(transport)),
-			// The first interceptor is outermost: it observes auth failures too.
+			// A call enters the observer, then the permission check, then its
+			// handler. Returning through the observer logs success or rejection.
 			grpc.ChainUnaryInterceptor(rpcinfra.ObserveUnary(logger), policy.Unary()),
 			grpc.ChainStreamInterceptor(rpcinfra.ObserveStream(logger), policy.Stream()),
 		},

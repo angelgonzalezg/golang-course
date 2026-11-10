@@ -26,8 +26,9 @@ const (
 	Writer Role = "writer"
 )
 
-// Identity is assigned by the verifier after authentication, independently of
-// any subject or role a caller might place in request metadata.
+// Identity describes the client whose token the server checked. The server
+// assigns its name (Subject) and allowed operations (Role); request metadata
+// cannot choose a different identity or give itself more permissions.
 type Identity struct {
 	Subject string // Which teaching client authenticated.
 	Role    Role   // Which operations that client may perform.
@@ -120,13 +121,16 @@ func (p *Policy) authorize(ctx context.Context, method string) (context.Context,
 	return context.WithValue(ctx, identityKey{}, identity), nil
 }
 
-// Unary verifies credentials and permissions before dispatching a unary RPC.
+// Unary checks who is calling (authentication), then whether that caller may
+// use this method (authorization). Only an allowed call reaches next.
 func (p *Policy) Unary() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, request any, info *grpc.UnaryServerInfo, next grpc.UnaryHandler) (any, error) {
 		ctx, err := p.authorize(ctx, info.FullMethod)
 		if err != nil {
 			return nil, err
 		}
+		// Returning above stops the request. Calling next lets it reach the
+		// following interceptor or the actual RPC handler.
 		return next(ctx, request)
 	}
 }
@@ -138,16 +142,17 @@ type contextStream struct {
 
 func (s contextStream) Context() context.Context { return s.ctx }
 
-// Stream verifies once at RPC start and passes the identity in a derived stream
-// context. It does not reauthenticate each message or revoke an already-open stream.
+// Stream checks identity/permissions once when the RPC starts. Its handler then
+// receives the verified identity through the stream's context. Individual
+// messages do not repeat this check, and an open stream is not revoked here.
 func (p *Policy) Stream() grpc.StreamServerInterceptor {
 	return func(service any, stream grpc.ServerStream, info *grpc.StreamServerInfo, next grpc.StreamHandler) error {
 		ctx, err := p.authorize(stream.Context(), info.FullMethod)
 		if err != nil {
 			return err
 		}
-		// A streaming interceptor changes the handler's context by wrapping the
-		// stream. Delegating its other methods preserves transport behavior.
+		// The wrapper replaces only Context(), so the handler can read the
+		// verified identity while Send/Recv still use the original stream.
 		return next(service, contextStream{ServerStream: stream, ctx: ctx})
 	}
 }

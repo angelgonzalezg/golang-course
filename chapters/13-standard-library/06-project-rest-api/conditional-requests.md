@@ -4,6 +4,11 @@ Read [the resource API](README.md) and [collection queries](collection-queries.m
 first. This extension adds two useful behaviors: revalidating a stored response
 and preventing an edit based on outdated data.
 
+An **ETag** is a label for the current representation. A client keeps the label
+with its saved data and sends it back to check whether that data is still current.
+The label is a **validator** because it supports that check. Treat it as opaque:
+copy it as received, including quotes, instead of interpreting or constructing it.
+
 ## Read, save, and revalidate
 
 A successful GET or HEAD returns an `ETag`, an opaque validator enclosed in
@@ -135,7 +140,7 @@ PUT content. This API therefore omits ETag on successful PUT; follow it with GET
 to obtain the current validator. DELETE has no remaining representation to tag.
 
 The [OpenAPI contract](openapi.md) describes these headers, statuses, and bodies.
-Run the ordinary and race checks in the [main guide](README.md#run-the-demonstration).
+Run the ordinary and race checks in the [main guide](README.md#validate-what-you-learned).
 
 References: [HTTP validators and preconditions, RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html#name-preconditions),
 [PUT validator rule](https://www.rfc-editor.org/rfc/rfc9110.html#name-put), and

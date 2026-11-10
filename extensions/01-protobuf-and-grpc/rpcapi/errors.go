@@ -19,6 +19,8 @@ func invalid(field, message string) error {
 	return detailed.Err()
 }
 
+// The shared store reports Go errors. Choose the RPC code/details here so the
+// store can be reused by HTTP without knowing either transport's status codes.
 func (s *Service) rpcError(ctx context.Context, err error) error {
 	switch {
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):

@@ -1,8 +1,10 @@
 # Contact resources over HTTP
 
 Build a small REST-style contacts API with `net/http` and the standard library.
-This project extends the [HTTP lesson](../04-http/README.md) from computing a
-greeting to creating and managing resources with stable URLs.
+Start by creating and reading one contact, then add updates, error handling,
+collection queries, and version checks. This extends the
+[HTTP lesson](../04-http/README.md) from returning a greeting to managing data
+that clients can find again through stable URLs.
 
 Read methods, interfaces, errors, packages, concurrency, JSON, HTTP, and logging
 first. Revisit [context](../../14-context/01-context/README.md) and
@@ -15,9 +17,6 @@ From the repository root:
 
 ```sh
 go run ./chapters/13-standard-library/06-project-rest-api
-go test -count=1 -timeout=30s ./chapters/13-standard-library/06-project-rest-api/...
-go test -race -count=3 -cpu=1,2 -timeout=30s ./chapters/13-standard-library/06-project-rest-api/...
-go vet ./chapters/13-standard-library/06-project-rest-api/...
 ```
 
 The default command binds an available loopback port, runs its own requests,
@@ -27,40 +26,69 @@ replacement with PUT, repeated requests, deletion, and following filtered
 collection pages. It also demonstrates 304 revalidation and rejection of a
 stale write with 412. It requires no external service and exits by itself.
 
-For interactive requests, keep a server running in one terminal:
+To send your own requests later, use [the interactive server](#try-requests-yourself).
+The default demo has already stopped its temporary server when the command exits.
 
-```sh
-go run ./chapters/13-standard-library/06-project-rest-api -serve
-# Optional: choose another address, or :0 for an available port.
-go run ./chapters/13-standard-library/06-project-rest-api -serve -addr 127.0.0.1:8081
+## Learn in passes
+
+Complete one pass before adding the next idea. The sections below retain the
+full contract so you can return to its details after following a simple request.
+
+| Pass | Focus | Check your understanding |
+| --- | --- | --- |
+| 1 | Follow POST and GET through the worked example below. | Locate where JSON is decoded, where a contact is saved, and where HTTP status is chosen. |
+| 2 | Compare PUT, PATCH, and DELETE. | Predict the contact's fields after each request and why a second DELETE returns 404. |
+| 3 | Read input failures and try a duplicate or invalid name. | Distinguish malformed input, a missing resource, and a name conflict. |
+| 4 | Read [collection queries](collection-queries.md) and follow `links.next`. | Explain limit, offset, total, and changes between pages. |
+| 5 | Read [conditional requests](conditional-requests.md). | Distinguish reusing a saved response with 304 from rejecting a stale write with 412. |
+| 6 | Read [OpenAPI](openapi.md) and the validation commands. | Find where the API's request/response contract is described and checked. |
+
+## Follow one HTTP request
+
+| Term | Meaning in this project |
+| --- | --- |
+| Resource | A contact that a client can identify and manage. |
+| Resource URL | Its address, such as `/contacts/1`. The HTTP method selects the operation. |
+| Representation | Data describing the resource at that moment; this API uses JSON. |
+| Handler | A Go function chosen for a method/path, such as the function handling POST `/contacts`. |
+| Store | The shared Go code that keeps contacts and enforces their data rules. |
+
+On a fresh server, follow a create with only a name:
+
+```text
+Input: POST /contacts, Content-Type: application/json, body {"name":" Ana "}
+Router: select the create handler
+HTTP adapter: decode JSON into writable input
+Store: trim to "Ana", check uniqueness, assign ID 1, save the contact
+HTTP adapter: build the JSON representation and choose status 201
 ```
 
-Choose one server command. Stop it with Ctrl+C. Each process starts with an
-empty store; restarting loses its contacts. The default address is loopback.
+The relevant parts of the response are shown here; other headers are omitted:
 
-In another terminal, using the default port:
+```http
+HTTP/1.1 201 Created
+Location: /contacts/1
+Content-Type: application/json
 
-```sh
-curl -i http://127.0.0.1:8080/
-curl -i -X POST http://127.0.0.1:8080/contacts \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"Ana","email":"ana@example.com","phone":"555-0100"}'
-curl -i http://127.0.0.1:8080/contacts
-# Use the Location returned by POST. A fresh store assigns /contacts/1 first.
-curl -i http://127.0.0.1:8080/contacts/1
-# PATCH changes the email and keeps the current name and phone.
-curl -i -X PATCH http://127.0.0.1:8080/contacts/1 \
-  -H 'Content-Type: application/merge-patch+json' \
-  -d '{"email":"ana.torres@example.com"}'
-# null removes an optional value; name and email remain as they were.
-curl -i -X PATCH http://127.0.0.1:8080/contacts/1 \
-  -H 'Content-Type: application/merge-patch+json' -d '{"phone":null}'
-# PUT replaces every editable field, clearing omitted email and phone.
-curl -i -X PUT http://127.0.0.1:8080/contacts/1 \
-  -H 'Content-Type: application/json' -d '{"name":"Ana Torres"}'
-curl -i -X DELETE http://127.0.0.1:8080/contacts/1
-curl -i -X DELETE http://127.0.0.1:8080/contacts/1
+{"id":1,"name":"Ana","links":{"self":"/contacts/1","collection":"/contacts"}}
 ```
+
+`Location` tells the client where the new contact lives. A GET to that URL
+returns the contact with status 200. Empty email/phone are absent from its JSON.
+Repeating the create with the same normalized name returns 409, while a GET
+for an ID that does not exist returns 404. These outcomes describe different
+problems; the HTTP adapter chooses their statuses from the store's errors.
+
+```mermaid
+flowchart LR
+    R[HTTP request] --> H[httpapi handler]
+    H --> S[contacts.Store]
+    S --> H
+    H --> J[Status, headers, and JSON response]
+```
+
+Use the source map below to follow those steps. Contact data rules live in
+`contacts`; HTTP decoding, headers, and status codes live in `httpapi`.
 
 ## Read the project in stages
 
@@ -277,6 +305,56 @@ error instead of the attempted response. The store checks cancellation before
 work and after acquiring the lock. Waiting for `sync.Mutex` is not cancelable,
 so operations must remain short. Cancellation racing with a completed mutation
 does not undo that mutation.
+
+## Try requests yourself
+
+Keep a server running in one terminal:
+
+```sh
+go run ./chapters/13-standard-library/06-project-rest-api -serve
+# Optional: choose another address, or :0 for an available port.
+go run ./chapters/13-standard-library/06-project-rest-api -serve -addr 127.0.0.1:8081
+```
+
+Choose one server command. Stop it with Ctrl+C. Each process starts with an
+empty store; restarting loses its contacts. The default address is loopback.
+
+In another terminal, using the default port:
+
+```sh
+curl -i http://127.0.0.1:8080/
+curl -i -X POST http://127.0.0.1:8080/contacts \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Ana","email":"ana@example.com","phone":"555-0100"}'
+curl -i http://127.0.0.1:8080/contacts
+# Use the Location returned by POST. A fresh store assigns /contacts/1 first.
+curl -i http://127.0.0.1:8080/contacts/1
+# PATCH changes the email and keeps the current name and phone.
+curl -i -X PATCH http://127.0.0.1:8080/contacts/1 \
+  -H 'Content-Type: application/merge-patch+json' \
+  -d '{"email":"ana.torres@example.com"}'
+# null removes an optional value; name and email remain as they were.
+curl -i -X PATCH http://127.0.0.1:8080/contacts/1 \
+  -H 'Content-Type: application/merge-patch+json' -d '{"phone":null}'
+# PUT replaces every editable field, clearing omitted email and phone.
+curl -i -X PUT http://127.0.0.1:8080/contacts/1 \
+  -H 'Content-Type: application/json' -d '{"name":"Ana Torres"}'
+curl -i -X DELETE http://127.0.0.1:8080/contacts/1
+curl -i -X DELETE http://127.0.0.1:8080/contacts/1
+```
+
+## Validate what you learned
+
+```sh
+go test -count=1 -timeout=30s ./chapters/13-standard-library/06-project-rest-api/...
+go test -race -count=3 -cpu=1,2 -timeout=30s ./chapters/13-standard-library/06-project-rest-api/...
+go vet ./chapters/13-standard-library/06-project-rest-api/...
+```
+
+The finite demo checks its expected statuses as it runs. The tests also exercise
+input failures, independent snapshots, conditional requests, and concurrent
+changes. The optional [OpenAPI checker](openapi.md#validate-without-adding-go-dependencies)
+compares selected live responses with the published contract.
 
 ## Ownership and limits
 

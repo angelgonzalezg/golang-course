@@ -1,5 +1,10 @@
 # OpenAPI contract and verification
 
+An **API contract** describes which requests clients may send and which
+responses they can expect. **OpenAPI** expresses that description in a format
+tools can read. A **schema** describes the allowed shape of data, such as a
+contact object's fields and types.
+
 The [checked-in OpenAPI 3.1.1 document](httpapi/openapi.json) describes this
 exercise's HTTP API. It covers discovery, contact CRUD, PUT/PATCH differences,
 collection queries, optional fields, validation failures, conditional headers,
@@ -60,7 +65,7 @@ request rejection are handled by `net/http`, outside application JSON responses.
 
 The normal Go tests check the embedded document, public-operation coverage,
 conditional serving, and application behavior. Run them using the
-[main guide](README.md#run-the-demonstration).
+[main guide](README.md#validate-what-you-learned).
 
 For full document validation and a live contract check, use the optional Python
 developer tool with Python 3.10+ on macOS/Linux and Go on PATH. From the repository

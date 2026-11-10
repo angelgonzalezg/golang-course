@@ -1,9 +1,9 @@
 # Unary contacts service
 
-Read the [Protobuf foundation](../README.md) first. This stage implements the
-six declared unary RPCs with a real generated client, server, protobuf codec,
-HTTP/2 transport, and the same contact store used by REST. A unary call sends
-one request and completes with one response or a non-OK status.
+Read the [Protobuf foundation](../01-protobuf/README.md) first. You can already
+encode and decode messages locally. Now send one to a server that performs a
+contact operation and returns its result. A **unary** call sends one request
+and completes with one response or a failure status.
 
 ## Run and validate
 
@@ -11,10 +11,6 @@ From the repository root:
 
 ```sh
 go -C extensions/01-protobuf-and-grpc run ./02-unary
-go -C extensions/01-protobuf-and-grpc test -count=1 -timeout=30s ./...
-go -C extensions/01-protobuf-and-grpc test -race -count=3 -cpu=1,2 -timeout=45s ./...
-go -C extensions/01-protobuf-and-grpc vet ./...
-go -C extensions/01-protobuf-and-grpc mod tidy -diff
 ```
 
 The default demo binds an available loopback TCP port, starts its server, runs
@@ -23,30 +19,58 @@ It exits by itself. It demonstrates creation, duplicates, retrieval, selected
 updates, stale versions, full replacement, paged listing, field-level validation
 details, caller cancellation, expired deadlines, and deletion.
 
-For separate processes, keep the server running in one terminal:
+## Learn in passes
 
-```sh
-go -C extensions/01-protobuf-and-grpc run ./02-unary -serve
+| Pass | Focus | Check your understanding |
+| --- | --- | --- |
+| 1 | Find `CreateContact`, `GetContact`, and `Duplicate name` in the output. | Explain which calls change data and why the duplicate fails. |
+| 2 | Follow one create through [client.go](client.go), [service.go](../rpcapi/service.go), and the shared store. | Distinguish gRPC's encoding/decoding work from the contact rules in our code. |
+| 3 | Compare Replace and Update, then inspect the version/error examples. | Predict which fields are cleared and why a stale edit returns `Aborted`. |
+| 4 | Read channel/context ownership, then try separate processes and the tests. | Explain who closes the channel and how a deadline reaches the server. |
+
+On the first pass, focus on these summaries rather than the changing version
+strings and name suffixes:
+
+```text
+CreateContact -> OK
+Duplicate name -> AlreadyExists
+GetContact -> OK
 ```
 
-Run the generated-client examples in another terminal:
+## Terms used in one call
 
-```sh
-go -C extensions/01-protobuf-and-grpc run ./02-unary -target 127.0.0.1:50051
-```
+| Term | Meaning here |
+| --- | --- |
+| RPC | A request asking another process to run a named operation. A Go method call starts it, but the network call can fail. |
+| Generated client | Typed methods produced from the `.proto` contract; they ask gRPC to send/receive the messages. |
+| Channel (`grpc.ClientConn`) | A reusable object that manages connections and calls to a target. It can manage more than one underlying connection. |
+| Service / handler | The server's Go implementation of an operation, such as `Service.CreateContact`. |
+| Status | The RPC's outcome, such as `OK`, `AlreadyExists`, or `InvalidArgument`. |
+| Deadline | The latest time the caller is willing to wait. The call's context carries it to the server. |
 
-Stop the server with Ctrl+C. Use `-addr 127.0.0.1:50052` with `-serve` to choose
-another port, then pass that address to the client. The default address is
-`127.0.0.1:50051`. This port speaks gRPC; the provided typed client is the
-interactive tool for this stage. Reflection and grpcurl follow in stage 4.
-
-The examples use a per-run name suffix and delete their contacts on successful
-completion. Interrupted calls against a persistent server process can leave
-contacts behind. Data belongs to that process and disappears on restart.
-This local stage uses plaintext transport credentials; TLS and authentication
-are part of the infrastructure stage.
+The generated client looks like an ordinary Go API, while gRPC handles binary
+Protobuf messages over HTTP/2 underneath. The server still needs application
+code to validate input and perform the requested operation.
 
 ## Follow one call
+
+Trace a create on a fresh server, omitting the demo's per-run name suffix:
+
+```text
+Input message: CreateContactRequest{Input: ContactInput{Name: " Ana "}}
+Generated client/gRPC: encode the request and send CreateContact
+gRPC server: decode the bytes into a request message
+rpcapi.Service: require an input message, then call the shared store
+contacts.Store: trim the name to "Ana", check uniqueness, assign ID 1
+rpcapi.Service: build a Contact message with ID/name/version
+Client result: Contact{id: 1, name: "Ana", ...}, nil error, status OK
+```
+
+The field notation above is a data sketch, not a standalone Go program. The
+demo uses pointers to the generated messages. A second create of that same
+normalized name returns `AlreadyExists`; it does not add another contact.
+The server's store defines the contact rules, while the RPC adapter translates
+requests and domain errors into messages and statuses.
 
 ```mermaid
 flowchart LR
@@ -86,6 +110,14 @@ versions after the other's changes.
 
 ## Request and update rules
 
+Start with one contact: name="Ana", email="old@example.com", phone="555-0100".
+Compare these operations independently from that starting state:
+
+| Request | Result |
+| --- | --- |
+| Replace with input name="Ana Updated" | Changes the name and clears email/phone because every editable field is replaced. |
+| Update with empty input and mask `["email"]` | Clears email, keeping the current name and phone. The mask selects the empty value. |
+
 | Request | Behavior |
 | --- | --- |
 | Create | Requires input and a valid nonblank name; returns the assigned ID and version. |
@@ -120,6 +152,10 @@ performing a separate Get followed by a write. Two changes using the same old
 version cannot both succeed when the first changes its content. A no-op retains
 the version because it identifies content rather than counting writes.
 
+This is an **optimistic concurrency** check: send the version you read, and
+the server checks whether it is still current before saving the edit. An
+**atomic** check/write means another write cannot slip between those two steps.
+
 | Condition | gRPC code |
 | --- | --- |
 | Invalid input, mask, enum, ID, or present empty version | `InvalidArgument` |
@@ -141,6 +177,11 @@ bodies. A returned Contact always includes its domain version, including after
 Replace; HTTP PUT's validator restriction applies to the HTTP adapter's headers.
 Malformed protobuf or invalid UTF-8 can fail in the framework's codec before
 application validation, so those failures need not have application field details.
+
+The generated client returns a non-nil Go error for a failed RPC. The demo's
+`call` helper checks that error against the expected status and returns nil to
+let the lesson continue when the expected failure occurred. That nil means
+the example's check passed; the original RPC still failed with its shown code.
 
 ## Channel, context, and shutdown ownership
 
@@ -167,7 +208,41 @@ also joins handlers. A handler that ignores cancellation can still delay exit;
 the timeout does not forcibly terminate goroutines. The owner waits for both
 shutdown and Serve completion, preserving errors from the fallback.
 
+## Separate server and client
+
+After following the finite demo, keep a server running in one terminal:
+
+```sh
+go -C extensions/01-protobuf-and-grpc run ./02-unary -serve
+```
+
+Run the generated-client examples in another terminal:
+
+```sh
+go -C extensions/01-protobuf-and-grpc run ./02-unary -target 127.0.0.1:50051
+```
+
+Stop the server with Ctrl+C. Use `-addr 127.0.0.1:50052` with `-serve` to choose
+another port, then pass that address to the client. The default address is
+`127.0.0.1:50051`. This port speaks gRPC; the provided typed client is the
+interactive tool for this stage. Reflection and grpcurl follow in stage 4.
+
+The examples use a per-run name suffix and delete their contacts on successful
+completion. Interrupted calls against a persistent server process can leave
+contacts behind. Data belongs to that process and disappears on restart.
+This local stage uses plaintext transport credentials; TLS and authentication
+are part of the infrastructure stage.
+
 ## What the tests establish
+
+After tracing the basic calls, run the checks:
+
+```sh
+go -C extensions/01-protobuf-and-grpc test -count=1 -timeout=30s ./...
+go -C extensions/01-protobuf-and-grpc test -race -count=3 -cpu=1,2 -timeout=45s ./...
+go -C extensions/01-protobuf-and-grpc vet ./...
+go -C extensions/01-protobuf-and-grpc mod tidy -diff
+```
 
 - [Service tests](../rpcapi/service_test.go) use bufconn for a real in-memory
   HTTP/2/protobuf/status exchange: CRUD, masks, field details, page metadata,

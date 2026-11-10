@@ -20,8 +20,9 @@ import (
 )
 
 func runClient(ctx context.Context, target string, out io.Writer) (err error) {
-	// This loopback lesson uses plaintext. TLS belongs to the infrastructure
-	// stage. NewClient creates a reusable channel; connection I/O is lazy.
+	// Reuse one channel for the calls below. NewClient prepares that object;
+	// the actual connection work starts when a call needs it. This loopback
+	// lesson uses plaintext; TLS is introduced in the infrastructure stage.
 	connection, err := grpc.NewClient(target, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
@@ -55,6 +56,8 @@ func runClient(ctx context.Context, target string, out io.Writer) (err error) {
 		return err
 	}
 	fmt.Fprintln(out, "\n== Selected changes and optimistic concurrency ==")
+	// Empty input gives email its zero value "". The mask selects that field,
+	// so the service clears email while keeping the existing name and phone.
 	updated, err := call(ctx, out, "UpdateContact: clear email", codes.OK, func(ctx context.Context) (*contactsv1.Contact, error) {
 		return client.UpdateContact(ctx, &contactsv1.UpdateContactRequest{
 			Id: ana.GetId(), Input: &contactsv1.ContactInput{},
@@ -129,8 +132,9 @@ func runClient(ctx context.Context, target string, out io.Writer) (err error) {
 }
 
 func call[T proto.Message](parent context.Context, out io.Writer, label string, expected codes.Code, invoke func(context.Context) (T, error)) (T, error) {
-	// Budgets belong to calls, not to channel construction. Cancel promptly
-	// releases each call's timer; gRPC propagates its deadline to the server.
+	// Give this call up to two seconds, including any connection setup. The
+	// server receives that deadline through context. cancel releases the timer
+	// when we finish sooner; it does not undo a completed server-side change.
 	ctx, cancel := context.WithTimeout(parent, 2*time.Second)
 	defer cancel()
 	response, err := invoke(ctx)
@@ -153,7 +157,9 @@ func call[T proto.Message](parent context.Context, out io.Writer, label string, 
 				}
 			}
 		}
-		return zero, nil // This demonstration expected the failure.
+		// The generated call failed as expected. Return nil from this demo
+		// helper so later examples still run; this does not turn the RPC into OK.
+		return zero, nil
 	}
 	data, err := protojson.Marshal(response)
 	if err != nil {

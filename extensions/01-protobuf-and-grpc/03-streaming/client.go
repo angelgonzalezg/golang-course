@@ -96,7 +96,8 @@ func importBatch(parent context.Context, client contactsv1.ContactServiceClient,
 			return nil, err
 		}
 	}
-	// Half-close the request direction and receive both summary and final status.
+	// "Done sending" leaves the response unread. CloseAndRecv ends only our
+	// request direction, then waits for the server's summary and final status.
 	// Send returning nil alone cannot confirm that any create succeeded.
 	return stream.CloseAndRecv()
 }
@@ -112,6 +113,8 @@ func receiveContacts(parent context.Context, client contactsv1.ContactServiceCli
 	for {
 		contact, err := stream.Recv()
 		if err == io.EOF {
+			// The server has no more responses and the RPC ended OK. A contact
+			// received earlier could still have been followed by a different error.
 			fmt.Fprintf(out, "StreamContacts -> EOF / OK: received=%d\n", count)
 			return count, nil
 		}
@@ -130,8 +133,9 @@ func lookupContacts(parent context.Context, client contactsv1.ContactServiceClie
 	if err != nil {
 		return err
 	}
-	// One goroutine owns Send AND CloseSend. This goroutine owns Recv. Reading
-	// while sending prevents both peers from filling their outbound buffers.
+	// The goroutine below sends requests; this function receives replies at the
+	// same time. Each direction has one owner. This lets replies keep moving
+	// even when sending must wait for transport capacity.
 	sent := make(chan error, 1)
 	go func() {
 		for _, request := range requests {
@@ -140,7 +144,7 @@ func lookupContacts(parent context.Context, client contactsv1.ContactServiceClie
 				return
 			}
 		}
-		sent <- stream.CloseSend() // Only the request direction ends here.
+		sent <- stream.CloseSend() // Done sending; keep receiving until EOF/error.
 	}()
 	defer func() {
 		cancel()          // Release a blocked sender on any early receive/processing error.

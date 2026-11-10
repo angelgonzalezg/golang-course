@@ -71,12 +71,15 @@ func logCompletion(ctx context.Context, logger *slog.Logger, method, kind string
 	logger.LogAttrs(ctx, slog.LevelInfo, "rpc completed", attributes...)
 }
 
-// ObserveUnary adds response metadata and logs completion around downstream work.
-// Put it before authorization to observe rejected calls as well; nil discards logs.
+// ObserveUnary runs shared steps around one unary handler: label the call, add
+// response metadata, then log its result. Placing it before the permission check
+// also records rejected calls. A nil logger discards logs.
 func ObserveUnary(logger *slog.Logger) grpc.UnaryServerInterceptor {
 	logger = usableLogger(logger)
 	return func(ctx context.Context, request any, info *grpc.UnaryServerInfo, next grpc.UnaryHandler) (response any, err error) {
 		start := time.Now()
+		// defer runs when this interceptor returns. The named err is then the
+		// result to log, including a rejection before the handler runs.
 		defer func() { logCompletion(ctx, logger, info.FullMethod, "unary", start, err) }()
 		ctx, err = requestContext(ctx)
 		if err != nil {
@@ -86,12 +89,14 @@ func ObserveUnary(logger *slog.Logger) grpc.UnaryServerInterceptor {
 			return nil, err
 		}
 		grpc.SetTrailer(ctx, metadata.Pairs("x-rpc-kind", "unary"))
+		// next is the following interceptor, or the contact handler at the end
+		// of the chain. Its result also becomes this interceptor's result.
 		return next(ctx, request)
 	}
 }
 
 // ObserveStream adds metadata and logs once when the entire stream handler ends.
-// It preserves stream methods while supplying the derived request-ID context.
+// The handler sees the same stream with a request ID added to its context.
 func ObserveStream(logger *slog.Logger) grpc.StreamServerInterceptor {
 	logger = usableLogger(logger)
 	return func(service any, stream grpc.ServerStream, info *grpc.StreamServerInfo, next grpc.StreamHandler) (err error) {

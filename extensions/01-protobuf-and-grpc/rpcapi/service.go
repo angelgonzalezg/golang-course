@@ -55,10 +55,13 @@ func (s *Service) CreateContact(ctx context.Context, request *contactsv1.CreateC
 	if request == nil || request.Input == nil {
 		return nil, invalid("input", "is required")
 	}
+	// gRPC decoded the message before calling us. Convert its editable fields
+	// to domain input; the shared store trims text, checks names, and assigns IDs.
 	value, err := s.store.Create(ctx, inputValue(request.Input))
 	if err != nil {
 		return nil, s.rpcError(ctx, err)
 	}
+	// Return a protobuf representation; gRPC handles encoding it for the client.
 	return resource(value), nil
 }
 

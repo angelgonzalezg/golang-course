@@ -66,6 +66,8 @@ func NewHandler(store ContactStore, logger *slog.Logger) http.Handler {
 		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
 	a := &api{store: store, logger: logger}
+	// The mux chooses a handler from the HTTP method and URL path. For example,
+	// POST /contacts reaches create; that function handles decoding and the reply.
 	mux := http.NewServeMux()
 	// GET patterns also match HEAD. net/http suppresses the body on the wire;
 	// running the same handler still supplies matching headers and status.
@@ -152,6 +154,8 @@ func (a *api) create(w http.ResponseWriter, r *http.Request) {
 		a.writeStoreError(w, err)
 		return
 	}
+	// The store returned ordinary Go data. Add this HTTP API's representation
+	// links, then send its status, headers, and JSON body to the client.
 	result := resource(value)
 	// A relative Location avoids deriving an absolute URL from an untrusted Host.
 	w.Header().Set("Location", result.Links.Self)

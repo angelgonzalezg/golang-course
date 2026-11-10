@@ -34,6 +34,9 @@ type Problem struct {
 	Detail string `json:"detail"`
 }
 
+// readInput turns accepted JSON into the store's ordinary Go input. On failure
+// it writes the problem response itself and returns false; the calling handler
+// must return then, rather than attempt to send a second response.
 func (a *api) readInput(w http.ResponseWriter, r *http.Request) (contacts.Input, bool) {
 	data, ok := a.readBody(w, r, "application/json")
 	if !ok {
@@ -91,6 +94,8 @@ func (a *api) readBody(w http.ResponseWriter, r *http.Request, expectedMediaType
 		a.writeProblem(w, http.StatusUnsupportedMediaType, "send an uncompressed "+expectedMediaType+" object")
 		return nil, false
 	}
+	// Bound bytes read from the network before decoding JSON. Field validation
+	// later answers whether those values form a valid contact.
 	r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBytes)
 	data, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -105,6 +110,8 @@ func (a *api) readBody(w http.ResponseWriter, r *http.Request, expectedMediaType
 	return data, true
 }
 
+// The store reports Go errors without HTTP knowledge. This adapter translates
+// them to statuses such as 400/404/409 and a consistent JSON problem body.
 func (a *api) writeStoreError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, contacts.ErrInvalidInput):

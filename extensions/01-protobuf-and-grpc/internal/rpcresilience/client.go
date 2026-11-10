@@ -44,15 +44,16 @@ func (c *Client) ListContacts(ctx context.Context, request *contactsv1.ListConta
 	})
 }
 
-// CreateOnce retries only a keyed creation. The server must install CreateCache
-// after authorization; a key alone supplies no guarantee on earlier endpoints.
-// Keep the same key and payload when manually repeating an uncertain operation.
+// CreateOnce uses a key to label one intended create operation. If its reply is
+// lost, the same key/data asks the server for the saved result. This requires
+// the server's CreateCache after authorization; the key alone cannot prevent
+// duplicate work on endpoints without that cache.
 func (c *Client) CreateOnce(ctx context.Context, key string, request *contactsv1.CreateContactRequest) (*contactsv1.Contact, error) {
 	if !validKey(key) {
 		return nil, status.Error(codes.InvalidArgument, "a valid idempotency key is required before retrying creation")
 	}
-	// Copy outgoing metadata: preserve credentials/tracing and replace, rather
-	// than append, the key. The caller must keep key AND payload across retries.
+	// Keep the caller's metadata unchanged. The key stays the same for every
+	// attempt, and the payload (request fields) must stay the same too.
 	md, _ := metadata.FromOutgoingContext(ctx)
 	md = md.Copy()
 	md.Set(KeyHeader, key)
@@ -61,8 +62,8 @@ func (c *Client) CreateOnce(ctx context.Context, key string, request *contactsv1
 }
 
 func retryUnary[T any](parent context.Context, invoke func(context.Context) (T, error)) (T, error) {
-	// One deadline covers connection work, every attempt, and every backoff.
-	// A fresh full budget per attempt could multiply the user's latency limit.
+	// Set one deadline for the whole operation, including waits between tries.
+	// Giving every attempt a new full budget could exceed the caller's limit.
 	ctx, cancel := context.WithTimeout(parent, CallBudget)
 	defer cancel()
 	var zero T
@@ -74,8 +75,9 @@ func retryUnary[T any](parent context.Context, invoke func(context.Context) (T, 
 		if err == nil || status.Code(err) != codes.Unavailable || attempt == MaxAttempts {
 			return result, err
 		}
-		// Exponential backoff: about 20ms, then 40ms, with +/-20% jitter so
-		// many callers do not all retry together. Backoff is context-aware.
+		// Wait before trying again (backoff): about 20ms, then 40ms. The shift
+		// doubles the base wait; a small random change (jitter) helps callers
+		// avoid retrying together. Cancellation can interrupt the wait.
 		delay := time.Duration(float64(20*time.Millisecond<<uint(attempt-1)) * (0.8 + rand.Float64()*0.4))
 		if err := wait(ctx, delay); err != nil {
 			return zero, status.FromContextError(err).Err()

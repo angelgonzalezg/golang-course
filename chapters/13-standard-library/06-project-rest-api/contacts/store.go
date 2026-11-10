@@ -13,7 +13,9 @@ import (
 // Mutex waits cannot be interrupted by context; operations check cancellation
 // again after acquiring the lock. Cancellation does not undo a completed write.
 type Store struct {
-	mu     sync.Mutex
+	mu sync.Mutex
+	// These maps are two lookups (indexes) for the same contacts. byID owns
+	// their values; byName reserves each name for an ID. Update both together.
 	byID   map[int64]Contact
 	byName map[string]int64
 	lastID int64

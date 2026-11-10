@@ -6,7 +6,7 @@ those rules or bringing external libraries into the root module.
 
 | Stage | Concepts and executable | What to inspect |
 | --- | --- | --- |
-| 1. [Protobuf](../README.md#read-in-order) | Field numbers, presence, masks, binary/ProtoJSON, cloning, compatibility. | `01-protobuf`, versioned contract, checked-in generated code, reproducible generation. |
+| 1. [Protobuf](../01-protobuf/README.md) | Field numbers, presence, masks, binary/ProtoJSON, cloning, compatibility. | `01-protobuf`, versioned contract, checked-in generated code, reproducible generation. |
 | 2. [Unary](../02-unary/README.md) | Six CRUD/query RPCs, statuses/details, versions, contexts, connection ownership. | Shared-store adapter, bufconn/TCP tests, REST interoperability, server lifecycle. |
 | 3. [Streaming](../03-streaming/README.md) | Server/client/bidirectional shapes, item outcomes, partial commits, flow control. | Ordered page snapshot, bounded import, one sender/receiver, EOF/half-close, cancellation. |
 | 4. [Infrastructure](../04-infrastructure/README.md) | TLS 1.3, call credentials, roles, metadata/interceptors/logs, health/reflection. | Certificate verification, protected methods, Watch shutdown, opt-in reflection, grpcurl. |

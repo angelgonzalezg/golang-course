@@ -18,18 +18,19 @@ import (
 // the request ID used for logging and the subject established by authentication.
 const KeyHeader = "x-idempotency-key"
 
+// The same key from two verified callers represents two separate operations.
 type scopedKey struct{ subject, key string }
 type createEntry struct {
 	request *contactsv1.CreateContactRequest
 	result  *contactsv1.Contact
 	err     error
-	done    chan struct{}
+	done    chan struct{} // Closed when the first request finishes; duplicates wait here.
 }
 
-// CreateCache binds each authenticated subject/key to its first decoded request
-// and result, including terminal errors. Entries live until process shutdown.
-// A full cache rejects new keys rather than evicting records and repeating work.
-// This is bounded in-process deduplication, not durable exactly-once execution.
+// CreateCache remembers the first request/result for each verified caller/key
+// pair, including errors. Repeating that same request returns the saved result
+// instead of creating another contact. A full cache rejects new keys and keeps
+// its old records. All records disappear when this Go process exits.
 type CreateCache struct {
 	mu       sync.Mutex
 	capacity int
@@ -115,6 +116,8 @@ func (c *CreateCache) do(ctx context.Context, subject, key string, request *cont
 			return nil, status.Error(codes.FailedPrecondition, "idempotency key is already bound to another request")
 		}
 		c.mu.Unlock()
+		// Another caller owns this operation. Wait for its saved result, or let
+		// this waiting caller cancel without canceling the original request.
 		select {
 		case <-existing.done:
 			return cloneContact(existing.result), existing.err
@@ -127,7 +130,9 @@ func (c *CreateCache) do(ctx context.Context, subject, key string, request *cont
 		return nil, status.Error(codes.ResourceExhausted, "idempotency cache is full; existing keys can still be replayed")
 	}
 	entry := &createEntry{request: proto.Clone(request).(*contactsv1.CreateContactRequest), done: make(chan struct{})}
-	c.entries[index] = entry // Reserve before calling the handler; concurrent duplicates wait.
+	// Record the reservation before releasing the lock. A simultaneous request
+	// with the same caller/key will find it and wait instead of running create.
+	c.entries[index] = entry
 	c.mu.Unlock()
 	// Do not hold the cache mutex during store operations, and do not detach
 	// from the caller's context. Cancellation does not undo a completed create.
@@ -135,7 +140,7 @@ func (c *CreateCache) do(ctx context.Context, subject, key string, request *cont
 	// Retain terminal errors too: rerunning after an ambiguous backend failure
 	// could repeat a mutation that committed before the error was reported.
 	entry.result, entry.err = cloneContact(result), err
-	close(entry.done) // Publishes immutable result/error to all waiting callers.
+	close(entry.done) // Signals waiters that the saved result/error is ready to read.
 	return cloneContact(entry.result), entry.err
 }
 
