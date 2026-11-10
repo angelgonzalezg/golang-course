@@ -121,7 +121,7 @@ Completion logs use a selected set of fields. They exclude tokens, raw
 authorization metadata, contact payloads, and error text. Duration measures
 server handler/interceptor work, rather than the client's whole latency.
 Transport failures before handler dispatch are outside these interceptors;
-metrics and tracing follow in stage 5.
+metrics and tracing are demonstrated in [stage 5](../05-resilience/README.md).
 
 ## TLS and access policy
 
@@ -194,5 +194,6 @@ All earlier stages remain part of the module's test/race run.
 
 Before moving on, explain authentication versus authorization, transport
 credentials versus call credentials, headers versus trailers, and why an open
-health Watch can delay shutdown. The remaining stage covers explicit message
-limits, bounded retries/idempotency, observability, failure tests, and final review.
+health Watch can delay shutdown. Continue with [stage 5](../05-resilience/README.md)
+for explicit message limits, bounded retries/idempotency, observability, failure
+tests, and the [completed lab review](../05-resilience/review.md).

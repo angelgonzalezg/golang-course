@@ -48,7 +48,8 @@ expected result for unchanged examples. See the [module lab](../chapters/10-modu
 The [gRPC lab](../extensions/01-protobuf-and-grpc/README.md) is another independent
 module. Its first stage runs local serialization examples; its second stage
 implements the unary transport, its third adds three streaming call shapes,
-and its fourth adds TLS, metadata/interceptors, access control, and standard services.
+its fourth adds TLS, metadata/interceptors, access control, and standard services,
+and its fifth adds resilience, OpenTelemetry, and final review.
 Initial use downloads its pinned Go
 dependencies, kept outside the main course module:
 
@@ -57,6 +58,7 @@ go -C extensions/01-protobuf-and-grpc run ./01-protobuf
 go -C extensions/01-protobuf-and-grpc run ./02-unary
 go -C extensions/01-protobuf-and-grpc run ./03-streaming
 go -C extensions/01-protobuf-and-grpc run ./04-infrastructure
+go -C extensions/01-protobuf-and-grpc run ./05-resilience
 go -C extensions/01-protobuf-and-grpc test -count=1 -timeout=30s ./...
 go -C extensions/01-protobuf-and-grpc vet ./...
 go -C extensions/01-protobuf-and-grpc mod tidy -diff
@@ -377,5 +379,39 @@ health, missing-token and reader-write rejection, and reader calls using the
 local schema. It stopped its owned server and confirmed that completion logs
 contained neither fixture credentials nor contact payloads. grpcurl was run as
 a versioned external command; it was not added to the lab's dependencies.
-Formatting, whitespace, and local Markdown paths were checked. Stage 5 remains
-for message limits, retries/idempotency, observability, and final review.
+Formatting, whitespace, and local Markdown paths were checked. At stage 4,
+message limits, retries/idempotency, observability, and final review remained.
+
+### gRPC resilience and final lab review
+
+Stage 5 passed its finite verified-TLS failure demo, module tests, vet, and
+`mod tidy -diff`. The full lab passed `-race -count=3 -cpu=1,2 -timeout=45s`,
+including the earlier finite demos and unary/streaming/infrastructure cases.
+The root module also passed uncached tests and vet. Regeneration check mode
+still matched both generated Go files using the pinned compiler/plugins.
+
+The new tests verified three-attempt recovery/exhaustion, nonretryable statuses,
+one shared retry deadline, cancellation during backoff, and stable copied
+idempotency metadata. In-process cache tests covered concurrent duplicates,
+subject/payload binding, isolated response copies, retained terminal errors,
+capacity rejection without eviction, and cancellation of a waiting duplicate.
+TLS integration tests combined lost-reply injection with concurrent callers and
+confirmed that only one underlying create ran. Missing/malformed keys, reused
+keys with changed payloads, reader writes, and keys on unsupported RPCs were rejected.
+
+Transport tests exercised client send, server receive, server send, and client
+receive limits. Smaller pages and many individually small streamed responses
+succeeded. Later oversized stream messages preserved earlier import commits
+and delivered replies. OpenTelemetry tests linked client/server spans, correlated
+trace/request IDs in completion logs, observed transport rejection before handler
+dispatch, excluded keys/credentials/payloads from logs, and enforced the bounded
+span-summary exporter with independent snapshots.
+
+OpenTelemetry API/SDK v1.45.0 was added only to the supplementary module, matching
+the requirements of its pinned gRPC v1.85.0. The root dependency files, shared
+contact rules, Protobuf schema, generated bindings, and generator pins are
+unchanged. All five agreed stages are implemented; the
+[final lab review](../extensions/01-protobuf-and-grpc/05-resilience/review.md)
+records their validation commands, in-memory/idempotency limits, and optional
+production-oriented exercises. Formatting, whitespace, and local Markdown paths
+were checked.

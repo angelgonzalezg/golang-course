@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -57,10 +58,15 @@ func usableLogger(logger *slog.Logger) *slog.Logger {
 func logCompletion(ctx context.Context, logger *slog.Logger, method, kind string, start time.Time, err error) {
 	// Log a bounded set of fields. Do not log tokens, raw metadata, contact
 	// payloads, or error text that could contain private backend information.
-	logger.LogAttrs(ctx, slog.LevelInfo, "rpc completed",
+	attributes := []slog.Attr{
 		slog.String("method", method), slog.String("kind", kind),
 		slog.String("request_id", RequestID(ctx)), slog.String("code", status.Code(err).String()),
-		slog.Duration("duration", time.Since(start)))
+		slog.Duration("duration", time.Since(start)),
+	}
+	if span := trace.SpanContextFromContext(ctx); span.IsValid() {
+		attributes = append(attributes, slog.String("trace_id", span.TraceID().String()), slog.String("span_id", span.SpanID().String()))
+	}
+	logger.LogAttrs(ctx, slog.LevelInfo, "rpc completed", attributes...)
 }
 
 func ObserveUnary(logger *slog.Logger) grpc.UnaryServerInterceptor {

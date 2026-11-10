@@ -187,7 +187,7 @@ Repeated race checks cover executed schedules; they do not prove every timing
 or failure condition. Continue with the [streaming stage](../03-streaming/README.md).
 TLS/auth, metadata/interceptors, and health are covered in the
 [infrastructure stage](../04-infrastructure/README.md). Retry/size policies
-remain in [stage 5](../README.md#remaining-stages).
+are covered in [stage 5](../05-resilience/README.md).
 
 References: [`grpc.NewClient`](https://pkg.go.dev/google.golang.org/grpc@v1.85.0#NewClient),
 [status codes](https://grpc.io/docs/guides/status-codes/),

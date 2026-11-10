@@ -63,8 +63,12 @@ cleanup after cancellation. Then run the
 [infrastructure stage](../extensions/01-protobuf-and-grpc/04-infrastructure/README.md)
 and trace transport credentials, call credentials, interceptor order, identity
 context, and header/trailer ownership. Compare authentication with authorization,
-readiness with connectivity, and reflection access with method access. The lab
-uses its own module; resilience and final review remain in stage 5.
+readiness with connectivity, and reflection access with method access. Finish with
+[resilience](../extensions/01-protobuf-and-grpc/05-resilience/README.md): explain
+safe retries, payload-bound keys, partial stream failure, and transport versus
+handler observations. Inspect metrics, trace propagation, and correlated logs.
+The lab uses its own module; all five stages and the
+[final review](../extensions/01-protobuf-and-grpc/05-resilience/review.md) are complete.
 
 ## First pass through pointers
 

@@ -126,6 +126,7 @@ using the same contact rules, with status errors, deadlines, cancellation, and
 integration tests. Its streaming stage adds ordered result streams, bounded
 imports with partial commits, bidirectional lookup outcomes, and lifecycle
 tests. Its infrastructure stage adds verified TLS, metadata/interceptors,
-reader/writer access, health, reflection, and grpcurl exercises. Resilience and
-the lab's final review remain. This lab is supplementary to the book's chapter
-mapping.
+reader/writer access, health, reflection, and grpcurl exercises. Its resilience
+stage adds message limits, bounded retries, keyed creation, and OpenTelemetry.
+All five gRPC stages and the [lab's final review](extensions/01-protobuf-and-grpc/05-resilience/review.md)
+are complete. This lab is supplementary to the book's chapter mapping.
