@@ -1,6 +1,8 @@
-# Go course
+# Idiomatic Go Labs
 
-Go examples and practice projects organized around Jon Bodner's
+Hands-on lessons and practice projects for learning idiomatic Go, from language
+fundamentals to concurrency, REST, and Protobuf/gRPC. The core chapters are
+organized around Jon Bodner's
 [Learning Go, Second Edition](https://www.oreilly.com/library/view/learning-go-2nd/9781098139285/).
 
 The directories under `chapters/` follow the book's chapter numbers. Lessons
@@ -16,16 +18,20 @@ main course module.
 ## Requirements
 
 Use Go 1.27 or later, as declared in `go.mod`. Run the commands below from the
-repository root.
+repository root. Start with the
+[development environment guide](chapters/01-development-environment/README.md)
+for installation, editor setup, your first run and test, and module boundaries.
 
 ## Run an example
 
 ```sh
 go run ./chapters/02-declarations/01-values
 go run ./chapters/05-functions/06-project-sales-order
+go test -count=1 ./chapters/15-testing/01-unit-tests
 ```
 
 Change the package path to run another lesson or project from the tables below.
+The testing command runs an existing suite; chapter 15 teaches how to write one.
 
 ## Learning path
 
@@ -52,6 +58,7 @@ pooling example also uses interfaces and concurrency from later chapters.
 
 | Book chapter | Topics, in reading order |
 | --- | --- |
+| 1. Setting up your Go environment | [Install Go, prepare your editor, run an example and a test, and understand this repository's modules](chapters/01-development-environment/README.md) |
 | 2. Predeclared types and declarations | [Values](chapters/02-declarations/01-values/main.go), [variables](chapters/02-declarations/02-variables/main.go), [constants](chapters/02-declarations/03-constants/main.go) |
 | 3. Composite types | [Arrays](chapters/03-composite-types/01-arrays/main.go), [slices](chapters/03-composite-types/02-slices/main.go), [slice internals](chapters/03-composite-types/03-slice-internals/main.go), [strings, bytes, and runes](chapters/03-composite-types/04-strings-bytes-and-runes/README.md), [maps](chapters/03-composite-types/05-maps/main.go), [structs](chapters/03-composite-types/06-structs/main.go) |
 | 4. Blocks, shadows, and control structures | [Shadowing](chapters/04-blocks-and-control-flow/01-shadowing/main.go), [conditionals](chapters/04-blocks-and-control-flow/02-conditionals/main.go), [switch](chapters/04-blocks-and-control-flow/03-switch/main.go), [for loops](chapters/04-blocks-and-control-flow/04-for-loops/main.go), [goto](chapters/04-blocks-and-control-flow/05-goto/main.go) |

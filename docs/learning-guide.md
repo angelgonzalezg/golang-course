@@ -21,6 +21,7 @@ and optional cgo labs have their own `go.mod` files and use `go -C`.
 
 | Stage | Read and practice | Check your understanding |
 | --- | --- | --- |
+| 0. Prepare your environment | [Development environment](../chapters/01-development-environment/README.md). | Confirm the Go version and active module, run one lesson and one test, and explain why independent modules use separate commands. |
 | 1. Values and control flow | Chapters 2–4 in the [index](../README.md). | Explain zero values, `len` versus `cap`, map lookup with `ok`, byte versus rune, and when a slice shares storage. |
 | 2. Functions | Chapter 5, then the [sales order project](../chapters/05-functions/06-project-sales-order/README.md). | Trace inputs, returned values, early returns, closures, and deferred work. Distinguish a valid zero result from a failed lookup. |
 | 3. Pointers and ownership | [Pointer basics](../chapters/06-pointers/01-pointers/main.go), [small contact lookup](../chapters/06-pointers/04-project-contact-list/01-pointer-lookup/README.md), then the [contact book](../chapters/06-pointers/04-project-contact-list/README.md). | Explain which object changes, when a returned pointer aliases storage, and why the expanded book uses snapshots and stable IDs. |
