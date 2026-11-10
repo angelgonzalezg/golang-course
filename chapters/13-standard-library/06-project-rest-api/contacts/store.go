@@ -109,13 +109,55 @@ func (s *Store) Replace(ctx context.Context, id int64, input Input) (Contact, er
 	if !exists {
 		return Contact{}, ErrNotFound
 	}
-	if owner, exists := s.byName[input.Name]; exists && owner != id {
+	return s.replaceLocked(old, input)
+}
+
+// Patch changes only selected fields. Reading the current contact, applying
+// changes, validating, and saving all happen under one lock. Calling Get and
+// then Replace separately could overwrite another request's intervening edit.
+func (s *Store) Patch(ctx context.Context, id int64, changes Changes) (Contact, error) {
+	if err := ctx.Err(); err != nil {
+		return Contact{}, err
+	}
+	if err := validateID(id); err != nil {
+		return Contact{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return Contact{}, err
+	}
+	old, exists := s.byID[id]
+	if !exists {
+		return Contact{}, ErrNotFound
+	}
+	input := Input{Name: old.Name, Email: old.Email, Phone: old.Phone}
+	if changes.Name != nil {
+		input.Name = *changes.Name
+	}
+	if changes.Email != nil {
+		input.Email = *changes.Email
+	}
+	if changes.Phone != nil {
+		input.Phone = *changes.Phone
+	}
+	input, err := normalize(input)
+	if err != nil {
+		return Contact{}, err
+	}
+	return s.replaceLocked(old, input)
+}
+
+// The caller holds the lock and supplies normalized input. Check the name
+// before changing either map so a rejected PUT or PATCH leaves both intact.
+func (s *Store) replaceLocked(old Contact, input Input) (Contact, error) {
+	if owner, exists := s.byName[input.Name]; exists && owner != old.ID {
 		return Contact{}, ErrNameTaken
 	}
-	updated := Contact{ID: id, Name: input.Name, Email: input.Email, Phone: input.Phone}
+	updated := Contact{ID: old.ID, Name: input.Name, Email: input.Email, Phone: input.Phone}
 	delete(s.byName, old.Name)
-	s.byName[input.Name] = id
-	s.byID[id] = updated
+	s.byName[input.Name] = old.ID
+	s.byID[old.ID] = updated
 	return updated, nil
 }
 

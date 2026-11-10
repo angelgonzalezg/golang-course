@@ -48,6 +48,11 @@ func runDemo(ctx context.Context, out io.Writer) (err error) {
 		{"GET", "/contacts", nil, http.StatusOK},
 		{"GET", path, nil, http.StatusOK},
 		{"POST", "/contacts", map[string]string{"name": "Ana"}, http.StatusConflict},
+		// PATCH selects one field; the name and phone stay as they were.
+		{"PATCH", path, map[string]string{"email": "ana.torres@example.com"}, http.StatusOK},
+		{"PATCH", path, map[string]string{"email": "ana.torres@example.com"}, http.StatusOK},
+		{"PATCH", path, map[string]any{"phone": nil}, http.StatusOK},
+		// PUT supplies the whole editable state; omitted email and phone clear.
 		{"PUT", path, map[string]string{"name": "Ana Torres"}, http.StatusOK},
 		{"PUT", path, map[string]string{"name": "Ana Torres"}, http.StatusOK},
 		{"DELETE", path, nil, http.StatusNoContent},
@@ -58,8 +63,11 @@ func runDemo(ctx context.Context, out io.Writer) (err error) {
 			return err
 		}
 	}
+	fmt.Fprintln(out, "PATCH kept omitted fields; null removed an optional field.")
 	fmt.Fprintln(out, "PUT replaced every editable field; omitted email and phone became empty.")
-	fmt.Fprintln(out, "Repeated PUT and DELETE preserve the intended state; their statuses need not be identical.")
+	fmt.Fprintln(out, "Empty optional fields are absent from the JSON representation.")
+	fmt.Fprintln(out, "These assignment/removal patches are idempotent; PATCH in general need not be.")
+	fmt.Fprintln(out, "Repeated DELETE keeps the contact absent; its status need not be identical.")
 	return nil
 }
 
@@ -77,7 +85,11 @@ func demoRequest(ctx context.Context, client *http.Client, out io.Writer, baseUR
 		return nil, err
 	}
 	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
+		mediaType := "application/json"
+		if method == http.MethodPatch {
+			mediaType = httpapi.MergePatchMediaType
+		}
+		req.Header.Set("Content-Type", mediaType)
 	}
 	resp, err := client.Do(req)
 	if err != nil {

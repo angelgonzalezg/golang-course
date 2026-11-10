@@ -22,6 +22,14 @@ type Input struct {
 	Phone string
 }
 
+// Changes selects the fields to update. nil keeps the stored field; a pointer
+// supplies its new value. A pointer to "" clears Email or Phone.
+type Changes struct {
+	Name  *string
+	Email *string
+	Phone *string
+}
+
 var (
 	ErrInvalidInput = errors.New("invalid contact input")
 	ErrNotFound     = errors.New("contact not found")

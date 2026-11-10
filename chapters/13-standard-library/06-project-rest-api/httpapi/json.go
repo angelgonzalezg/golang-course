@@ -4,6 +4,7 @@ import (
 	"context"
 	json "encoding/json/v2"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -13,6 +14,8 @@ import (
 )
 
 const MaxRequestBytes = 4 * 1024
+
+const MergePatchMediaType = "application/merge-patch+json"
 
 type contactRequest struct {
 	Name  string `json:"name"`
@@ -29,24 +32,11 @@ type Problem struct {
 }
 
 func (a *api) readInput(w http.ResponseWriter, r *http.Request) (contacts.Input, bool) {
-	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	encoding := strings.TrimSpace(r.Header.Get("Content-Encoding"))
-	if err != nil || mediaType != "application/json" || (encoding != "" && !strings.EqualFold(encoding, "identity")) {
-		a.writeProblem(w, http.StatusUnsupportedMediaType, "send an uncompressed application/json object")
+	data, ok := a.readBody(w, r, "application/json")
+	if !ok {
 		return contacts.Input{}, false
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBytes)
-	data, err := io.ReadAll(r.Body)
-	if err != nil {
-		var tooLarge *http.MaxBytesError
-		if errors.As(err, &tooLarge) {
-			a.writeProblem(w, http.StatusRequestEntityTooLarge, "body exceeds 4096 bytes")
-		} else {
-			a.writeProblem(w, http.StatusBadRequest, "could not read request body")
-		}
-		return contacts.Input{}, false
-	}
-	// Fresh storage makes omitted optional fields empty on every request.
+	// Fresh storage makes omitted optional fields empty on every PUT.
 	// v2 also maps explicit null strings to their zero value, an empty string.
 	var input *contactRequest
 	if err := json.Unmarshal(data, &input, json.RejectUnknownMembers(true)); err != nil || input == nil {
@@ -54,6 +44,62 @@ func (a *api) readInput(w http.ResponseWriter, r *http.Request) (contacts.Input,
 		return contacts.Input{}, false
 	}
 	return contacts.Input{Name: input.Name, Email: input.Email, Phone: input.Phone}, true
+}
+
+func (a *api) readChanges(w http.ResponseWriter, r *http.Request) (contacts.Changes, bool) {
+	data, ok := a.readBody(w, r, MergePatchMediaType)
+	if !ok {
+		return contacts.Changes{}, false
+	}
+	// A map preserves member presence. With only *string struct fields,
+	// both an omitted member and JSON null would decode to nil.
+	var members map[string]*string
+	if err := json.Unmarshal(data, &members); err != nil || members == nil {
+		a.writeProblem(w, http.StatusBadRequest, "patch must be one object with string or null values")
+		return contacts.Changes{}, false
+	}
+	var changes contacts.Changes
+	for field, value := range members {
+		if value == nil {
+			// null requests removal. Empty optional text is the domain's way
+			// to represent missing data; removing the required name fails validation.
+			empty := ""
+			value = &empty
+		}
+		switch field {
+		case "name":
+			changes.Name = value
+		case "email":
+			changes.Email = value
+		case "phone":
+			changes.Phone = value
+		default:
+			a.writeProblem(w, http.StatusBadRequest, "patch may change only name, email, and phone")
+			return contacts.Changes{}, false
+		}
+	}
+	return changes, true
+}
+
+func (a *api) readBody(w http.ResponseWriter, r *http.Request, expectedMediaType string) ([]byte, bool) {
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	encoding := strings.TrimSpace(r.Header.Get("Content-Encoding"))
+	if err != nil || mediaType != expectedMediaType || (encoding != "" && !strings.EqualFold(encoding, "identity")) {
+		a.writeProblem(w, http.StatusUnsupportedMediaType, "send an uncompressed "+expectedMediaType+" object")
+		return nil, false
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBytes)
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			a.writeProblem(w, http.StatusRequestEntityTooLarge, fmt.Sprintf("body exceeds %d bytes", MaxRequestBytes))
+		} else {
+			a.writeProblem(w, http.StatusBadRequest, "could not read request body")
+		}
+		return nil, false
+	}
+	return data, true
 }
 
 func (a *api) writeStoreError(w http.ResponseWriter, err error) {

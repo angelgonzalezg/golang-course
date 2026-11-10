@@ -216,3 +216,11 @@ shutdown, concurrent HTTP requests, and HEAD on a real connection. Formatting,
 whitespace, and local Markdown path checks passed. The independent modules and
 the earlier review's specialized checks were unaffected and were not rerun for
 this extension.
+
+The subsequent PATCH extension passed the finite PUT/PATCH demonstration,
+uncached root-module tests, `go vet ./...`, and the same repeated REST race
+checks. Its added tests cover member presence, null removal, optional JSON
+member omission, PUT/PATCH differences, all-or-nothing rejection, cancellation,
+media types, body limits, OPTIONS discovery, and simultaneous patches to
+different fields. Formatting, whitespace, and local Markdown paths were also
+checked after this extension.

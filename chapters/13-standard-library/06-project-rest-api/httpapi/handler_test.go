@@ -21,6 +21,9 @@ import (
 func request(handler http.Handler, method, path, body string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	if method == http.MethodPatch {
+		req.Header.Set("Content-Type", MergePatchMediaType)
+	}
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, req)
 	return response
@@ -204,7 +207,7 @@ func TestBodyLimitAndReadFailure(t *testing.T) {
 func TestRoutingErrors(t *testing.T) {
 	handler := NewHandler(contacts.NewStore(), nil)
 	for _, text := range []string{"0", "-1", "01", "+1", "abc", "9223372036854775808"} {
-		for _, method := range []string{"GET", "PUT", "DELETE"} {
+		for _, method := range []string{"GET", "PUT", "PATCH", "DELETE", "OPTIONS"} {
 			expectProblem(t, request(handler, method, "/contacts/"+text, `{"name":"Ana"}`), 400)
 		}
 	}
@@ -214,7 +217,7 @@ func TestRoutingErrors(t *testing.T) {
 	for _, tc := range []struct{ method, path, allow string }{
 		{"POST", "/", "GET, HEAD"},
 		{"DELETE", "/contacts", "GET, HEAD, POST"},
-		{"PATCH", "/contacts/1", "DELETE, GET, HEAD, PUT"},
+		{"POST", "/contacts/1", "DELETE, GET, HEAD, OPTIONS, PATCH, PUT"},
 	} {
 		response := request(handler, tc.method, tc.path, "")
 		expectProblem(t, response, 405)

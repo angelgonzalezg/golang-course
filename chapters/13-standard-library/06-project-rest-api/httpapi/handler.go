@@ -18,6 +18,7 @@ type ContactStore interface {
 	Get(context.Context, int64) (contacts.Contact, error)
 	List(context.Context) ([]contacts.Contact, error)
 	Replace(context.Context, int64, contacts.Input) (contacts.Contact, error)
+	Patch(context.Context, int64, contacts.Changes) (contacts.Contact, error)
 	Delete(context.Context, int64) error
 }
 
@@ -27,10 +28,11 @@ type Links struct {
 }
 
 type ContactResource struct {
-	ID    int64  `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
-	Phone string `json:"phone"`
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	// Missing optional data is absent from JSON, including after PATCH null.
+	Email string `json:"email,omitempty"`
+	Phone string `json:"phone,omitempty"`
 	Links Links  `json:"links"`
 }
 
@@ -43,6 +45,8 @@ type api struct {
 	store  ContactStore
 	logger *slog.Logger
 }
+
+const contactMethods = "DELETE, GET, HEAD, OPTIONS, PATCH, PUT"
 
 // NewHandler requires a usable store. A nil logger selects a local discard
 // logger, so the package never changes the process-global logging settings.
@@ -62,8 +66,10 @@ func NewHandler(store ContactStore, logger *slog.Logger) http.Handler {
 	mux.HandleFunc("/contacts", a.methodNotAllowed("GET, HEAD, POST"))
 	mux.HandleFunc("GET /contacts/{id}", a.get)
 	mux.HandleFunc("PUT /contacts/{id}", a.replace)
+	mux.HandleFunc("PATCH /contacts/{id}", a.patch)
+	mux.HandleFunc("OPTIONS /contacts/{id}", a.options)
 	mux.HandleFunc("DELETE /contacts/{id}", a.delete)
-	mux.HandleFunc("/contacts/{id}", a.methodNotAllowed("DELETE, GET, HEAD, PUT"))
+	mux.HandleFunc("/contacts/{id}", a.methodNotAllowed(contactMethods))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		a.writeProblem(w, http.StatusNotFound, "resource not found")
 	})
@@ -134,6 +140,7 @@ func (a *api) replace(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// PUT supplies every editable field; omitted optional fields become empty.
 	input, ok := a.readInput(w, r)
 	if !ok {
 		return
@@ -144,6 +151,35 @@ func (a *api) replace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.writeJSON(w, http.StatusOK, resource(value))
+}
+
+func (a *api) patch(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Accept-Patch", MergePatchMediaType)
+	id, ok := a.readID(w, r)
+	if !ok {
+		return
+	}
+	// PATCH carries changes: omitted fields keep their current values.
+	changes, ok := a.readChanges(w, r)
+	if !ok {
+		return
+	}
+	value, err := a.store.Patch(r.Context(), id, changes)
+	if err != nil {
+		a.writeStoreError(w, err)
+		return
+	}
+	a.writeJSON(w, http.StatusOK, resource(value))
+}
+
+func (a *api) options(w http.ResponseWriter, r *http.Request) {
+	if _, ok := a.readID(w, r); !ok {
+		return
+	}
+	// Describe this route's capabilities without reading or changing a contact.
+	w.Header().Set("Allow", contactMethods)
+	w.Header().Set("Accept-Patch", MergePatchMediaType)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *api) delete(w http.ResponseWriter, r *http.Request) {

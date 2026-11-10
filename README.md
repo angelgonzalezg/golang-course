@@ -109,7 +109,7 @@ check your understanding before adding those extensions.
 ## Backend extensions
 
 The [contacts REST project](chapters/13-standard-library/06-project-rest-api/README.md)
-extends the HTTP lesson with resource URLs, CRUD operations, problem responses,
-and a reusable contact store. Its default demo is finite; use `-serve` for
-interactive requests. Protobuf and gRPC are the next extension, using the same
-contact rules with a different transport.
+extends the HTTP lesson with resource URLs, CRUD operations, PUT versus PATCH,
+problem responses, and a reusable contact store. Its default demo is finite;
+use `-serve` for interactive requests. Protobuf and gRPC are the next extension,
+using the same contact rules with a different transport.

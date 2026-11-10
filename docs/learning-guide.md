@@ -38,9 +38,10 @@ with `CGO_ENABLED=0`.
 After stages 6–8, complete the
 [contacts REST project](../chapters/13-standard-library/06-project-rest-api/README.md).
 Trace a request from the HTTP representation to the contact store and back.
-Explain POST's Location, PUT's full replacement, idempotency, and how shared
-data stays consistent under simultaneous requests. The earlier pointer project
-remains the introductory contact exercise; this one combines later concepts.
+Explain POST's Location, PUT's full replacement versus PATCH's selected changes,
+omitted fields versus null, idempotency, and how shared data stays consistent
+under simultaneous requests. The earlier pointer project remains the
+introductory contact exercise; this one combines later concepts.
 Protobuf and gRPC will follow as a separate transport extension.
 
 ## First pass through pointers
