@@ -20,6 +20,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// expected checks an intentional outcome, including planned RPC failures. A
+// simulated failure is a passed scenario only when it has the expected status.
 func expected(label string, code codes.Code, err error, out io.Writer) error {
 	if status.Code(err) != code {
 		if err != nil {
@@ -31,7 +33,12 @@ func expected(label string, code codes.Code, err error, out io.Writer) error {
 	return nil
 }
 
+// runClient compares safe reads, keyed creation, and four message boundaries.
+// store/faults are local observation hooks for this in-process experiment; an
+// ordinary remote client would not inspect the server's store or failure counters.
 func runClient(parent context.Context, target string, transport *tls.Config, token string, telemetry *rpcobserve.Telemetry, store *contacts.Store, faults *lessonFaults, out io.Writer) (err error) {
+	// This parent span groups the operation's RPCs. Passing its context lets
+	// the configured instrumentation connect client and server observations.
 	ctx, span := telemetry.Tracer.Tracer("course/resilience").Start(parent, "resilience-demo")
 	defer span.End()
 	connection, err := openConnection(target, transport, token, telemetry)
@@ -40,11 +47,15 @@ func runClient(parent context.Context, target string, transport *tls.Config, tok
 	}
 	defer func() { err = errors.Join(err, connection.Close()) }()
 	api := contactsv1.NewContactServiceClient(connection)
+	// Use the wrapper for repeatable operations. Keep the raw generated client
+	// for scenarios that intentionally bypass retries or change one call's limit.
 	client := rpcresilience.NewClient(api)
 	fmt.Fprintln(out, "== Bounded retries: only Unavailable, at most 3 application attempts ==")
 	if _, err := client.GetContact(ctx, &contactsv1.GetContactRequest{Id: 1}); err != nil {
 		return err
 	}
+	// The controlled server rejects two reads; the third must succeed. Inspect
+	// the counter rather than assuming that a final OK proves retries happened.
 	if faults.readCalls.Load() != 3 {
 		return fmt.Errorf("read recovery used %d attempts", faults.readCalls.Load())
 	}
@@ -55,6 +66,8 @@ func runClient(parent context.Context, target string, transport *tls.Config, tok
 	}
 
 	fmt.Fprintln(out, "\n== A lost create reply and an idempotent replay ==")
+	// Reuse one key and unchanged request after a lost reply. The interceptor
+	// remembers the original result, so two attempts produce only one contact.
 	request := &contactsv1.CreateContactRequest{Input: &contactsv1.ContactInput{Name: "Retry Contact"}}
 	created, err := client.CreateOnce(ctx, "create-1", request)
 	if err != nil {
@@ -63,6 +76,8 @@ func runClient(parent context.Context, target string, transport *tls.Config, tok
 	if faults.createCalls.Load() != 2 {
 		return fmt.Errorf("lost reply used %d create attempts", faults.createCalls.Load())
 	}
+	// The server began with 12 sample contacts. Check actual stored state to
+	// prove the retry added one contact, rather than accepting duplicate work.
 	page, err := store.Search(ctx, contacts.Query{Limit: 100})
 	if err != nil || page.Total != 13 {
 		return fmt.Errorf("idempotent create must add exactly one contact: total=%d, error=%v", page.Total, err)
@@ -73,6 +88,8 @@ func runClient(parent context.Context, target string, transport *tls.Config, tok
 		return fmt.Errorf("replay changed the original result: %v", err)
 	}
 	fmt.Fprintln(out, "Same key and payload -> original result")
+	// A key identifies one intended request, not permission to send different
+	// data under the same label. That mismatch must be rejected without a write.
 	_, err = client.CreateOnce(ctx, "create-1", &contactsv1.CreateContactRequest{Input: &contactsv1.ContactInput{Name: "Different payload"}})
 	if err := expected("Same key, different payload", codes.FailedPrecondition, err, out); err != nil {
 		return err
@@ -83,6 +100,8 @@ func runClient(parent context.Context, target string, transport *tls.Config, tok
 	}
 
 	fmt.Fprintln(out, "\n== Message limits apply to each Protobuf message ==")
+	// Deliberately exceed the byte budget. The first boundary is client-side;
+	// raising only that limit lets the next call reach the server's receive check.
 	oversized := &contactsv1.CreateContactRequest{Input: &contactsv1.ContactInput{Name: strings.Repeat("x", 2*rpcresilience.MaxMessageBytes)}}
 	keyed := metadata.AppendToOutgoingContext(ctx, rpcresilience.KeyHeader, "oversized")
 	_, err = api.CreateContact(keyed, oversized)
@@ -95,6 +114,8 @@ func runClient(parent context.Context, target string, transport *tls.Config, tok
 	if err := expected("Server receive limit", codes.ResourceExhausted, err, out); err != nil {
 		return err
 	}
+	// Reverse direction: one collection can exceed the server's send budget.
+	// A single otherwise-valid contact can also exceed a smaller client budget.
 	_, err = client.ListContacts(ctx, &contactsv1.ListContactsRequest{})
 	if err := expected("Server send limit: large unary page", codes.ResourceExhausted, err, out); err != nil {
 		return err
@@ -103,6 +124,8 @@ func runClient(parent context.Context, target string, transport *tls.Config, tok
 	if err := expected("Client receive limit", codes.ResourceExhausted, err, out); err != nil {
 		return err
 	}
+	// Paging reduces one response's size. Streaming instead sends each contact
+	// as its own bounded message; the limit is not a total budget for the stream.
 	small, err := client.ListContacts(ctx, &contactsv1.ListContactsRequest{Limit: 2})
 	if err != nil || len(small.GetContacts()) != 2 || small.NextOffset == nil {
 		return fmt.Errorf("small page failed: %v", err)
@@ -129,6 +152,8 @@ func runClient(parent context.Context, target string, transport *tls.Config, tok
 	fmt.Fprintln(out, "Stream -> EOF / OK: 13 small messages; total bytes may exceed one-message limit")
 
 	fmt.Fprintln(out, "\n== Exhaustion and cancellation do not extend the call budget ==")
+	// Keep failing longer than the retry cap. The wrapper must stop after three
+	// application attempts instead of waiting for the server to eventually recover.
 	before := faults.readCalls.Load()
 	faults.readFailures.Store(99)
 	_, err = client.GetContact(ctx, &contactsv1.GetContactRequest{Id: 1})
@@ -139,6 +164,8 @@ func runClient(parent context.Context, target string, transport *tls.Config, tok
 		return fmt.Errorf("retry cap was not respected")
 	}
 	faults.readFailures.Store(0)
+	// An already-expired caller budget must end the operation before another
+	// attempt begins. It does not receive a fresh two-second retry budget.
 	expired, cancel := context.WithDeadline(ctx, time.Now().Add(-time.Second))
 	_, err = client.GetContact(expired, &contactsv1.GetContactRequest{Id: 1})
 	cancel()

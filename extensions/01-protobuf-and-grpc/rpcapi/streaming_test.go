@@ -17,6 +17,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Receive valid, empty, and invalid query streams. Check the complete page and
+// its terminal status; opening a stream alone cannot establish successful completion.
 func TestServerStreamPageAndTerminalStatus(t *testing.T) {
 	store := contacts.NewStore()
 	for _, name := range []string{"Ana", "Bea", "Carla", "David"} {
@@ -61,6 +63,8 @@ func TestServerStreamPageAndTerminalStatus(t *testing.T) {
 	}
 }
 
+// gatedContactStream models a blocked Send through an explicit gate. It checks
+// handler ownership/backpressure behavior, not real HTTP/2 window sizes.
 type gatedContactStream struct {
 	grpc.ServerStream
 	ctx  context.Context
@@ -70,6 +74,8 @@ type gatedContactStream struct {
 func (s gatedContactStream) Context() context.Context             { return s.ctx }
 func (s gatedContactStream) Send(value *contactsv1.Contact) error { return s.send(value) }
 
+// Hold Send behind a gate and mutate the store. The selected snapshot must
+// stay unchanged, store writes must proceed, and cancellation must release Send.
 func TestServerStreamSnapshotAndBlockedSend(t *testing.T) {
 	store := contacts.NewStore()
 	for _, name := range []string{"Ana", "Bea"} {
@@ -135,6 +141,8 @@ func TestServerStreamSnapshotAndBlockedSend(t *testing.T) {
 	}
 }
 
+// importRequests owns one bounded RPC and always reads its final result, even
+// if sending ends with EOF. It preserves the server's terminal status for assertions.
 func importRequests(t *testing.T, client contactsv1.ContactServiceClient, requests []*contactsv1.CreateContactRequest) (*contactsv1.ImportContactsResponse, error) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
@@ -154,6 +162,8 @@ func importRequests(t *testing.T, client contactsv1.ContactServiceClient, reques
 	return stream.CloseAndRecv()
 }
 
+// Import an empty batch and a three-contact batch. Each successful summary
+// must match the actual saved contacts and their creation order.
 func TestImportSummaryAndEmptyBatch(t *testing.T) {
 	store := contacts.NewStore()
 	client := testClient(t, store, nil)
@@ -175,6 +185,8 @@ func TestImportSummaryAndEmptyBatch(t *testing.T) {
 	}
 }
 
+// Make the second import item invalid, absent, or duplicate. End the RPC with
+// that failure, preserve the first create, and never process the third item.
 func TestImportStopsAtFailureWithoutRollback(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -204,6 +216,8 @@ func TestImportStopsAtFailureWithoutRollback(t *testing.T) {
 	}
 }
 
+// Send one item beyond the 100-contact cap. Return ResourceExhausted without
+// a success summary, retaining exactly the earlier 100 committed contacts.
 func TestImportBatchLimit(t *testing.T) {
 	store := contacts.NewStore()
 	client := testClient(t, store, nil)
@@ -221,6 +235,8 @@ func TestImportBatchLimit(t *testing.T) {
 	}
 }
 
+// Read a reply after each request before half-closing. Missing/invalid IDs
+// must be per-item outcomes, and both populated and empty conversations must end OK.
 func TestBidiRepliesBeforeHalfCloseAndContinuesAfterItemFailure(t *testing.T) {
 	store := contacts.NewStore()
 	created, err := store.Create(t.Context(), contacts.Input{Name: "Ana"})
@@ -279,6 +295,8 @@ func TestBidiRepliesBeforeHalfCloseAndContinuesAfterItemFailure(t *testing.T) {
 	}
 }
 
+// Deliver one successful reply, then inject a backend failure. The stream must
+// end with redacted Internal status rather than EOF or an ordinary item failure.
 func TestBidiTerminalFailureAfterDeliveredReply(t *testing.T) {
 	base := contacts.NewStore()
 	if _, err := base.Create(t.Context(), contacts.Input{Name: "Ana"}); err != nil {

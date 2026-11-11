@@ -23,6 +23,8 @@ func RequestID(ctx context.Context) string {
 	return id
 }
 
+// requestContext validates one incoming correlation ID, or generates one when
+// absent. Its private key keeps that metadata separate from verified identity.
 func requestContext(ctx context.Context) (context.Context, error) {
 	md, _ := metadata.FromIncomingContext(ctx)
 	values := md.Get("x-request-id")
@@ -88,6 +90,8 @@ func ObserveUnary(logger *slog.Logger) grpc.UnaryServerInterceptor {
 		if err := grpc.SetHeader(ctx, metadata.Pairs("x-request-id", RequestID(ctx))); err != nil {
 			return nil, err
 		}
+		// Queue response metadata without sending contact data. The trailer is
+		// read by the client after the RPC reaches its final outcome.
 		grpc.SetTrailer(ctx, metadata.Pairs("x-rpc-kind", "unary"))
 		// next is the following interceptor, or the contact handler at the end
 		// of the chain. Its result also becomes this interceptor's result.

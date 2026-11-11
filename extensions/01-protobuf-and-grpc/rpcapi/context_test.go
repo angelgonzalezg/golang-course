@@ -22,6 +22,8 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
+// getStore keeps the normal store contract but lets a test control one Get.
+// This exposes dependency cancellation/errors through the real RPC adapter.
 type getStore struct {
 	Store
 	get func(context.Context, int64) (contacts.Contact, error)
@@ -29,6 +31,8 @@ type getStore struct {
 
 func (s getStore) Get(ctx context.Context, id int64) (contacts.Contact, error) { return s.get(ctx, id) }
 
+// Establish the connection, then block a store read before canceling/expiring
+// its call. Check both the client status and the store's observed completion.
 func TestInFlightContextCancellationAndDeadlineReachStore(t *testing.T) {
 	for _, deadline := range []bool{false, true} {
 		name := "cancellation"
@@ -53,6 +57,8 @@ func TestInFlightContextCancellationAndDeadlineReachStore(t *testing.T) {
 				return contacts.Contact{}, ctx.Err()
 			}}
 			client := testClient(t, store, nil)
+			// Warm the connection before the timed read. This separates waiting
+			// inside the dependency from a deadline spent on connection setup.
 			warm, cancelWarm := context.WithTimeout(t.Context(), 5*time.Second)
 			_, err := client.GetContact(warm, &contactsv1.GetContactRequest{Id: 1})
 			cancelWarm()
@@ -99,6 +105,8 @@ func TestInFlightContextCancellationAndDeadlineReachStore(t *testing.T) {
 	}
 }
 
+// Inject a private backend error. The client must receive a redacted Internal
+// status while the server log retains the detail needed for diagnosis.
 func TestUnexpectedStoreFailureIsLoggedAndRedacted(t *testing.T) {
 	var logs bytes.Buffer
 	store := getStore{get: func(context.Context, int64) (contacts.Contact, error) {
@@ -113,6 +121,8 @@ func TestUnexpectedStoreFailureIsLoggedAndRedacted(t *testing.T) {
 	}
 }
 
+// Create through gRPC and change the same contact through HTTP. Both adapters
+// must see one store, and the HTTP write must invalidate the earlier RPC version.
 func TestRESTAndRPCAdaptersCanShareOneStore(t *testing.T) {
 	store := contacts.NewStore()
 	client := testClient(t, store, nil)
@@ -156,6 +166,8 @@ func TestRESTAndRPCAdaptersCanShareOneStore(t *testing.T) {
 	}
 }
 
+// Call service methods directly with nil requests, then map selected domain
+// and context errors. Reject nil input and retain each intended gRPC status.
 func TestNilRequestsAndAdditionalStatusMappings(t *testing.T) {
 	service := New(contacts.NewStore(), nil)
 	_, createErr := service.CreateContact(t.Context(), nil)

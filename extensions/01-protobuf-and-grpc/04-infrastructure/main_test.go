@@ -26,6 +26,8 @@ import (
 	"google.golang.org/grpc/health"
 )
 
+// Server handlers can write logs while a test reads them. Protect both access
+// paths; a bytes.Buffer alone does not provide concurrent-safe reads/writes.
 type logBuffer struct {
 	mu sync.Mutex
 	bytes.Buffer
@@ -52,6 +54,9 @@ type environment struct {
 	logs      *logBuffer
 }
 
+// setup gives each test fresh TLS material, identities, a store, and a real TCP
+// server. wrap lets context/shutdown tests control handler behavior explicitly.
+// Tests can inspect the store/logs without sharing state with another fixture.
 func setup(t *testing.T, reflection bool, wrap func(contactsv1.ContactServiceServer) contactsv1.ContactServiceServer) *environment {
 	t.Helper()
 	material, err := labtls.Generate()
@@ -95,6 +100,8 @@ func setup(t *testing.T, reflection bool, wrap func(contactsv1.ContactServiceSer
 	return &environment{target: listener.Addr().String(), transport: clientTLS, secrets: secrets, server: server, health: readiness, store: store, logs: logs}
 }
 
+// connection chooses one caller identity and registers channel cleanup. Its
+// later registration makes it close before the fixture's server cleanup.
 func (e *environment) connection(t *testing.T, token string) *grpc.ClientConn {
 	t.Helper()
 	connection, err := openConnection(e.target, e.transport, token)
@@ -109,6 +116,8 @@ func (e *environment) connection(t *testing.T, token string) *grpc.ClientConn {
 	return connection
 }
 
+// Run the finite TLS demo and check its teaching outcomes: permission failures,
+// metadata, protected streams, health cancellation, and service reflection.
 func TestFiniteInfrastructureDemo(t *testing.T) {
 	var out bytes.Buffer
 	if err := runDemo(t.Context(), &out); err != nil {
@@ -126,6 +135,8 @@ func TestFiniteInfrastructureDemo(t *testing.T) {
 	}
 }
 
+// Change either the trusted CA or the expected hostname. The TLS handshake
+// must fail with a certificate-verification error before any RPC is attempted.
 func TestTLSRejectsUntrustedCAAndWrongHost(t *testing.T) {
 	env := setup(t, false, nil)
 	for _, tc := range []struct {
@@ -140,6 +151,8 @@ func TestTLSRejectsUntrustedCAAndWrongHost(t *testing.T) {
 			config.ServerName = "localhost"
 			config.NextProtos = []string{"h2"}
 			tc.change(config)
+			// Dial TLS directly to isolate certificate verification from RPC
+			// status handling or application authorization.
 			ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 			defer cancel()
 			connection, err := (&tls.Dialer{Config: config}).DialContext(ctx, "tcp", env.target)
@@ -155,6 +168,8 @@ func TestTLSRejectsUntrustedCAAndWrongHost(t *testing.T) {
 	}
 }
 
+// Attach bearer credentials to a plaintext channel configuration. gRPC must
+// reject that combination instead of allowing a token to use insecure transport.
 func TestCallCredentialsRequireTLS(t *testing.T) {
 	connection, err := grpc.NewClient("passthrough:///unused",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -167,6 +182,8 @@ func TestCallCredentialsRequireTLS(t *testing.T) {
 	}
 }
 
+// Create temporary certificate files and run two clients against one TLS server.
+// Disk configuration, role tokens, reflection, and registered server cleanup must work.
 func TestStandaloneSetupAndServerClient(t *testing.T) {
 	directory := filepath.Join(t.TempDir(), "tls")
 	var out bytes.Buffer
@@ -224,6 +241,8 @@ func TestStandaloneSetupAndServerClient(t *testing.T) {
 	}
 }
 
+// startupWriter reports the standalone server's assigned address. Its signal
+// replaces a guessed startup delay before the test runs the TLS clients.
 type startupWriter struct{ started chan string }
 
 func (w startupWriter) Write(data []byte) (int, error) {

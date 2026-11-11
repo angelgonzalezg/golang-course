@@ -15,6 +15,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Compare the lab's public health Check with protected List/Watch operations.
+// Known services report SERVING, unknown Check returns NotFound, and a reader can list.
 func TestHealthChecksAndProtectedWatch(t *testing.T) {
 	env := setup(t, false, nil)
 	client := healthv1.NewHealthClient(env.connection(t, ""))
@@ -46,6 +48,8 @@ func TestHealthChecksAndProtectedWatch(t *testing.T) {
 	}
 }
 
+// Keep a Watch open through readiness changes and shutdown. Draining must wait
+// until the client cancels or forced stop interrupts the subscription and joins it.
 func TestHealthWatchTransitionsAndShutdown(t *testing.T) {
 	for _, force := range []bool{false, true} {
 		name := "graceful after client cancellation"
@@ -157,6 +161,8 @@ func listReflection(ctx context.Context, connection *grpc.ClientConn, alpha bool
 	return nil
 }
 
+// Exercise both reflection protocol versions with the service enabled/disabled.
+// Disabled means Unimplemented; enabled access requires the verified writer role.
 func TestReflectionOptInAndAccessPolicy(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		name := "disabled"

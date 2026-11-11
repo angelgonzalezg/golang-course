@@ -13,12 +13,18 @@ var legacyChecksums = [...]string{
 	"495386dafffb52745fad6d44ffa0631c09b38f0ba22c01ed07cf0be1076aa563",
 }
 
+// legacyVersion is optional compatibility code for old lab databases. The
+// caller holds the new migration lock and has found no new-style version row.
+// Only an explicit adoption request may turn verified old history into a baseline.
+// This checks recorded history, not whether the live tables were manually edited.
 func (d *forwardOnlyDriver) legacyVersion() (int, bool, error) {
 	var exists bool
 	if err := d.db.QueryRow("SELECT to_regclass('public.sql_tx_migrations') IS NOT NULL").Scan(&exists); err != nil {
 		return 0, false, err
 	}
 	if !exists {
+		// NilVersion is the library's marker for no applied migration, not SQL
+		// schema version zero. Normal fresh installs can proceed from here.
 		if d.adoptLegacy {
 			return 0, false, fmt.Errorf("no legacy history to adopt: %w", ErrMigrationState)
 		}
@@ -27,6 +33,8 @@ func (d *forwardOnlyDriver) legacyVersion() (int, bool, error) {
 	if !d.adoptLegacy {
 		return 0, false, fmt.Errorf("legacy history found; review it and run -adopt-legacy once: %w", ErrMigrationState)
 	}
+	// Read the recorded prefix in order. Every version must be known, contiguous,
+	// and match its old file bytes; a gap or edited digest prevents adoption.
 	rows, err := d.db.Query("SELECT version, checksum FROM public.sql_tx_migrations ORDER BY version")
 	if err != nil {
 		return 0, false, err

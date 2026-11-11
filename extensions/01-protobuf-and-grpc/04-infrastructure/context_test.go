@@ -25,6 +25,8 @@ type observation struct {
 	verifiedTLS bool
 }
 
+// observeContext captures what the handler actually receives after middleware,
+// including TLS peer state rather than a client-supplied claim about security.
 func observeContext(ctx context.Context) observation {
 	identity, identified := rpcinfra.IdentityFromContext(ctx)
 	_, deadline := ctx.Deadline()
@@ -55,6 +57,8 @@ func (s contextService) LookupContacts(stream grpc.BidiStreamingServer[contactsv
 	return status.FromContextError(stream.Context().Err()).Err()
 }
 
+// Observe unary and streaming handler contexts after the interceptor chains.
+// Verified identity, request ID, deadline, TLS 1.3, and stream cancellation must survive.
 func TestInterceptorsPreserveIdentityMetadataTLSAndCancellation(t *testing.T) {
 	observed := make(chan observation, 2)
 	finished := make(chan error, 1)

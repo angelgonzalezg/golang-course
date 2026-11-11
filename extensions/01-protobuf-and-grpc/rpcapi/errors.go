@@ -10,10 +10,13 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// invalid returns a human-readable status plus structured field details. Clients
+// can inspect BadRequest violations instead of parsing the status message text.
 func invalid(field, message string) error {
 	base := status.New(codes.InvalidArgument, field+": "+message)
 	detailed, err := base.WithDetails(&errdetails.BadRequest{FieldViolations: []*errdetails.BadRequest_FieldViolation{{Field: field, Description: message}}})
 	if err != nil {
+		// Attaching details must not hide the original validation outcome.
 		return base.Err()
 	}
 	return detailed.Err()
@@ -40,10 +43,14 @@ func (s *Service) rpcError(ctx context.Context, err error) error {
 	case errors.Is(err, contacts.ErrNameTaken):
 		return status.Error(codes.AlreadyExists, "contact name already exists")
 	case errors.Is(err, contacts.ErrPreconditionFailed):
+		// This is a stale write, not a missing resource. The caller must read
+		// current state before deciding whether a new write is still appropriate.
 		return status.Error(codes.Aborted, "contact changed; read current state before deciding to retry")
 	case errors.Is(err, contacts.ErrIDExhausted):
 		return status.Error(codes.ResourceExhausted, "no contact IDs are available")
 	default:
+		// Keep unexpected backend details in server logs, not in a client-visible
+		// error that could expose internals. The public outcome stays Internal.
 		s.logger.ErrorContext(ctx, "contact operation failed", "error", err)
 		return status.Error(codes.Internal, "contact operation failed")
 	}

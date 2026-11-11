@@ -5,6 +5,9 @@ import (
 	"golangcourse/chapters/13-standard-library/06-project-rest-api/contacts"
 )
 
+// versionCondition preserves protobuf optional presence: nil is unconditional,
+// while a supplied empty string is invalid. The store performs the actual
+// comparison atomically with the requested mutation.
 func versionCondition(version *string) (contacts.Conditions, error) {
 	if version == nil {
 		return contacts.Conditions{}, nil // Absent means explicitly unconditional.
@@ -16,6 +19,9 @@ func versionCondition(version *string) (contacts.Conditions, error) {
 	return contacts.Conditions{Match: &contacts.VersionMatch{Versions: []string{*version}}}, nil
 }
 
+// selectedChanges translates a field mask into domain pointers. The mask, not
+// whether a string is nonempty, says which fields to change. The service has
+// already required input; the store later validates the resulting whole contact.
 func selectedChanges(request *contactsv1.UpdateContactRequest) (contacts.Changes, error) {
 	if request.UpdateMask == nil || len(request.UpdateMask.Paths) == 0 {
 		return contacts.Changes{}, invalid("update_mask", "must select at least one editable field")
@@ -46,12 +52,16 @@ func selectedChanges(request *contactsv1.UpdateContactRequest) (contacts.Changes
 	return changes, nil
 }
 
+// listQuery translates transport defaults/enums into the store's query model.
+// It checks conversion boundaries here and leaves domain limits to the store.
 func listQuery(request *contactsv1.ListContactsRequest) (contacts.Query, error) {
 	limit := int(request.GetLimit())
 	if limit == 0 {
 		limit = contacts.DefaultLimit
 	}
 	offset := request.GetOffset()
+	// int can be 32 bits on another target. The round-trip rejects truncation
+	// before turning the wire's int64 offset into an application slice index.
 	if offset < 0 || int64(int(offset)) != offset {
 		return contacts.Query{}, invalid("offset", "must be nonnegative and fit the server's Go int")
 	}

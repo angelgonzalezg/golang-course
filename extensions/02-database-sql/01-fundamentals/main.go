@@ -13,12 +13,16 @@ import (
 )
 
 func main() {
+	// run and demo.Run finish their deferred cleanup before main exits. Calling
+	// os.Exit inside either helper would skip that cleanup.
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
+// run reads configuration and owns the demo's time budget. Database operations
+// and pool ownership are kept in internal/demo so the same run can be tested.
 func run() error {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {

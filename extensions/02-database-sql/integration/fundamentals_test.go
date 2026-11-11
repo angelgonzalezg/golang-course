@@ -18,6 +18,8 @@ import (
 	"example.com/course/sql-lab/internal/demo"
 )
 
+// Run the stage-1 contracts against a real disposable PostgreSQL database.
+// Reset its table between serial subtests so each scenario owns its starting state.
 func TestPostgreSQL(t *testing.T) {
 	// One disposable database serves serial cases. Each case starts with an
 	// empty table; no case uses DATABASE_URL or a learner's persistent database.
@@ -47,6 +49,8 @@ func TestPostgreSQL(t *testing.T) {
 	}
 }
 
+// Follow create/read/update/delete with real rows. Check NULL versus empty
+// email, bounded ID ordering, name conflicts, and absence after repeated deletion.
 func testCRUD(t *testing.T, db *sql.DB, _ string) {
 	ctx := t.Context()
 	store := contactsql.NewStore(db)
@@ -100,6 +104,8 @@ func testCRUD(t *testing.T, db *sql.DB, _ string) {
 	}
 }
 
+// Assign nonempty text, empty text, and NULL twice each. Returned values and
+// fresh reads must keep the same identity/state, leaving exactly one contact.
 func testRepeatedEmailAssignments(t *testing.T, db *sql.DB, _ string) {
 	email, empty := "after@example.com", ""
 	for _, test := range []struct {
@@ -164,6 +170,8 @@ func testRepeatedEmailAssignments(t *testing.T, db *sql.DB, _ string) {
 	}
 }
 
+// Store a name that looks like a DROP TABLE command. Parameter binding must
+// preserve it as literal text, and later inserts must prove the table still exists.
 func testParameters(t *testing.T, db *sql.DB, _ string) {
 	store := contactsql.NewStore(db)
 	name := "Robert'); DROP TABLE sql_lab_contacts; --"
@@ -180,6 +188,8 @@ func testParameters(t *testing.T, db *sql.DB, _ string) {
 	}
 }
 
+// Create through one Go pool, close it, and read through a newly opened pool.
+// The row must survive because PostgreSQL owns the data, not the client pool.
 func testReconnect(t *testing.T, _ *sql.DB, dsn string) {
 	first, err := contactsql.Open(t.Context(), dsn)
 	if err != nil {
@@ -204,6 +214,8 @@ func testReconnect(t *testing.T, _ *sql.DB, dsn string) {
 	}
 }
 
+// Release six inserts with one name together. PostgreSQL must allow one row
+// and return five name conflicts, regardless of which goroutine wins.
 func testConcurrentCreate(t *testing.T, db *sql.DB, _ string) {
 	store := contactsql.NewStore(db)
 	start := make(chan struct{})
@@ -238,6 +250,8 @@ func testConcurrentCreate(t *testing.T, db *sql.DB, _ string) {
 	}
 }
 
+// Reserve the pool's only connection so List must wait for capacity. Its
+// deadline must stop that wait, and releasing the connection must restore normal reads.
 func testPoolCancellation(t *testing.T, db *sql.DB, _ string) {
 	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { db.SetMaxOpenConns(4) })
@@ -268,6 +282,8 @@ func testPoolCancellation(t *testing.T, db *sql.DB, _ string) {
 	}
 }
 
+// Run the finite SQL demo against this isolated database. Expected summaries
+// must appear, and its own contact must be removed before the demo returns.
 func testDemo(t *testing.T, db *sql.DB, dsn string) {
 	var output bytes.Buffer
 	if err := demo.Run(t.Context(), dsn, &output); err != nil {

@@ -12,6 +12,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// searchStore pauses the read used by server streaming without replacing the
+// adapter or its context propagation.
 type searchStore struct {
 	Store
 	search func(context.Context, contacts.Query) (contacts.Page, error)
@@ -21,6 +23,8 @@ func (s searchStore) Search(ctx context.Context, query contacts.Query) (contacts
 	return s.search(ctx, query)
 }
 
+// createStore lets an import commit one item and block the next. This separates
+// completed writes from the still-active work that cancellation must release.
 type createStore struct {
 	Store
 	create func(context.Context, contacts.Input) (contacts.Contact, error)
@@ -30,6 +34,9 @@ func (s createStore) Create(ctx context.Context, input contacts.Input) (contacts
 	return s.create(ctx, input)
 }
 
+// Block server, client, and bidirectional streaming inside store work after
+// connection setup. Cancellation/deadlines must reach that work and let it finish;
+// client-stream imports must retain any item committed before the interruption.
 func TestStreamingInFlightCancellationAndDeadlines(t *testing.T) {
 	for _, method := range []string{"server streaming", "client streaming", "bidirectional"} {
 		for _, deadline := range []bool{false, true} {
@@ -107,6 +114,8 @@ func TestStreamingInFlightCancellationAndDeadlines(t *testing.T) {
 					}
 				}
 				client := testClient(t, store, nil)
+				// Warm up first so the later timeout exercises an active stream,
+				// with entered/finished proving the dependency received cancellation.
 				warm, stopWarm := context.WithTimeout(t.Context(), 5*time.Second)
 				_, err := client.GetContact(warm, &contactsv1.GetContactRequest{Id: 1})
 				stopWarm()

@@ -12,6 +12,8 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
+// Encode and decode one contact, then edit a deep clone. Field values must
+// survive the round-trip, and the clone's edit must leave the original unchanged.
 func TestBinaryRoundTripAndIndependentClone(t *testing.T) {
 	original := &contactsv1.Contact{Id: 42, Name: "Ana López", Email: "ana@example.com", Version: "opaque-version"}
 	data, err := proto.Marshal(original)
@@ -29,6 +31,8 @@ func TestBinaryRoundTripAndIndependentClone(t *testing.T) {
 	}
 }
 
+// Compare an absent optional version with an explicitly empty one. Their
+// getters agree, but binary encoding and decoding must preserve the difference.
 func TestOptionalPresenceSurvivesTheWire(t *testing.T) {
 	absent := &contactsv1.DeleteContactRequest{Id: 42}
 	present := &contactsv1.DeleteContactRequest{Id: 42, ExpectedVersion: proto.String("")}
@@ -54,6 +58,8 @@ func TestOptionalPresenceSurvivesTheWire(t *testing.T) {
 	}
 }
 
+// Select an empty email through a field mask. Binary and ProtoJSON round-trips
+// must retain that selection, while a mask cannot select the server-owned ID.
 func TestMaskedClearSurvivesBinaryAndJSON(t *testing.T) {
 	mask, err := fieldmaskpb.New(&contactsv1.ContactInput{}, "email")
 	if err != nil {
@@ -88,6 +94,8 @@ func TestMaskedClearSurvivesBinaryAndJSON(t *testing.T) {
 	}
 }
 
+// Decode established wire bytes and append a simulated future field. Binary
+// re-encoding must retain it; converting through ProtoJSON cannot retain it.
 func TestBinaryCompatibilityFixtureAndUnknownFieldRetention(t *testing.T) {
 	// Field 1, varint 150. This fixed wire fixture protects the existing ID
 	// number/type against an accidental incompatible contract change.
@@ -123,6 +131,8 @@ func TestBinaryCompatibilityFixtureAndUnknownFieldRetention(t *testing.T) {
 	}
 }
 
+// A negative application ID can still be valid protobuf data. Contrast that
+// with malformed bytes, invalid UTF-8, and unknown ProtoJSON members, which fail.
 func TestDecodeSyntaxAndBusinessValidationAreSeparate(t *testing.T) {
 	// An invalid application ID is nevertheless a valid protobuf int64.
 	data, err := proto.Marshal(&contactsv1.GetContactRequest{Id: -1})
@@ -144,6 +154,8 @@ func TestDecodeSyntaxAndBusinessValidationAreSeparate(t *testing.T) {
 	}
 }
 
+// Protect the published RPC name and the reserved field number/name. Changing
+// these identities could break callers or let a retired field be reused.
 func TestServiceIdentityAndRetiredFieldGuard(t *testing.T) {
 	if contactsv1.ContactService_GetContact_FullMethodName != "/contacts.v1.ContactService/GetContact" {
 		t.Fatal("RPC identity changed; existing clients use this service and method name")

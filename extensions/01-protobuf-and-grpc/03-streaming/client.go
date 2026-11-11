@@ -16,6 +16,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// runClient imports sample data, receives a page, then exchanges lookups in both
+// directions. The import runs first so the later read examples have data.
 func runClient(parent context.Context, target string, out io.Writer) (err error) {
 	// Bound the complete finite run, including connection work and every stream.
 	// The channel is shared across calls; each helper also owns its stream cancel.
@@ -61,6 +63,8 @@ func runClient(parent context.Context, target string, out io.Writer) (err error)
 	fmt.Fprintln(out, "Invalid stream query -> InvalidArgument (observed by Recv)")
 
 	fmt.Fprintln(out, "\n== Bidirectional streaming: send and receive concurrently ==")
+	// Mix existing, missing, and invalid IDs. Missing/invalid lookups are reply
+	// data in this contract, so they do not stop the whole bidirectional RPC.
 	requests := []*contactsv1.LookupContactsRequest{
 		{RequestId: 1, Id: summary.Ids[0]},
 		{RequestId: 2, Id: math.MaxInt64},
@@ -73,6 +77,7 @@ func runClient(parent context.Context, target string, out io.Writer) (err error)
 	if err := cancelLookup(ctx, client, summary.Ids[0], out); err != nil {
 		return err
 	}
+	// Successful completion removes only the contacts imported by this run.
 	for _, id := range summary.GetIds() {
 		if _, err := client.DeleteContact(ctx, &contactsv1.DeleteContactRequest{Id: id}); err != nil {
 			return err
@@ -81,6 +86,8 @@ func runClient(parent context.Context, target string, out io.Writer) (err error)
 	return nil
 }
 
+// importBatch sends many requests and receives one summary. It does not make
+// the server's per-contact creates into a database-style atomic transaction.
 func importBatch(parent context.Context, client contactsv1.ContactServiceClient, requests []*contactsv1.CreateContactRequest) (*contactsv1.ImportContactsResponse, error) {
 	ctx, cancel := context.WithTimeout(parent, 3*time.Second)
 	defer cancel()
@@ -102,6 +109,8 @@ func importBatch(parent context.Context, client contactsv1.ContactServiceClient,
 	return stream.CloseAndRecv()
 }
 
+// receiveContacts sends one query and drains responses through final EOF/error.
+// Even if opening the stream succeeds, Recv can report query rejection later.
 func receiveContacts(parent context.Context, client contactsv1.ContactServiceClient, query *contactsv1.ListContactsRequest, out io.Writer) (int, error) {
 	ctx, cancel := context.WithTimeout(parent, 3*time.Second)
 	defer cancel()
@@ -126,6 +135,8 @@ func receiveContacts(parent context.Context, client contactsv1.ContactServiceCli
 	}
 }
 
+// lookupContacts gives one goroutine the send direction while this caller owns
+// receiving. Every return path cancels the stream and joins that sender.
 func lookupContacts(parent context.Context, client contactsv1.ContactServiceClient, requests []*contactsv1.LookupContactsRequest, out io.Writer) (err error) {
 	ctx, cancel := context.WithTimeout(parent, 3*time.Second)
 	defer cancel()
@@ -182,6 +193,8 @@ func lookupContacts(parent context.Context, client contactsv1.ContactServiceClie
 	}
 }
 
+// cancelLookup demonstrates cancellation after a request has reached the handler,
+// rather than starting a call with an already-canceled context.
 func cancelLookup(parent context.Context, client contactsv1.ContactServiceClient, id int64, out io.Writer) error {
 	ctx, cancel := context.WithTimeout(parent, 3*time.Second)
 	defer cancel()

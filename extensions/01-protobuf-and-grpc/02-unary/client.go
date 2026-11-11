@@ -19,6 +19,8 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
+// runClient follows create/read, selected updates, replacement, paging, and
+// expected failures. Each call helper checks the RPC's outcome before continuing.
 func runClient(ctx context.Context, target string, out io.Writer) (err error) {
 	// Reuse one channel for the calls below. NewClient prepares that object;
 	// the actual connection work starts when a call needs it. This loopback
@@ -67,6 +69,8 @@ func runClient(ctx context.Context, target string, out io.Writer) (err error) {
 	if err != nil {
 		return err
 	}
+	// ana still contains the version from before the email change. Reusing it
+	// proves the server rejects a stale write instead of overwriting newer data.
 	if _, err := call(ctx, out, "Stale update", codes.Aborted, func(ctx context.Context) (*contactsv1.Contact, error) {
 		return client.UpdateContact(ctx, &contactsv1.UpdateContactRequest{
 			Id: ana.GetId(), Input: &contactsv1.ContactInput{Phone: "stale"},
@@ -75,6 +79,8 @@ func runClient(ctx context.Context, target string, out io.Writer) (err error) {
 	}); err != nil {
 		return err
 	}
+	// Replacement uses the updated version and supplies all editable fields.
+	// Leaving email/phone at their zero values deliberately clears them.
 	replaced, err := call(ctx, out, "ReplaceContact: replace all fields", codes.OK, func(ctx context.Context) (*contactsv1.Contact, error) {
 		return client.ReplaceContact(ctx, &contactsv1.ReplaceContactRequest{
 			Id: ana.GetId(), Input: &contactsv1.ContactInput{Name: "Ana Updated" + suffix}, ExpectedVersion: proto.String(updated.GetVersion()),
@@ -84,6 +90,8 @@ func runClient(ctx context.Context, target string, out io.Writer) (err error) {
 		return err
 	}
 	fmt.Fprintln(out, "\n== Bounded pages and validation details ==")
+	// Follow server-provided offsets, filtering by this run's suffix so another
+	// client's contacts do not change the demonstration's selected collection.
 	var offset int64
 	for {
 		page, err := call(ctx, out, "ListContacts", codes.OK, func(ctx context.Context) (*contactsv1.ListContactsResponse, error) {
@@ -103,6 +111,8 @@ func runClient(ctx context.Context, target string, out io.Writer) (err error) {
 		return err
 	}
 	fmt.Fprintln(out, "\n== Caller cancellation and deadlines ==")
+	// These two calls start with an already-ended context. In-flight propagation
+	// is a separate scenario exercised by the service's context tests.
 	canceled, cancel := context.WithCancel(ctx)
 	cancel()
 	if _, err := call(canceled, out, "Pre-canceled call", codes.Canceled, func(ctx context.Context) (*contactsv1.Contact, error) {
@@ -131,6 +141,8 @@ func runClient(ctx context.Context, target string, out io.Writer) (err error) {
 	return err
 }
 
+// call is a teaching helper: T preserves each generated RPC's response type.
+// expected makes intentional rejection cases part of a successful demo run.
 func call[T proto.Message](parent context.Context, out io.Writer, label string, expected codes.Code, invoke func(context.Context) (T, error)) (T, error) {
 	// Give this call up to two seconds, including any connection setup. The
 	// server receives that deadline through context. cancel releases the timer
@@ -150,6 +162,8 @@ func call[T proto.Message](parent context.Context, out io.Writer, label string, 
 	if err != nil {
 		st := status.Convert(err)
 		fmt.Fprintln(out, st.Message())
+		// Status details carry structured field errors; callers need not parse
+		// the wording of the human-readable status message to identify a field.
 		for _, detail := range st.Details() {
 			if bad, ok := detail.(*errdetails.BadRequest); ok {
 				for _, field := range bad.GetFieldViolations() {

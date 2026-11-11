@@ -16,6 +16,8 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
+// Try every write shape as a reader, including a forged writer-role header.
+// All calls must be denied, leaving the seed contact and store contents unchanged.
 func TestReaderCannotMutateThroughUnaryOrStreaming(t *testing.T) {
 	env := setup(t, true, nil)
 	client := contactsv1.NewContactServiceClient(env.connection(t, env.secrets.reader))
@@ -68,6 +70,8 @@ func TestReaderCannotMutateThroughUnaryOrStreaming(t *testing.T) {
 	}
 }
 
+// Send missing, malformed, duplicate, and unknown credentials. Unary/stream
+// calls must reject them, while observer metadata/logs remain useful and omit secrets.
 func TestAuthenticationFailuresAndMetadataOnDeniedCalls(t *testing.T) {
 	env := setup(t, false, nil)
 	connection := env.connection(t, "")
@@ -108,6 +112,8 @@ func TestAuthenticationFailuresAndMetadataOnDeniedCalls(t *testing.T) {
 	}
 }
 
+// Reject malformed request IDs on unary and streaming calls. A permitted call
+// without an ID must instead receive exactly one generated ID in its response header.
 func TestMetadataValidationAndGeneratedRequestIDs(t *testing.T) {
 	env := setup(t, false, nil)
 	client := contactsv1.NewContactServiceClient(env.connection(t, env.secrets.reader))

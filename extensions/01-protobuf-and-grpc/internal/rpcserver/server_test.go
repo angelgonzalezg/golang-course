@@ -17,6 +17,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// blockedService signals entry/exit and waits for either release or cancellation.
+// The shutdown test can observe each stage without guessing execution timing.
 type blockedService struct {
 	contactsv1.UnimplementedContactServiceServer
 	entered chan struct{}
@@ -24,6 +26,8 @@ type blockedService struct {
 	release chan struct{}
 }
 
+// observedListener signals the exact point when shutdown closes the listener.
+// The test can then distinguish stopped acceptance from completed active handlers.
 type observedListener struct {
 	net.Listener
 	closed chan struct{}
@@ -62,6 +66,9 @@ func (s *blockedService) StreamContacts(_ *contactsv1.ListContactsRequest, strea
 	return stream.Send(&contactsv1.Contact{Id: 1, Name: "Completed"})
 }
 
+// Hold unary/streaming handlers open while shutdown closes the listener.
+// Graceful mode must wait; forced mode must cancel. Both must join the handler
+// and return the expected shutdown and active-call outcomes.
 func TestGracefulShutdownWaitsForAnActiveRPC(t *testing.T) {
 	for _, tc := range []struct {
 		name      string

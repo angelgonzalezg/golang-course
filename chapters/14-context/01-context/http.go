@@ -37,7 +37,9 @@ func newReportHandler(service reportService, budget time.Duration, logger *slog.
 		if err != nil {
 			switch {
 			case errors.Is(err, context.DeadlineExceeded):
-				http.Error(w, "report time budget exhausted", http.StatusGatewayTimeout)
+				// This handler waits on local work. Use the same 503 policy as the
+				// REST lesson; 504 describes a gateway waiting for an upstream server.
+				http.Error(w, "report time budget exhausted", http.StatusServiceUnavailable)
 			case errors.Is(err, context.Canceled):
 				// This is the example's cancellation response policy. A client that
 				// disconnected may no longer be able to receive any response.

@@ -93,6 +93,37 @@ containers and never connect to this Compose database.
 | Result set | The rows returned by a query, read through `Scan`. |
 | SQL NULL | A missing SQL value, distinct from an empty string. |
 
+### SQL vocabulary for the examples
+
+A table stores records as rows; each named field is a column. `INSERT` creates
+rows, `SELECT` reads them, `UPDATE` changes them, and `DELETE` removes them.
+`WHERE` selects which rows an operation affects. `RETURNING` sends values from
+a write back to Go, such as the ID that PostgreSQL just assigned.
+
+The constraints in [schema.sql](contactsql/schema.sql) and the
+[transaction lesson's schema](contacttx/migrations/000002_versions_and_changes.up.sql)
+let PostgreSQL enforce rules even when several callers write at once:
+
+| SQL term | Meaning in this lab |
+| --- | --- |
+| `PRIMARY KEY` | Identifies each row uniquely and cannot be NULL; here it is `id`. |
+| `GENERATED ALWAYS AS IDENTITY` | Asks PostgreSQL to generate the ID on insert. Generated numbers can have gaps. |
+| `NOT NULL` | Requires a stored value. For name, a separate rule also rejects empty text. |
+| `UNIQUE` | Prevents two contacts from storing the same name. |
+| `CHECK` | Requires a condition, such as the name's length limit, to hold. A SQL NULL condition does not reject a row; use `NOT NULL` when absence is forbidden. |
+| `FOREIGN KEY` | Requires a change record's `contact_id` to identify an existing contact. Stage 2 introduces this relationship. |
+| `ON DELETE CASCADE` | Deleting that contact also deletes its related change records. It does not delete unrelated contacts. |
+
+For example, a stage-2 change row with `contact_id = 7` belongs to contact 7.
+The foreign key rejects it if contact 7 does not exist. Deleting contact 7
+removes its change rows through the cascade rule.
+
+The word *schema* can mean the table structure. A PostgreSQL schema such as
+`public` is also a namespace grouping tables inside one database. These examples
+use that namespace, so `public.sql_lab_contacts` names the stage-1 table.
+
+### Trace an insert from Go to a row
+
 Follow a create:
 
 ```text

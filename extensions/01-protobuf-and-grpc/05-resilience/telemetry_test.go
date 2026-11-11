@@ -14,6 +14,8 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+// Link a successful read across client/server spans, then reject oversized input
+// before dispatch. Metrics must still record the failure, and logs must omit private data.
 func TestTracePropagationAndTransportFailuresOutsideInterceptors(t *testing.T) {
 	env := setup(t, nil, 16)
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)

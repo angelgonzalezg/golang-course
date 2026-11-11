@@ -10,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+// Try valid boundaries and rejected text without PostgreSQL. Normalization must
+// trim names, count runes correctly, and reject blank, malformed, or NUL-containing input.
 func TestInputBoundaries(t *testing.T) {
 	for _, test := range []struct {
 		name     string
@@ -42,6 +44,8 @@ func TestInputBoundaries(t *testing.T) {
 	}
 }
 
+// Wrap missing-row, unique-name, and canceled-query errors. Domain sentinels
+// must remain inspectable alongside the original SQL/driver causes.
 func TestQueryErrorPreservesCauses(t *testing.T) {
 	err := queryError(t.Context(), sql.ErrNoRows)
 	if !errors.Is(err, ErrNotFound) || !errors.Is(err, sql.ErrNoRows) {
@@ -65,6 +69,8 @@ func TestQueryErrorPreservesCauses(t *testing.T) {
 	}
 }
 
+// Pass a blank DSN. Open must reject it without returning a pool or trying to
+// use an implicit/default database connection.
 func TestOpenNeedsConnectionString(t *testing.T) {
 	db, err := Open(t.Context(), " \t")
 	if err == nil || db != nil {

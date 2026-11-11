@@ -16,6 +16,8 @@ func createRequest(name string) *contactsv1.CreateContactRequest {
 	return &contactsv1.CreateContactRequest{Input: &contactsv1.ContactInput{Name: name}}
 }
 
+// Release 16 equal requests together. Only one callback may create the result,
+// and callers must receive independent copies that cannot alter future replays.
 func TestConcurrentDuplicatesCreateOnceAndOwnTheirResults(t *testing.T) {
 	cache := NewCreateCache(10)
 	var calls atomic.Int64
@@ -60,6 +62,8 @@ func TestConcurrentDuplicatesCreateOnceAndOwnTheirResults(t *testing.T) {
 	}
 }
 
+// Use the same key for two subjects, then change a payload and fill the cache.
+// Subjects stay independent, mismatches fail, and capacity cannot evict old results.
 func TestKeysAreScopedAndBoundToPayloadWithoutEviction(t *testing.T) {
 	cache := NewCreateCache(2)
 	var calls int64
@@ -86,6 +90,8 @@ func TestKeysAreScopedAndBoundToPayloadWithoutEviction(t *testing.T) {
 	}
 }
 
+// Repeat a create whose callback returns an ambiguous Unavailable error.
+// Replay the saved error without rerunning a possibly completed side effect.
 func TestTerminalErrorsAreReplayedWithoutRepeatingUnknownEffects(t *testing.T) {
 	cache := NewCreateCache(1)
 	calls := 0
@@ -104,6 +110,8 @@ func TestTerminalErrorsAreReplayedWithoutRepeatingUnknownEffects(t *testing.T) {
 	}
 }
 
+// waitingContext signals when the duplicate asks for its cancellation channel
+// in the cache's wait path. The test can then cancel without a fixed sleep.
 type waitingContext struct {
 	context.Context
 	entered chan struct{}
@@ -115,6 +123,8 @@ func (c *waitingContext) Done() <-chan struct{} {
 	return c.Context.Done()
 }
 
+// Hold the first create open and cancel a duplicate after it starts waiting.
+// Only the duplicate ends as Canceled; the original create can still finish.
 func TestCanceledDuplicateWaitDoesNotCancelOriginalCreate(t *testing.T) {
 	cache := NewCreateCache(1)
 	entered, release := make(chan struct{}), make(chan struct{})

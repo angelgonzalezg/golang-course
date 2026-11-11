@@ -17,6 +17,8 @@ func request(name string) *contactsv1.CreateContactRequest {
 	return &contactsv1.CreateContactRequest{Input: &contactsv1.ContactInput{Name: name}}
 }
 
+// Lose one successful create reply while 12 callers retry the same key/data.
+// All must recover the same ID with one backend create; changed data must conflict.
 func TestLostReplyAndConcurrentRetriesCreateOnlyOneContact(t *testing.T) {
 	faults := new(lessonFaults)
 	faults.dropCreate.Store(true)
@@ -55,6 +57,8 @@ func TestLostReplyAndConcurrentRetriesCreateOnlyOneContact(t *testing.T) {
 	}
 }
 
+// Try invalid keys, then fill a one-entry cache over TLS. Invalid/new keys must
+// not create extra rows, and the first accepted key must remain replayable.
 func TestCacheCapacityAndKeyValidationOverTLS(t *testing.T) {
 	env := setup(t, nil, 1)
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
@@ -80,6 +84,8 @@ func TestCacheCapacityAndKeyValidationOverTLS(t *testing.T) {
 	}
 }
 
+// Attach keys to a reader's create, a read RPC, and an import stream. A key
+// must neither bypass permissions nor promise replay on unsupported operations.
 func TestKeysDoNotAuthorizeCallersOrMakeStreamsReplayable(t *testing.T) {
 	env := setup(t, nil, 16)
 	readerConnection, err := openConnection(env.target, env.transport, "reader-fixture", env.telemetry)

@@ -46,12 +46,18 @@ See stage 1 for PowerShell environment syntax and stopping the database.
 
 ## Learn in passes
 
+The executable prepares the schema before running the business examples. On a
+first read, treat that as setup and start with `CreateBatch` in
+[store.go](../contacttx/store.go). Return to the migration adapter in pass 4.
+Recovery and adoption of the previous runner's history are optional operations
+at the end of this guide.
+
 | Pass | Focus | Check your understanding |
 | --- | --- | --- |
-| 1 | Apply schema versions 1 and 2. | Distinguish an applied migration record from a table's current contents. |
-| 2 | Commit a batch. | Find where the transaction starts, which connection executes the inserts, and when success is returned. |
-| 3 | Reject the second insert. | Explain why the first insert disappears but its sequence number can be consumed. |
-| 4 | Replace a contact and append history. | Trace the version comparison, both writes, and their common commit. |
+| 1 | Commit a batch. | Find where the transaction starts, which connection executes the inserts, and when success is returned. |
+| 2 | Reject the second insert. | Explain why the first insert disappears but its sequence number can be consumed. |
+| 3 | Replace a contact and append history. | Trace the version comparison, both writes, and their common commit. |
+| 4 | Apply schema versions 1 and 2. | Distinguish the schema's version from a contact's version and recognize dirty migration state. |
 | 5 | Read concurrency/cancellation tests. | Explain why only one writer succeeds and how canceling a blocked transaction removes its tentative update. |
 
 ## Terms beside the code
@@ -62,12 +68,109 @@ See stage 1 for PowerShell environment syntax and stopping the database.
 | Commit | Confirm all of that transaction's changes together. |
 | Rollback | Discard its uncommitted changes. |
 | Atomicity | The transaction's database changes take effect together or are discarded together. |
+| Isolation level | Rules for which changes a transaction can observe while other transactions run. |
+| Read committed / `sql.LevelReadCommitted` | A statement sees data committed when it starts, plus this transaction's own earlier writes. A later statement can see newer commits. |
+| Optimistic version check | Update only if the stored row still has the version the caller supplied. |
+
+## 1. Use one transaction for the complete operation
+
+Read `CreateBatch` in [store.go](../contacttx/store.go). It accepts 1–10 inputs,
+normalizes them, then begins a `ReadCommitted` transaction. Each insert uses
+`tx.QueryRowContext`, followed by `Scan`. The method commits before returning
+the created contacts.
+
+Start with a successful batch:
+
+```text
+Input: two valid contacts named "Ana" and "Bea"
+BeginTx -> INSERT "Ana" -> INSERT "Bea" -> Commit
+Result: both stored contacts are returned to the caller
+```
+
+`ReadCommitted` keeps other transactions' unfinished writes out of this
+transaction's reads. Each statement starts with a view of committed data and
+can also see its own transaction's earlier writes. A later statement may see
+new commits from another transaction, so this level does not freeze one snapshot
+for the whole operation. The version check in the next section protects against
+a stale replacement.
+
+Now follow a batch whose second name already exists:
+
+```text
+Before: one existing contact named "Bea"
+BeginTx
+INSERT "Ana" -> succeeds inside the transaction
+INSERT "Bea" -> unique-name constraint fails
+Deferred Rollback -> discard this transaction's "Ana"
+After: only the original "Bea" remains
+```
+
+Use the `tx` methods throughout the unit of work. A call to `db.ExecContext`
+would use the pool outside that transaction, potentially on another connection.
+
+`defer tx.Rollback()` supplies cleanup for an early error or panic. Once Commit
+succeeds, that deferred call returns `sql.ErrTxDone` and does not undo the commit.
+Identity sequences can have gaps after rollback; this is separate from whether
+a contact row committed.
+
+## 2. Commit the contact and its history together
+
+`ReplaceIfVersion` performs a full replacement of this lesson's editable fields.
+The conditional statement is conceptually:
+
+```sql
+UPDATE sql_tx_contacts
+SET name = $3, email = $4, version = version + 1
+WHERE id = $1 AND version = $2
+RETURNING id, name, email, version;
+```
+
+After reading the updated row, the same transaction inserts a change record.
+Only a successful common commit reports success. If history insertion fails,
+the new fields and version are rolled back as well.
+
+Two writers can both read version 1, but only one can replace that version.
+PostgreSQL's row locking and predicate recheck make the other update match no
+row after the winner commits. This method reports `ErrVersionConflict` for
+either a missing ID or a stale version; the lesson deliberately does not infer
+404 versus a version-precondition status from that zero-row result.
+
+All store transactions explicitly use `ReadCommitted`. The version predicate
+protects this row's participating writes; it is not a claim of serializable
+behavior for arbitrary multi-row business rules. Direct SQL that bypasses the
+version protocol can bypass its application guarantee.
+
+## 3. Cancellation and idempotency limits
+
+The cancellation test locks the history table on another connection. It observes
+the writer waiting on the real history INSERT through `pg_stat_activity`, then
+cancels its context. This proves the preceding UPDATE has been reached. The
+test joins the writer and verifies that neither the tentative fields/version
+nor a history record remain. Polling the server state is bounded; a fixed sleep
+does not choose when to cancel.
+
+These are database-transaction guarantees. Rollback does not reverse external
+network calls or other effects outside the transaction. A Commit error can also
+leave the caller uncertain whether PostgreSQL committed before communication
+failed; it should not automatically retry creation as a new request.
+
+Version checks prevent a stale edit. They do not save a response under an
+idempotency key. Repeating a request with the original version returns a
+conflict after its first successful replacement. A new accepted replacement
+increments the counter even if the supplied fields are equal. This counter is
+different from the REST project's content-derived ETag.
+
+Durable request-key records, lost-reply recovery, and transport wiring remain
+the [next stages](../README.md). The transaction boundary here provides the
+foundation for committing a business write and its key record together later.
+
+## 4. Evolve the schema without editing applied files
+
+| Term | Meaning here |
+| --- | --- |
 | Migration | An ordered, versioned schema change stored as a SQL file. |
 | Dirty migration | A migration started but was not recorded as successfully completed; inspect the database before continuing. |
 | Advisory lock | A PostgreSQL lock that cooperating migration runners acquire using a shared identifier. |
-| Optimistic version check | Update only if the stored row still has the version the caller supplied. |
-
-## 1. Evolve the schema without editing applied files
 
 Read [migrations.go](../contacttx/migrations.go) alongside these embedded files:
 
@@ -112,6 +215,40 @@ The examples use PostgreSQL's `public` schema. Statements such as
 `CREATE INDEX CONCURRENTLY` cannot run inside these transaction-wrapped files
 and need their own migration policy and failure handling.
 
+For optional implementation reading, trace the driver's lock, `Version`,
+`SetVersion`, and `Run` methods. The adapter's `forwardOnlyDriver` adds the
+lesson's forward-only policy; the library executes and records migrations.
+
+## Validate with PostgreSQL and Testcontainers
+
+The existing [integration command and Rancher setup](../README.md#testcontainers-integration-tests)
+run both SQL stages:
+
+```sh
+go -C extensions/02-database-sql test -tags=integration -race -count=1 -timeout=5m -v ./...
+go -C extensions/02-database-sql vet -tags=integration ./...
+```
+
+[transactions_test.go](../integration/transactions_test.go) checks upgrades
+without losing data, repeated migrations, per-file rollback and dirty-state
+rejection, unknown future versions, concurrent migrators, batch commit/rollback, failure
+of the history insert, competing writers, cancellation after an UPDATE, and the
+finite demo's cleanup. The two top-level SQL suites own separate containers
+through [the shared fixture](../integration/database_test.go).
+[migrations_test.go](../integration/migrations_test.go) also checks explicit
+legacy adoption with retained rows, rejected legacy history, and down/up cycles
+in the isolated test database.
+
+Ordinary tests still compile the lessons and check input/error rules without
+Docker. CI's existing integration-tagged job automatically includes the new
+suite. The migration dependency is confined to this module; workflow commands
+remain the same.
+
+## Optional operations: recovery and previous-runner adoption
+
+These sections support existing or failed lab databases. They are not required
+for a first run against a fresh database or for understanding business transactions.
+
 ### Down files and failure recovery
 
 [Version 2 down](../contacttx/migrations/000002_versions_and_changes.down.sql)
@@ -150,112 +287,6 @@ lock it records that baseline, then applies any pending up migration. It keeps
 existing contacts and the old ledger, and refuses changed, missing, or unknown
 history. This check does not prove the live schema was never manually edited.
 It cannot clear an existing dirty record. Fresh databases need no adoption.
-
-The main learning path now uses the established tool. To study migration
-internals optionally, trace the driver's lock, `Version`, `SetVersion`, and
-`Run` methods; maintaining a second migration engine is outside this lab.
-
-## 2. Use one transaction for the complete operation
-
-Read `CreateBatch` in [store.go](../contacttx/store.go). It accepts 1–10 inputs,
-normalizes them, then begins a `ReadCommitted` transaction. Each insert uses
-`tx.QueryRowContext`, followed by `Scan`. The method commits before returning
-the created contacts.
-
-Follow a batch whose second name already exists:
-
-```text
-Before: one existing contact named "Bea"
-BeginTx
-INSERT "Ana" -> succeeds inside the transaction
-INSERT "Bea" -> unique-name constraint fails
-Deferred Rollback -> discard this transaction's "Ana"
-After: only the original "Bea" remains
-```
-
-Use the `tx` methods throughout the unit of work. A call to `db.ExecContext`
-would use the pool outside that transaction, potentially on another connection.
-
-`defer tx.Rollback()` supplies cleanup for an early error or panic. Once Commit
-succeeds, that deferred call returns `sql.ErrTxDone` and does not undo the commit.
-Identity sequences can have gaps after rollback; this is separate from whether
-a contact row committed.
-
-## 3. Commit the contact and its history together
-
-`ReplaceIfVersion` performs a full replacement of this lesson's editable fields.
-The conditional statement is conceptually:
-
-```sql
-UPDATE sql_tx_contacts
-SET name = $3, email = $4, version = version + 1
-WHERE id = $1 AND version = $2
-RETURNING id, name, email, version;
-```
-
-After reading the updated row, the same transaction inserts a change record.
-Only a successful common commit reports success. If history insertion fails,
-the new fields and version are rolled back as well.
-
-Two writers can both read version 1, but only one can replace that version.
-PostgreSQL's row locking and predicate recheck make the other update match no
-row after the winner commits. This method reports `ErrVersionConflict` for
-either a missing ID or a stale version; the lesson deliberately does not infer
-404 versus a version-precondition status from that zero-row result.
-
-All store transactions explicitly use `ReadCommitted`. The version predicate
-protects this row's participating writes; it is not a claim of serializable
-behavior for arbitrary multi-row business rules. Direct SQL that bypasses the
-version protocol can bypass its application guarantee.
-
-## 4. Cancellation and idempotency limits
-
-The cancellation test locks the history table on another connection. It observes
-the writer waiting on the real history INSERT through `pg_stat_activity`, then
-cancels its context. This proves the preceding UPDATE has been reached. The
-test joins the writer and verifies that neither the tentative fields/version
-nor a history record remain. Polling the server state is bounded; a fixed sleep
-does not choose when to cancel.
-
-These are database-transaction guarantees. Rollback does not reverse external
-network calls or other effects outside the transaction. A Commit error can also
-leave the caller uncertain whether PostgreSQL committed before communication
-failed; it should not automatically retry creation as a new request.
-
-Version checks prevent a stale edit. They do not save a response under an
-idempotency key. Repeating a request with the original version returns a
-conflict after its first successful replacement. A new accepted replacement
-increments the counter even if the supplied fields are equal. This counter is
-different from the REST project's content-derived ETag.
-
-Durable request-key records, lost-reply recovery, and transport wiring remain
-the [next stages](../README.md). The transaction boundary here provides the
-foundation for committing a business write and its key record together later.
-
-## Validate with PostgreSQL and Testcontainers
-
-The existing [integration command and Rancher setup](../README.md#testcontainers-integration-tests)
-run both SQL stages:
-
-```sh
-go -C extensions/02-database-sql test -tags=integration -race -count=1 -timeout=5m -v ./...
-go -C extensions/02-database-sql vet -tags=integration ./...
-```
-
-[transactions_test.go](../integration/transactions_test.go) checks upgrades
-without losing data, repeated migrations, per-file rollback and dirty-state
-rejection, unknown future versions, concurrent migrators, batch commit/rollback, failure
-of the history insert, competing writers, cancellation after an UPDATE, and the
-finite demo's cleanup. The two top-level SQL suites own separate containers
-through [the shared fixture](../integration/database_test.go).
-[migrations_test.go](../integration/migrations_test.go) also checks explicit
-legacy adoption with retained rows, rejected legacy history, and down/up cycles
-in the isolated test database.
-
-Ordinary tests still compile the lessons and check input/error rules without
-Docker. CI's existing integration-tagged job automatically includes the new
-suite. The migration dependency is confined to this module; workflow commands
-remain the same.
 
 References: [golang-migrate migration format](https://github.com/golang-migrate/migrate/blob/v4.20.1/MIGRATIONS.md),
 [pgx migration driver](https://pkg.go.dev/github.com/golang-migrate/migrate/v4/database/pgx/v5),

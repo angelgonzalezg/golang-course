@@ -44,6 +44,8 @@ func New(store Store, logger *slog.Logger) *Service {
 	return &Service{store: store, logger: logger}
 }
 
+// Check at compile time that *Service implements the generated interface.
+// This declaration does not start a server or make an RPC call.
 var _ contactsv1.ContactServiceServer = (*Service)(nil)
 
 // CreateContact requires input and returns the store-assigned ID/content version.
@@ -178,10 +180,14 @@ func (s *Service) DeleteContact(ctx context.Context, request *contactsv1.DeleteC
 	return &contactsv1.DeleteContactResponse{}, nil
 }
 
+// inputValue copies editable fields into ordinary domain input. Decoding a
+// protobuf message did not perform the store's trimming or business validation.
 func inputValue(input *contactsv1.ContactInput) contacts.Input {
 	return contacts.Input{Name: input.GetName(), Email: input.GetEmail(), Phone: input.GetPhone()}
 }
 
+// resource builds a fresh response message from a store snapshot. Its version
+// comes from the shared domain rule and remains opaque to the RPC client.
 func resource(value contacts.Contact) *contactsv1.Contact {
 	return &contactsv1.Contact{Id: value.ID, Name: value.Name, Email: value.Email, Phone: value.Phone, Version: contacts.Version(value)}
 }

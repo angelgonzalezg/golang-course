@@ -68,6 +68,8 @@ func validToken(token string) bool {
 	return true
 }
 
+// authorize first recognizes a caller from its credential, then checks this
+// method's permission. A valid token alone does not permit every operation.
 func (p *Policy) authorize(ctx context.Context, method string) (context.Context, error) {
 	// Only unary Check is public, over TLS. Watch and List require a token.
 	if method == healthv1.Health_Check_FullMethodName {
@@ -97,6 +99,8 @@ func (p *Policy) authorize(ctx context.Context, method string) (context.Context,
 		return nil, status.Error(codes.Unauthenticated, "invalid bearer credential")
 	}
 	allowed := false
+	// Both verified roles can read. Only writers may mutate contacts or inspect
+	// reflection; unlisted methods keep allowed=false and are rejected below.
 	switch method {
 	case contactsv1.ContactService_GetContact_FullMethodName,
 		contactsv1.ContactService_ListContacts_FullMethodName,
@@ -135,6 +139,8 @@ func (p *Policy) Unary() grpc.UnaryServerInterceptor {
 	}
 }
 
+// Embedding delegates Send/Recv and other stream methods. Overriding Context
+// supplies the derived identity/request metadata without replacing the transport.
 type contextStream struct {
 	grpc.ServerStream
 	ctx context.Context
@@ -161,6 +167,8 @@ func (p *Policy) Stream() grpc.StreamServerInterceptor {
 // secret in every example. gRPC refuses to use these credentials over plaintext.
 type BearerToken string
 
+// GetRequestMetadata supplies the credential separately from protobuf fields.
+// gRPC calls this hook when preparing a call that uses these credentials.
 func (token BearerToken) GetRequestMetadata(context.Context, ...string) (map[string]string, error) {
 	if !validToken(string(token)) {
 		return nil, status.Error(codes.Unauthenticated, "a usable bearer token is required")

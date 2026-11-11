@@ -18,6 +18,8 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 )
 
+// Run stage-2 schema and business-transaction scenarios on one disposable server.
+// Reset the lesson's tables before each serial subtest to isolate history and rows.
 func TestTransactions(t *testing.T) {
 	db, dsn := newTestDatabase(t)
 	for _, test := range []struct {
@@ -43,16 +45,18 @@ func TestTransactions(t *testing.T) {
 	}
 }
 
+// resetTransactionTables clears migration history and business state inside
+// this suite's disposable database. Ordinary examples never run this reset.
 func resetTransactionTables(t *testing.T, db *sql.DB) {
 	t.Helper()
-	// This database belongs only to this test. Drops reset migration history as
-	// well as business state; ordinary examples never run this reset operation.
 	_, err := db.ExecContext(t.Context(), "DROP TABLE IF EXISTS sql_tx_contact_changes, sql_tx_contacts, sql_tx_migrations, sql_tx_schema_migrations CASCADE")
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
+// migrateTransactions prepares the latest schema and fails the calling subtest
+// immediately if setup did not reach the version required by its business operations.
 func migrateTransactions(t *testing.T, dsn string) {
 	t.Helper()
 	version, err := contacttx.Migrate(dsn)
@@ -61,6 +65,8 @@ func migrateTransactions(t *testing.T, dsn string) {
 	}
 }
 
+// Insert a row at schema version 1, upgrade, then repeat migration. Preserve
+// the row, add its default row version, keep one clean schema record, and reject downgrade.
 func testMigrationUpgrade(t *testing.T, db *sql.DB, dsn string) {
 	version, err := contacttx.MigrateTo(dsn, 1)
 	if err != nil || version != 1 {
@@ -89,9 +95,11 @@ func testMigrationUpgrade(t *testing.T, db *sql.DB, dsn string) {
 	}
 }
 
+// Force version 2 to fail after version 1 committed. Roll back version 2's DDL,
+// retain version 1, and leave dirty state that blocks another migration attempt.
 func testMigrationFailure(t *testing.T, db *sql.DB, dsn string) {
-	// Version 1 commits before version 2 starts. A conflicting table makes the
-	// second file fail: its ALTER rolls back, while version 1 remains committed.
+	// Pre-create the history table so version 2's CREATE TABLE fails after its
+	// ALTER has been reached. This forces the transaction's rollback path.
 	if _, err := db.ExecContext(t.Context(), "CREATE TABLE sql_tx_contact_changes (id bigint)"); err != nil {
 		t.Fatal(err)
 	}
@@ -112,6 +120,8 @@ func testMigrationFailure(t *testing.T, db *sql.DB, dsn string) {
 	}
 }
 
+// assertMigrationState checks the library's persisted version/dirty marker.
+// Business-row versions are separate and cannot establish migration completion.
 func assertMigrationState(t *testing.T, db *sql.DB, wantVersion int, wantDirty bool) {
 	t.Helper()
 	var version int
@@ -124,6 +134,8 @@ func assertMigrationState(t *testing.T, db *sql.DB, wantVersion int, wantDirty b
 	}
 }
 
+// Mark a schema dirty or give it an unknown future version. The adapter must
+// stop with the corresponding error instead of clearing state or migrating backward.
 func testMigrationHistory(t *testing.T, db *sql.DB, dsn string) {
 	for _, test := range []struct{ name, statement string }{
 		{"dirty", "UPDATE sql_tx_schema_migrations SET dirty = true"},
@@ -144,6 +156,8 @@ func testMigrationHistory(t *testing.T, db *sql.DB, dsn string) {
 	}
 }
 
+// Release four migrators together. Cooperative locking must let all finish
+// at version 2 with one clean version-table row, without duplicate DDL execution.
 func testConcurrentMigrations(t *testing.T, db *sql.DB, dsn string) {
 	start := make(chan struct{})
 	results := make(chan error, 4)
@@ -176,6 +190,8 @@ func testConcurrentMigrations(t *testing.T, db *sql.DB, dsn string) {
 	assertMigrationState(t, db, 2, false)
 }
 
+// createVersionedContact seeds a committed version-1 row named Original.
+// Later tests can distinguish a successful replacement from a rolled-back edit.
 func createVersionedContact(t *testing.T, db *sql.DB) contacttx.Contact {
 	t.Helper()
 	created, err := contacttx.NewStore(db).CreateBatch(t.Context(), []contactsql.Input{{Name: "Original"}})
@@ -185,6 +201,8 @@ func createVersionedContact(t *testing.T, db *sql.DB) contacttx.Contact {
 	return created[0]
 }
 
+// Fail the second insert of one batch, then commit another valid batch. The
+// failed batch must leave no tentative rows/results; the valid batch must save both.
 func testBatchTransactions(t *testing.T, db *sql.DB, dsn string) {
 	migrateTransactions(t, dsn)
 	store := contacttx.NewStore(db)
@@ -211,6 +229,8 @@ func testBatchTransactions(t *testing.T, db *sql.DB, dsn string) {
 	}
 }
 
+// changeCount reads persisted audit rows after a transaction finishes. Tests
+// use it to check that contact changes and their history committed together.
 func changeCount(t *testing.T, db *sql.DB) int {
 	t.Helper()
 	var count int
@@ -220,6 +240,8 @@ func changeCount(t *testing.T, db *sql.DB) int {
 	return count
 }
 
+// Reject the history INSERT after the contact UPDATE succeeds inside its
+// transaction. Neither the new fields/version nor a change record may remain.
 func testHistoryFailure(t *testing.T, db *sql.DB, dsn string) {
 	migrateTransactions(t, dsn)
 	store := contacttx.NewStore(db)
@@ -237,6 +259,8 @@ func testHistoryFailure(t *testing.T, db *sql.DB, dsn string) {
 	}
 }
 
+// Race two replacements using the same expected version. Exactly one wins;
+// its fields, incremented version, and single matching history row must agree.
 func testVersionRace(t *testing.T, db *sql.DB, dsn string) {
 	migrateTransactions(t, dsn)
 	store := contacttx.NewStore(db)
@@ -280,6 +304,8 @@ func testVersionRace(t *testing.T, db *sql.DB, dsn string) {
 	}
 }
 
+// Block the history INSERT after UPDATE has run, then cancel the writer.
+// The caller must observe cancellation, and both tentative writes must roll back.
 func testTransactionCancellation(t *testing.T, db *sql.DB, dsn string) {
 	migrateTransactions(t, dsn)
 	store := contacttx.NewStore(db)
@@ -324,6 +350,8 @@ func testTransactionCancellation(t *testing.T, db *sql.DB, dsn string) {
 	}
 }
 
+// waitForHistoryLock polls the server's actual blocked INSERT state. The timer
+// bounds a broken test; it does not guess how long the writer needs to reach that state.
 func waitForHistoryLock(t *testing.T, db *sql.DB) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
@@ -350,6 +378,8 @@ func waitForHistoryLock(t *testing.T, db *sql.DB) {
 	}
 }
 
+// Run the finite transaction walkthrough and inspect its database afterward.
+// The expected lessons must be printed, with no demo contacts or history left behind.
 func testTransactionDemo(t *testing.T, db *sql.DB, dsn string) {
 	var output bytes.Buffer
 	if err := txdemo.Run(t.Context(), dsn, &output); err != nil {

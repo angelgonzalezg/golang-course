@@ -35,6 +35,8 @@ func serialNumber() (*big.Int, error) {
 // Generate creates a 24-hour local CA/server pair for localhost and loopback IPs.
 // The CA private key is discarded after signing, so renewal requires a new pair.
 func Generate() (Material, error) {
+	// 1. Create the local CA: it signs this lesson's server certificate. This
+	// self-signed CA will be trusted explicitly by our client, not installed globally.
 	caPublic, caKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return Material{}, err
@@ -43,6 +45,8 @@ func Generate() (Material, error) {
 	if err != nil {
 		return Material{}, err
 	}
+	// Allow a small clock offset at creation, while keeping this lab material
+	// short-lived. A later run can generate a new pair after it expires.
 	now := time.Now()
 	ca := &x509.Certificate{
 		SerialNumber: caSerial, Subject: pkix.Name{CommonName: "Go course local CA"},
@@ -53,6 +57,7 @@ func Generate() (Material, error) {
 	if err != nil {
 		return Material{}, err
 	}
+	// 2. Give the server its own key and a certificate signed by the CA above.
 	serverPublic, serverKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return Material{}, err
@@ -62,6 +67,8 @@ func Generate() (Material, error) {
 		return Material{}, err
 	}
 	server := &x509.Certificate{
+		// DNSNames/IPAddresses below are the verified names (SANs). CommonName
+		// is a descriptive label here; it does not replace those hostname checks.
 		SerialNumber: serverSerial, Subject: pkix.Name{CommonName: "localhost"},
 		NotBefore: ca.NotBefore, NotAfter: ca.NotAfter,
 		DNSNames: []string{"localhost"}, IPAddresses: []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")},
@@ -75,6 +82,7 @@ func Generate() (Material, error) {
 	if err != nil {
 		return Material{}, err
 	}
+	// 3. Wrap binary DER data as PEM bytes, also usable by the file-based mode.
 	// The CA private key is discarded. Only the public CA goes to clients.
 	return Material{
 		CA:          pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER}),

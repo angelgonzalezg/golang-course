@@ -1,3 +1,5 @@
+// Protobuf foundation: construct messages locally before introducing a network.
+// The numbered blocks below match the five learning passes in this lesson's README.
 package main
 
 import (
@@ -12,6 +14,8 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
+// run shows encoding, JSON display, presence, partial-update selection, and copies.
+// No generated client or server is started in this first stage.
 func run(out io.Writer) error {
 	fmt.Fprintln(out, "== 1. A message and its binary representation ==")
 	contact := &contactsv1.Contact{Id: 42, Name: "Ana López", Email: "ana@example.com", Version: "example-version"}
@@ -25,12 +29,16 @@ func run(out io.Writer) error {
 	if err := proto.Unmarshal(data, decoded); err != nil {
 		return err
 	}
+	// Compare message values, not pointer identity or a presumed canonical byte
+	// sequence. A valid round-trip must retain the same field contents.
 	if !proto.Equal(contact, decoded) {
 		return errors.New("round-trip changed the contact")
 	}
 	fmt.Fprintf(out, "Decoded #%d: %s; binary round-trip preserved the message.\n", decoded.GetId(), decoded.GetName())
 
 	fmt.Fprintln(out, "\n== 2. ProtoJSON is a separate representation ==")
+	// ProtoJSON follows protobuf's mapping rules, including string-valued int64
+	// IDs. This readable display is separate from gRPC's binary transport later.
 	jsonData, err := (protojson.MarshalOptions{Indent: "  "}).Marshal(contact)
 	if err != nil {
 		return err

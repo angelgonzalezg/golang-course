@@ -104,6 +104,9 @@ func cloneContact(contact *contactsv1.Contact) *contactsv1.Contact {
 	return proto.Clone(contact).(*contactsv1.Contact)
 }
 
+// do finds or reserves one caller/key operation, runs its create outside the
+// mutex, then publishes a saved outcome. Only the reserving caller runs create;
+// equivalent callers wait, and every returned message is an independent clone.
 func (c *CreateCache) do(ctx context.Context, subject, key string, request *contactsv1.CreateContactRequest, create func() (*contactsv1.Contact, error)) (*contactsv1.Contact, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, status.FromContextError(err).Err()
@@ -140,7 +143,9 @@ func (c *CreateCache) do(ctx context.Context, subject, key string, request *cont
 	// Retain terminal errors too: rerunning after an ambiguous backend failure
 	// could repeat a mutation that committed before the error was reported.
 	entry.result, entry.err = cloneContact(result), err
-	close(entry.done) // Signals waiters that the saved result/error is ready to read.
+	// Save the fields before closing done. A waiter that receives that closure
+	// can safely read the completed fields; later replays receive it immediately.
+	close(entry.done)
 	return cloneContact(entry.result), entry.err
 }
 

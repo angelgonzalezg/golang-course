@@ -43,10 +43,14 @@ func (s *Store) CreateBatch(ctx context.Context, inputs []contactsql.Input) ([]C
 		}
 		normalized[i] = value
 	}
+	// ReadCommitted hides other transactions' uncommitted writes. A later
+	// statement can still see changes another transaction committed meanwhile.
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
 		return nil, fmt.Errorf("begin batch: %w", err)
 	}
+	// Roll back if a later step fails. After a successful Commit, this call
+	// returns sql.ErrTxDone and does not undo the committed rows.
 	defer tx.Rollback()
 	result := make([]Contact, 0, len(inputs))
 	for i, input := range normalized {
@@ -78,10 +82,13 @@ func (s *Store) ReplaceIfVersion(ctx context.Context, id, expected int64, input 
 	if err != nil {
 		return Contact{}, err
 	}
+	// ReadCommitted alone does not reject a stale edit; the version condition
+	// in the UPDATE below provides that check.
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
 		return Contact{}, fmt.Errorf("begin replacement: %w", err)
 	}
+	// An error from UPDATE or the history INSERT discards both tentative changes.
 	defer tx.Rollback()
 	// Compare and increment inside one SQL UPDATE. Two writers using version 1
 	// cannot both replace it: after one commits, the other predicate no longer matches.
@@ -99,6 +106,8 @@ func (s *Store) ReplaceIfVersion(ctx context.Context, id, expected int64, input 
 		VALUES ($1, $2, $3)`, id, expected, contact.Version); err != nil {
 		return Contact{}, fmt.Errorf("record contact change: %w", databaseError(ctx, err))
 	}
+	// This common commit makes the updated contact and its history visible
+	// together. Returning after UPDATE alone would report incomplete work.
 	if err := tx.Commit(); err != nil {
 		return Contact{}, fmt.Errorf("commit replacement: %w", err)
 	}
@@ -134,6 +143,8 @@ func (s *Store) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
+// scanContact shares NULL-to-pointer conversion between one-row reads/writes.
+// A stored empty email is non-nil; SQL NULL remains nil in the returned value.
 func scanContact(row interface{ Scan(...any) error }) (Contact, error) {
 	var contact Contact
 	var email sql.NullString
@@ -146,6 +157,8 @@ func scanContact(row interface{ Scan(...any) error }) (Contact, error) {
 	return contact, nil
 }
 
+// databaseError retains driver causes for errors.As and cancellation for
+// errors.Is. Only the named unique-name constraint becomes ErrNameTaken.
 func databaseError(ctx context.Context, err error) error {
 	if ctx.Err() != nil {
 		return fmt.Errorf("%w: %w", ctx.Err(), err)

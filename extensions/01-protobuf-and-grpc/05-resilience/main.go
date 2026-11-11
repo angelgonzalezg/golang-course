@@ -1,3 +1,6 @@
+// Resilience combines the earlier TLS service with bounded retries, saved create
+// results, message limits, and locally collected telemetry. Run client.go's
+// scenarios in order: they share one temporary server and its sample contacts.
 package main
 
 import (
@@ -31,6 +34,8 @@ import (
 	"google.golang.org/grpc/stats/opentelemetry"
 )
 
+// lockedWriter protects output shared by client summaries and server log calls.
+// It also makes a plain bytes.Buffer safe as the destination in command tests.
 type lockedWriter struct {
 	mu  sync.Mutex
 	out io.Writer
@@ -53,6 +58,9 @@ type serverConfig struct {
 	send      int
 }
 
+// startServer keeps permissions ahead of idempotency: replaying a saved result
+// must still authenticate and authorize the caller. The fault injector is a
+// local teaching hook around the cache, not behavior selected by request metadata.
 func startServer(listener net.Listener, service contactsv1.ContactServiceServer, config serverConfig) *rpcserver.Running {
 	unary := []grpc.UnaryServerInterceptor{rpcinfra.ObserveUnary(config.logger), config.policy.Unary()}
 	if config.faults != nil {
@@ -75,6 +83,8 @@ func startServer(listener net.Listener, service contactsv1.ContactServiceServer,
 	})
 }
 
+// openConnection gives every call verified TLS, a caller token, message bounds,
+// and telemetry. The rpcresilience client owns the application retry policy.
 func openConnection(target string, transport *tls.Config, token string, telemetry *rpcobserve.Telemetry) (*grpc.ClientConn, error) {
 	return grpc.NewClient(target,
 		grpc.WithTransportCredentials(credentials.NewTLS(transport)),
@@ -85,16 +95,21 @@ func openConnection(target string, transport *tls.Config, token string, telemetr
 	)
 }
 
+// stopServer gets a cleanup budget independent of an expired demo deadline.
 func stopServer(server *rpcserver.Running) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	return server.Shutdown(ctx)
 }
 
+// runDemo owns the whole experiment: SDK providers, TLS material, server, and
+// client calls. Its named error also retains errors from deferred cleanup.
 func runDemo(parent context.Context, out io.Writer) (err error) {
 	out = &lockedWriter{out: out}
 	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
 	defer cancel()
+	// Providers belong to this run. Shutdown flushes/releases them after the
+	// server and client have finished; it does not install global SDK state.
 	telemetry := rpcobserve.New()
 	defer func() {
 		cleanup, stop := context.WithTimeout(context.Background(), 3*time.Second)
@@ -119,6 +134,10 @@ func runDemo(parent context.Context, out io.Writer) (err error) {
 		return err
 	}
 	store := contacts.NewStore()
+	// These sample contacts prepare the message limit examples. Long email
+	// text stays within the store's length limit, but a page of all 12 contacts
+	// exceeds the 1,024-byte send limit. A two-contact page and each streamed
+	// contact still fit. The counts and field lengths are teaching choices.
 	for i := range 12 {
 		_, err := store.Create(ctx, contacts.Input{Name: fmt.Sprintf("Seed %02d", i), Email: strings.Repeat("e", 110) + "@example.com"})
 		if err != nil {
@@ -130,6 +149,8 @@ func runDemo(parent context.Context, out io.Writer) (err error) {
 		return err
 	}
 	faults := new(lessonFaults)
+	// Controlled failures make retries visible: fail the first two reads and
+	// hide the first successful create reply. Real clients cannot enable these.
 	faults.readFailures.Store(2)
 	faults.dropCreate.Store(true)
 	server := startServer(listener, rpcapi.New(store, nil), serverConfig{
@@ -137,6 +158,8 @@ func runDemo(parent context.Context, out io.Writer) (err error) {
 		faults: faults.Unary(), logger: slog.New(slog.NewTextHandler(out, nil)),
 		receive: rpcresilience.MaxMessageBytes, send: rpcresilience.MaxMessageBytes,
 	})
+	// This inner scope stops the server before Report collects the observations.
+	// A simple defer in the outer function would leave Serve running until later.
 	err = func() (err error) {
 		defer func() { err = errors.Join(err, stopServer(server)) }()
 		return runClient(ctx, listener.Addr().String(), clientTLS, writerToken, telemetry, store, faults, out)

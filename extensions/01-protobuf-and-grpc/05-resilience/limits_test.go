@@ -17,12 +17,16 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Exceed the client-send and server-receive bounds separately. Both must reject
+// before Create or key reservation, so the same key remains usable with valid input.
 func TestClientAndServerReceiveRejectOversizedRequestsBeforeMutation(t *testing.T) {
 	env := setup(t, nil, 16)
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	ctx = metadata.AppendToOutgoingContext(ctx, rpcresilience.KeyHeader, "oversized")
 	input := request(strings.Repeat("x", 2*rpcresilience.MaxMessageBytes))
+	// Default options hit the client's send cap. Raising only that cap lets
+	// the second case reach the server's receive cap with the same request.
 	for _, options := range [][]grpc.CallOption{nil, {grpc.MaxCallSendMsgSize(4 * rpcresilience.MaxMessageBytes)}} {
 		_, err := env.api.CreateContact(ctx, input, options...)
 		if status.Code(err) != codes.ResourceExhausted || env.store.creates.Load() != 0 {
@@ -35,6 +39,8 @@ func TestClientAndServerReceiveRejectOversizedRequestsBeforeMutation(t *testing.
 	}
 }
 
+// Use a collection too large for one response. Server-send/client-receive
+// limits must fail, while a smaller page and all individually bounded stream items fit.
 func TestUnaryResponseLimitsAndPerMessageStreaming(t *testing.T) {
 	env := setup(t, nil, 16)
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
@@ -76,6 +82,8 @@ func TestUnaryResponseLimitsAndPerMessageStreaming(t *testing.T) {
 	}
 }
 
+// Fail an import on its second oversized request, then fail a response stream
+// on a large Unicode record. Earlier committed creates and delivered replies remain.
 func TestStreamSizeFailureKeepsEarlierImportCommitsAndDeliveredReplies(t *testing.T) {
 	env := setup(t, nil, 16)
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)

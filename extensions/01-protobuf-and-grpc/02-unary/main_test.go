@@ -16,6 +16,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Run the full unary demo over a real loopback connection. It must finish
+// successfully and report the planned conflicts, context failures, and deletion.
 func TestFiniteDemoOverLocalTCP(t *testing.T) {
 	var output bytes.Buffer
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
@@ -30,6 +32,8 @@ func TestFiniteDemoOverLocalTCP(t *testing.T) {
 	}
 }
 
+// Use a dialer that always fails. Channel construction must perform no I/O,
+// while the first RPC exposes Unavailable through the demo helper's wrapping.
 func TestLazyChannelAndUnexpectedTransportError(t *testing.T) {
 	dialed := make(chan struct{}, 1)
 	connection, err := grpc.NewClient("passthrough:///offline-test",
@@ -61,6 +65,8 @@ func TestLazyChannelAndUnexpectedTransportError(t *testing.T) {
 	}
 }
 
+// startupWriter turns the server announcement into a readiness signal, so the
+// test can connect to its assigned port without a sleep-based timing guess.
 type startupWriter struct{ started chan string }
 
 func (w startupWriter) Write(data []byte) (int, error) {
@@ -68,6 +74,8 @@ func (w startupWriter) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
+// Start server and client separately within the test. Wait for the announced
+// address, run the client, then cancel and wait for server shutdown to finish.
 func TestStandaloneServerAndClient(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()

@@ -23,6 +23,8 @@ import (
 //go:embed testdata/legacy/*.sql
 var legacyFiles embed.FS
 
+// createLegacySchema applies frozen old-runner files and records their digests.
+// It keeps one contact so adoption tests can detect accidental data loss or replayed DDL.
 func createLegacySchema(t *testing.T, db *sql.DB, version int) int64 {
 	t.Helper()
 	if _, err := db.ExecContext(t.Context(), `CREATE TABLE sql_tx_migrations (
@@ -50,6 +52,8 @@ func createLegacySchema(t *testing.T, db *sql.DB, version int) int64 {
 	return id
 }
 
+// Adopt known legacy version 1/2 explicitly while preserving an existing row.
+// Changed, unknown, or incomplete history must be rejected without recording a baseline.
 func testLegacyMigrations(t *testing.T, db *sql.DB, dsn string) {
 	for _, version := range []int{1, 2} {
 		t.Run(fmt.Sprintf("version %d", version), func(t *testing.T) {
@@ -94,6 +98,8 @@ func testLegacyMigrations(t *testing.T, db *sql.DB, dsn string) {
 	}
 }
 
+// Exercise down/up only in the test database. Downgrading version 2 retains
+// contacts; a full down removes the table, and a later up recreates a clean schema.
 func testMigrationRoundTrip(t *testing.T, db *sql.DB, dsn string) {
 	migrateTransactions(t, dsn)
 	initial := createVersionedContact(t, db)

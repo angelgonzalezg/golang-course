@@ -22,6 +22,8 @@ import (
 	"golangcourse/chapters/13-standard-library/06-project-rest-api/contacts"
 )
 
+// Embedding supplies the normal store methods; overriding Create counts actual
+// backend invocations, which can be fewer than RPC attempts after a replay.
 type countedStore struct {
 	*contacts.Store
 	creates atomic.Int64
@@ -43,6 +45,9 @@ type environment struct {
 	transport *tls.Config
 }
 
+// setup builds a private TLS server/client pair with an optional failure hook
+// and a chosen idempotency capacity. It keeps raw and retrying clients available
+// so each test can select the layer whose behavior it wants to observe.
 func setup(t *testing.T, faults *lessonFaults, capacity int) *environment {
 	t.Helper()
 	telemetry := rpcobserve.New()
@@ -93,6 +98,8 @@ func setup(t *testing.T, faults *lessonFaults, capacity int) *environment {
 		stopServer(server)
 		t.Fatal(err)
 	}
+	// A test may finish transport work before inspecting telemetry/logs. Once
+	// makes that explicit finish and t.Cleanup share one safe shutdown action.
 	var once sync.Once
 	finish := func() {
 		once.Do(func() {
@@ -106,6 +113,8 @@ func setup(t *testing.T, faults *lessonFaults, capacity int) *environment {
 	return &environment{api: api, client: rpcresilience.NewClient(api), store: store, telemetry: telemetry, logs: logs, finish: finish, target: listener.Addr().String(), transport: clientTLS}
 }
 
+// Run the complete controlled-failure demo. It must finish with the expected
+// retry, replay, message-limit, deadline, and telemetry summaries.
 func TestFiniteResilienceDemoOverTLS(t *testing.T) {
 	var out bytes.Buffer
 	if err := runDemo(t.Context(), &out); err != nil {

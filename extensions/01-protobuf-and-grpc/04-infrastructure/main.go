@@ -1,3 +1,5 @@
+// Infrastructure adds verified TLS, caller permissions, metadata, and discovery.
+// The default mode creates all its teaching credentials in memory and exits.
 package main
 
 import (
@@ -30,6 +32,8 @@ import (
 
 const contactService = "contacts.v1.ContactService"
 
+// These tokens identify two callers with different permissions. They do not
+// replace the TLS certificate that lets a client verify the server's identity.
 type tokens struct{ reader, writer string }
 
 func (t tokens) policy() (*rpcinfra.Policy, error) { return rpcinfra.NewPolicy(t.reader, t.writer) }
@@ -45,6 +49,8 @@ func (w *lockedWriter) Write(data []byte) (int, error) {
 	return w.out.Write(data)
 }
 
+// startServer composes existing contact behavior with transport and per-RPC
+// policies. Registration and readiness setup finish before Serve starts.
 func startServer(listener net.Listener, service contactsv1.ContactServiceServer, transport *tls.Config, policy *rpcinfra.Policy, logger *slog.Logger, reflection bool) (*rpcserver.Running, *health.Server) {
 	readiness := health.NewServer()
 	// This store has no external startup dependencies. Mark readiness only after
@@ -53,6 +59,7 @@ func startServer(listener net.Listener, service contactsv1.ContactServiceServer,
 	server := rpcserver.StartWithConfig(listener, service, rpcserver.Config{
 		Health: readiness, Reflection: reflection,
 		ServerOptions: []grpc.ServerOption{
+			// TLS secures the connection before an RPC reaches its interceptors.
 			grpc.Creds(credentials.NewTLS(transport)),
 			// A call enters the observer, then the permission check, then its
 			// handler. Returning through the observer logs success or rejection.
@@ -63,16 +70,20 @@ func startServer(listener net.Listener, service contactsv1.ContactServiceServer,
 	return server, readiness
 }
 
+// stopServer can still drain calls after the original signal context has ended.
 func stopServer(server *rpcserver.Running) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	return server.Shutdown(ctx)
 }
 
+// runDemo owns the temporary server, CA/certificates, and client credentials.
+// Nothing needs to be installed or written to disk for this finite mode.
 func runDemo(ctx context.Context, out io.Writer) (err error) {
 	// Server logs and client output can arrive concurrently, even when the
 	// caller supplies a plain bytes.Buffer during a test.
 	out = &lockedWriter{out: out}
+	// 1. Give the server a certificate and the client a CA it can trust.
 	material, err := labtls.Generate()
 	if err != nil {
 		return err
@@ -85,11 +96,13 @@ func runDemo(ctx context.Context, out io.Writer) (err error) {
 	if err != nil {
 		return err
 	}
+	// 2. Give the two callers distinct identities and method permissions.
 	secrets := tokens{reader: rand.Text(), writer: rand.Text()}
 	policy, err := secrets.policy()
 	if err != nil {
 		return err
 	}
+	// 3. Start a real local TLS endpoint, then exercise it with the client below.
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return err
@@ -100,6 +113,8 @@ func runDemo(ctx context.Context, out io.Writer) (err error) {
 	return runClient(ctx, listener.Addr().String(), clientTLS, secrets, true, out)
 }
 
+// runServer uses caller-supplied credentials for the separate-terminal exercise.
+// It still owns one in-memory store; restarting this process loses its contacts.
 func runServer(ctx context.Context, address string, transport *tls.Config, policy *rpcinfra.Policy, reflection bool, out io.Writer) error {
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
@@ -115,6 +130,8 @@ func runServer(ctx context.Context, address string, transport *tls.Config, polic
 	return stopServer(server)
 }
 
+// run separates mode selection from process exit so tests can call it directly.
+// Only standalone modes load certificates from disk and tokens from the environment.
 func run(ctx context.Context, args []string, out io.Writer) error {
 	flags := flag.NewFlagSet("infrastructure", flag.ContinueOnError)
 	serve := flags.Bool("serve", false, "run a TLS server")
@@ -132,6 +149,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	if flags.NArg() != 0 || *serve && *target != "" || *initTLS != "" && (*serve || *target != "") {
 		return errors.New("choose the demo, -init-tls, -serve, or -target")
 	}
+	// Certificate creation is a setup command: write a new directory, then exit.
 	if *initTLS != "" {
 		material, err := labtls.Generate()
 		if err != nil {
@@ -149,6 +167,8 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	if *tlsDirectory == "" {
 		return errors.New("-tls-dir is required for standalone server/client modes")
 	}
+	// Separate processes must agree on the two tokens. Policy construction
+	// rejects absent or equal credentials before either mode starts its work.
 	secrets := tokens{reader: os.Getenv("GRPC_LAB_READER_TOKEN"), writer: os.Getenv("GRPC_LAB_WRITER_TOKEN")}
 	policy, err := secrets.policy()
 	if err != nil {

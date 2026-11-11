@@ -12,6 +12,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// scriptedClient substitutes deterministic RPC outcomes for transport. Each
+// test controls the relevant method so it can inspect retries and deadlines.
 type scriptedClient struct {
 	contactsv1.ContactServiceClient
 	get    func(context.Context) (*contactsv1.Contact, error)
@@ -25,6 +27,8 @@ func (s scriptedClient) CreateContact(ctx context.Context, _ *contactsv1.CreateC
 	return s.create(ctx)
 }
 
+// Fail two reads, then succeed. Exactly three attempts must share one deadline;
+// retrying must not grant each attempt a new full time budget.
 func TestRetryRecoveryAndOneDeadlineAcrossAttempts(t *testing.T) {
 	calls := 0
 	var deadline time.Time
@@ -50,6 +54,8 @@ func TestRetryRecoveryAndOneDeadlineAcrossAttempts(t *testing.T) {
 	}
 }
 
+// Return each listed failure status consistently. Only Unavailable is retried
+// up to the cap; every other status must return after a single invocation.
 func TestRetryExhaustionAndNonRetryableStatuses(t *testing.T) {
 	for _, code := range []codes.Code{codes.Unavailable, codes.InvalidArgument, codes.PermissionDenied, codes.Unauthenticated, codes.ResourceExhausted, codes.Aborted, codes.FailedPrecondition, codes.Internal, codes.Canceled, codes.DeadlineExceeded} {
 		t.Run(code.String(), func(t *testing.T) {
@@ -70,6 +76,8 @@ func TestRetryExhaustionAndNonRetryableStatuses(t *testing.T) {
 	}
 }
 
+// Cancel as the first attempt returns a temporary failure, then try an expired
+// call. Neither case may start another transport invocation.
 func TestCancellationInterruptsBackoffAndExpiredBudgetNeverCalls(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
@@ -89,6 +97,8 @@ func TestCancellationInterruptsBackoffAndExpiredBudgetNeverCalls(t *testing.T) {
 	}
 }
 
+// Reject an unkeyed create before transport, then retry a keyed create. Every
+// attempt must retain the chosen key/request ID without editing the caller's metadata.
 func TestCreateRetryRequiresAKeyAndDoesNotMutateCallerMetadata(t *testing.T) {
 	calls := 0
 	client := NewClient(scriptedClient{create: func(ctx context.Context) (*contactsv1.Contact, error) {

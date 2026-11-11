@@ -45,9 +45,9 @@ func TestHandlerMapsDeadlinesCancellationAndMissingReports(t *testing.T) {
 		id     string
 		status int
 	}{
-		{"deadline", false, false, "sales", 504},
-		{"canceled", false, true, "sales", 503},
-		{"missing", true, false, "missing", 404},
+		{"deadline", false, false, "sales", http.StatusServiceUnavailable},
+		{"canceled", false, true, "sales", http.StatusServiceUnavailable},
+		{"missing", true, false, "missing", http.StatusNotFound},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {

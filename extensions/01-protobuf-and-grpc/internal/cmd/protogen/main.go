@@ -20,6 +20,9 @@ var generatedFiles = []string{
 	"contacts/v1/contacts_grpc.pb.go",
 }
 
+// run is generation tooling, not application startup. Ordinary lessons use the
+// checked-in generated files; read this after the basic serialization examples.
+// It checks the compiler, builds pinned plugins, then generates into a temp directory.
 func run(check bool, include string) error {
 	// Running from the module root also keeps generated source paths stable.
 	if _, err := os.Stat("proto/contacts/v1/contacts.proto"); err != nil {
@@ -48,6 +51,8 @@ func run(check bool, include string) error {
 	if _, err := os.Stat(filepath.Join(include, "google/protobuf/field_mask.proto")); err != nil {
 		return fmt.Errorf("find well-known proto definitions; supply -include with protoc's include directory: %w", err)
 	}
+	// Keep tool binaries and candidate output outside the source tree. Deferred
+	// cleanup removes this run's temporary files even if generation fails.
 	temporary, err := os.MkdirTemp("", "grpc-protogen-")
 	if err != nil {
 		return err
@@ -77,6 +82,8 @@ func run(check bool, include string) error {
 	if err := os.Mkdir(output, 0o755); err != nil {
 		return err
 	}
+	// source_relative keeps the output under contacts/v1 instead of expanding
+	// the Go import path into directories. Both plugins read the same contract.
 	arguments = append(arguments,
 		"--proto_path=proto", "--proto_path="+include,
 		"--go_out="+output, "--go_opt=paths=source_relative",
@@ -95,6 +102,8 @@ func run(check bool, include string) error {
 		}
 		destination := filepath.Join("gen", relative)
 		if check {
+			// Compare candidate bytes without replacing tracked output. This is
+			// the reproducibility check used when reviewing contract changes.
 			previous, err := os.ReadFile(destination)
 			if err != nil {
 				return fmt.Errorf("read %s: %w", destination, err)

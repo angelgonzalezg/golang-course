@@ -149,11 +149,15 @@ func scanContact(row interface{ Scan(...any) error }) (Contact, error) {
 		return Contact{}, err
 	}
 	if email.Valid {
+		// Valid separates SQL NULL from a stored empty string. Each scan creates
+		// its own optional value, so editing a result does not update PostgreSQL.
 		contact.Email = &email.String
 	}
 	return contact, nil
 }
 
+// normalize checks this model's text rules before sending SQL. It returns a
+// trimmed name without changing the caller's Input struct; email is borrowed.
 func normalize(input Input) (Input, error) {
 	input.Name = strings.TrimSpace(input.Name)
 	if !utf8.ValidString(input.Name) || strings.ContainsRune(input.Name, 0) ||

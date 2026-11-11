@@ -167,10 +167,17 @@ the client's original `DeadlineExceeded` classification or custom cause.
 | Report handler outcome | Example HTTP policy |
 | --- | --- |
 | Success | 200 with JSON and any request ID response header. |
-| Local/parent deadline exhausted | 504. |
+| Local/parent deadline exhausted | 503, if a response can still be delivered. |
 | Operation canceled | 503, if a response can still be delivered. |
 | Report absent | 404. |
 | Other service failure | 500. |
+
+The report store in this lesson is an in-process dependency. As in the
+[REST project](../../13-standard-library/06-project-rest-api/README.md#input-and-failures),
+the handler chooses 503 when a deadline or cancellation prevents it from finishing.
+This is an explicit HTTP policy; a context error does not choose a status code
+by itself. [504 Gateway Timeout](https://www.rfc-editor.org/rfc/rfc9110.html#section-15.6.5)
+describes a gateway or proxy waiting for an upstream server.
 
 The cancellation integration test waits until the store has received its context,
 then cancels the actual HTTP client request. It waits for both store and handler

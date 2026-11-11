@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+// Verify the generated certificate against its CA for each loopback name.
+// Move verification time past expiry; the same certificate must then be rejected.
 func TestLocalCertificateTrustNamesAndExpiry(t *testing.T) {
 	material, err := Generate()
 	if err != nil {
@@ -35,6 +37,8 @@ func TestLocalCertificateTrustNamesAndExpiry(t *testing.T) {
 	}
 }
 
+// Write TLS files once, reject replacement, and load both configurations.
+// Check private-key permissions on POSIX and prove a client needs only the public CA.
 func TestCertificateFilesArePrivateAndNeverOverwritten(t *testing.T) {
 	material, err := Generate()
 	if err != nil {

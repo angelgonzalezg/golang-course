@@ -14,6 +14,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Run all three streaming shapes over loopback TCP. Check successful summaries,
+// per-item failures, final completion, and cancellation of an active lookup.
 func TestFiniteStreamingDemoOverLocalTCP(t *testing.T) {
 	var output bytes.Buffer
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
@@ -45,6 +47,8 @@ func (c lookupClient) LookupContacts(ctx context.Context, _ ...grpc.CallOption) 
 	return c.open(ctx), nil
 }
 
+// blockedLookup makes Recv fail only after Send has started waiting. These
+// signals establish the order explicitly, without a sleep-based timing guess.
 type blockedLookup struct {
 	grpc.ClientStream
 	ctx     context.Context
@@ -63,6 +67,8 @@ func (s blockedLookup) Recv() (*contactsv1.LookupContactsResponse, error) {
 	return nil, status.Error(codes.Internal, "stream failed while sending")
 }
 
+// Make Recv fail while Send is blocked. The client must preserve that failure,
+// cancel the stream, and wait for its sender to exit before returning.
 func TestBidiClientCancelsAndJoinsBlockedSenderOnReceiveFailure(t *testing.T) {
 	exited := make(chan struct{})
 	client := lookupClient{open: func(ctx context.Context) grpc.BidiStreamingClient[contactsv1.LookupContactsRequest, contactsv1.LookupContactsResponse] {
@@ -92,6 +98,8 @@ func (rejectedImport) CloseAndRecv() (*contactsv1.ImportContactsResponse, error)
 	return nil, status.Error(codes.ResourceExhausted, "batch rejected")
 }
 
+// Make Send return EOF before the import finishes. The client must still read
+// the terminal ResourceExhausted status instead of treating EOF as success.
 func TestImportClientReadsTerminalStatusAfterSendEOF(t *testing.T) {
 	response, err := importBatch(t.Context(), importClient{}, []*contactsv1.CreateContactRequest{{Input: &contactsv1.ContactInput{Name: "Ana"}}})
 	if status.Code(err) != codes.ResourceExhausted || response != nil {
@@ -99,6 +107,8 @@ func TestImportClientReadsTerminalStatusAfterSendEOF(t *testing.T) {
 	}
 }
 
+// startupWriter signals the server's actual announcement. A channel handshake
+// supplies the address before the test starts either repeated client run.
 type startupWriter struct{ started chan string }
 
 func (w startupWriter) Write(data []byte) (int, error) {
@@ -106,6 +116,8 @@ func (w startupWriter) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
+// Run two clients against one server to check reusable standalone operation.
+// After cancellation, both normal completion and test cleanup must join the server.
 func TestStandaloneStreamingServerAndRepeatedClient(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()

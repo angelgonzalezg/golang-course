@@ -10,6 +10,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Try missing, equal, whitespace-containing, and non-ASCII credentials.
+// Policy construction must reject each unusable reader/writer configuration.
 func TestPolicyRejectsAmbiguousOrMissingConfiguration(t *testing.T) {
 	for _, pair := range [][2]string{{"", "writer"}, {"reader", ""}, {"same", "same"}, {"has space", "writer"}, {"reader", "non-ASCII-é"}} {
 		if _, err := NewPolicy(pair[0], pair[1]); err == nil {
@@ -18,6 +20,8 @@ func TestPolicyRejectsAmbiguousOrMissingConfiguration(t *testing.T) {
 	}
 }
 
+// Authenticate a writer and call an unclassified future RPC. Authorization
+// must return PermissionDenied before the supplied handler can run.
 func TestNewMethodsRequireExplicitAuthorization(t *testing.T) {
 	policy, err := NewPolicy("reader", "writer")
 	if err != nil {

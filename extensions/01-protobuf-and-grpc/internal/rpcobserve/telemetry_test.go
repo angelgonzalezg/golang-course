@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+// Export more completed spans than the buffer permits. Keep only the cap,
+// count the excess, and prevent edits to a snapshot from changing retained state.
 func TestTraceExportIsBoundedAndSnapshotsAreIndependent(t *testing.T) {
 	telemetry := New()
 	t.Cleanup(func() {

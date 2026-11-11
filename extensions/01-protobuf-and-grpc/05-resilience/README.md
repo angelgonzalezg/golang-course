@@ -25,6 +25,14 @@ module; the root course module remains free of these dependencies.
 Expected error lines such as `ResourceExhausted` are asserted teaching cases;
 the program exits successfully when every scenario behaves as expected.
 
+The seed data in [main.go](main.go) is sized for those experiments: 12 contacts
+with long email text make the default unary page exceed the 1,024-byte message
+limit, while a two-contact page and each streamed contact fit. The email text
+meets this store's length rules; the lab does not validate email address format.
+The local fault injector deliberately rejects two reads and hides one successful
+create reply. These data sizes and failures prepare observable scenarios; they
+are not application defaults or faults enabled by client input.
+
 ## Learn in passes
 
 | Pass | Focus | Check your understanding |

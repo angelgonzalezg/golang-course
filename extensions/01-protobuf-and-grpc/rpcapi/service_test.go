@@ -23,10 +23,15 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
+// testClient exercises real protobuf encoding and gRPC dispatch over an in-memory
+// connection. It avoids OS ports; command tests separately cover loopback TCP.
+// Each test supplies its store and owns the channel/server cleanup.
 func testClient(t *testing.T, store Store, logger *slog.Logger) contactsv1.ContactServiceClient {
 	t.Helper()
 	listener := bufconn.Listen(1024 * 1024)
 	server := rpcserver.Start(listener, New(store, logger))
+	// The custom dialer routes this teaching target to bufconn. No external
+	// DNS lookup or remote service is needed for these adapter contract tests.
 	connection, err := grpc.NewClient("passthrough:///contacts-test",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) { return listener.DialContext(ctx) }),
@@ -34,6 +39,7 @@ func testClient(t *testing.T, store Store, logger *slog.Logger) contactsv1.Conta
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Use a fresh shutdown context: the test/call context may already have ended.
 	t.Cleanup(func() {
 		closeErr := connection.Close()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -45,6 +51,8 @@ func testClient(t *testing.T, store Store, logger *slog.Logger) contactsv1.Conta
 	return contactsv1.NewContactServiceClient(connection)
 }
 
+// Follow CRUD through the RPC adapter. Returned values must be independent,
+// selected updates atomic, replacements complete, and stale/missing writes rejected.
 func TestUnaryLifecycleAndSharedStoreValues(t *testing.T) {
 	store := contacts.NewStore()
 	client := testClient(t, store, nil)
@@ -127,6 +135,8 @@ func TestUnaryLifecycleAndSharedStoreValues(t *testing.T) {
 	}
 }
 
+// Read default, filtered, ordered, and empty pages. Counts and next-offset
+// presence must describe the selected results, including the final page.
 func TestListDefaultsFilteringOrderingAndEmptyPages(t *testing.T) {
 	store := contacts.NewStore()
 	for _, name := range []string{"Zoë", "Ana", "ana", "Bob"} {
@@ -157,6 +167,8 @@ func TestListDefaultsFilteringOrderingAndEmptyPages(t *testing.T) {
 	}
 }
 
+// Send invalid inputs, IDs, versions, queries, and masks. Return field-specific
+// InvalidArgument details and leave the existing contact unchanged.
 func TestInvalidRequestsHaveStructuredFieldDetails(t *testing.T) {
 	store := contacts.NewStore()
 	before, err := store.Create(t.Context(), contacts.Input{Name: "Ana", Email: "ana@example.com"})
@@ -233,6 +245,8 @@ func TestInvalidRequestsHaveStructuredFieldDetails(t *testing.T) {
 	}
 }
 
+// Release two updates carrying the same original version. Exactly one must
+// succeed and the other must return Aborted, regardless of which writer wins.
 func TestCompetingRPCUpdatesUseOneAtomicVersionCheck(t *testing.T) {
 	store := contacts.NewStore()
 	before, err := store.Create(t.Context(), contacts.Input{Name: "Ana"})
