@@ -47,23 +47,23 @@ func TestInputBoundaries(t *testing.T) {
 // Wrap missing-row, unique-name, and canceled-query errors. Domain sentinels
 // must remain inspectable alongside the original SQL/driver causes.
 func TestQueryErrorPreservesCauses(t *testing.T) {
-	err := queryError(t.Context(), sql.ErrNoRows)
+	err := QueryError(t.Context(), sql.ErrNoRows)
 	if !errors.Is(err, ErrNotFound) || !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("missing row error = %v", err)
 	}
 	duplicate := &pgconn.PgError{Code: "23505", ConstraintName: "sql_lab_contacts_name_key"}
-	err = queryError(t.Context(), duplicate)
+	err = QueryError(t.Context(), duplicate)
 	var cause *pgconn.PgError
 	if !errors.Is(err, ErrNameTaken) || !errors.As(err, &cause) || cause != duplicate {
 		t.Fatalf("duplicate error = %v", err)
 	}
 	other := &pgconn.PgError{Code: "23505", ConstraintName: "another_key"}
-	if errors.Is(queryError(t.Context(), other), ErrNameTaken) {
+	if errors.Is(QueryError(t.Context(), other), ErrNameTaken) {
 		t.Fatal("unrelated unique violation classified as a name conflict")
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	err = queryError(ctx, duplicate)
+	err = QueryError(ctx, duplicate)
 	if !errors.Is(err, context.Canceled) || !errors.As(err, &cause) {
 		t.Fatalf("canceled query error = %v", err)
 	}

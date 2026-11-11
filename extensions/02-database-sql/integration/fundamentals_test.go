@@ -15,11 +15,12 @@ import (
 	"time"
 
 	"example.com/course/sql-lab/contactsql"
+	"example.com/course/sql-lab/contactsqlc"
 	"example.com/course/sql-lab/internal/demo"
 )
 
-// Run the stage-1 contracts against a real disposable PostgreSQL database.
-// Reset its table between serial subtests so each scenario owns its starting state.
+// Run the same contracts against the manual and generated-query stores. One
+// private PostgreSQL database serves serial cases, each with its own empty table.
 func TestPostgreSQL(t *testing.T) {
 	// One disposable database serves serial cases. Each case starts with an
 	// empty table; no case uses DATABASE_URL or a learner's persistent database.
@@ -28,22 +29,44 @@ func TestPostgreSQL(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	for _, backend := range []struct {
+		name     string
+		newStore storeFactory
+	}{
+		{"manual", func(db *sql.DB) contactStore { return contactsql.NewStore(db) }},
+		{"sqlc", func(db *sql.DB) contactStore { return contactsqlc.NewStore(db) }},
+	} {
+		t.Run(backend.name, func(t *testing.T) {
+			for _, test := range []struct {
+				name string
+				run  func(*testing.T, *sql.DB, string, storeFactory)
+			}{
+				{"CRUD and NULL", testCRUD},
+				{"repeated email assignments", testRepeatedEmailAssignments},
+				{"parameters remain data", testParameters},
+				{"data survives pool closure", testReconnect},
+				{"concurrent unique names", testConcurrentCreate},
+				{"pool wait cancellation", testPoolCancellation},
+				{"validation and error causes", testStoreErrors},
+				{"independent result values", testStoreResultOwnership},
+			} {
+				t.Run(test.name, func(t *testing.T) {
+					resetFundamentalsTable(t, db)
+					test.run(t, db, dsn, backend.newStore)
+				})
+			}
+		})
+	}
 	for _, test := range []struct {
 		name string
 		run  func(*testing.T, *sql.DB, string)
 	}{
-		{"CRUD and NULL", testCRUD},
-		{"repeated email assignments", testRepeatedEmailAssignments},
-		{"parameters remain data", testParameters},
-		{"data survives pool closure", testReconnect},
-		{"concurrent unique names", testConcurrentCreate},
-		{"pool wait cancellation", testPoolCancellation},
-		{"finite demonstration", testDemo},
+		{"finite fundamentals demonstration", testDemo},
+		{"generated transaction binding", testSQLCTransactions},
+		{"finite comparison preserves other rows", testSQLCDemo},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if _, err := db.ExecContext(t.Context(), "TRUNCATE sql_lab_contacts RESTART IDENTITY"); err != nil {
-				t.Fatal(err)
-			}
+			resetFundamentalsTable(t, db)
 			test.run(t, db, dsn)
 		})
 	}
@@ -51,9 +74,9 @@ func TestPostgreSQL(t *testing.T) {
 
 // Follow create/read/update/delete with real rows. Check NULL versus empty
 // email, bounded ID ordering, name conflicts, and absence after repeated deletion.
-func testCRUD(t *testing.T, db *sql.DB, _ string) {
+func testCRUD(t *testing.T, db *sql.DB, _ string, newStore storeFactory) {
 	ctx := t.Context()
-	store := contactsql.NewStore(db)
+	store := newStore(db)
 	page, err := store.List(ctx, 2)
 	if err != nil || page == nil || len(page) != 0 {
 		t.Fatalf("empty page = (%v, %v)", page, err)
@@ -106,7 +129,7 @@ func testCRUD(t *testing.T, db *sql.DB, _ string) {
 
 // Assign nonempty text, empty text, and NULL twice each. Returned values and
 // fresh reads must keep the same identity/state, leaving exactly one contact.
-func testRepeatedEmailAssignments(t *testing.T, db *sql.DB, _ string) {
+func testRepeatedEmailAssignments(t *testing.T, db *sql.DB, _ string, newStore storeFactory) {
 	email, empty := "after@example.com", ""
 	for _, test := range []struct {
 		name  string
@@ -123,7 +146,7 @@ func testRepeatedEmailAssignments(t *testing.T, db *sql.DB, _ string) {
 			if _, err := db.ExecContext(ctx, "TRUNCATE sql_lab_contacts RESTART IDENTITY"); err != nil {
 				t.Fatal(err)
 			}
-			store := contactsql.NewStore(db)
+			store := newStore(db)
 			before := "before@example.com"
 			created, err := store.Create(ctx, contactsql.Input{Name: "Ana", Email: &before})
 			if err != nil {
@@ -172,8 +195,8 @@ func testRepeatedEmailAssignments(t *testing.T, db *sql.DB, _ string) {
 
 // Store a name that looks like a DROP TABLE command. Parameter binding must
 // preserve it as literal text, and later inserts must prove the table still exists.
-func testParameters(t *testing.T, db *sql.DB, _ string) {
-	store := contactsql.NewStore(db)
+func testParameters(t *testing.T, db *sql.DB, _ string, newStore storeFactory) {
+	store := newStore(db)
 	name := "Robert'); DROP TABLE sql_lab_contacts; --"
 	created, err := store.Create(t.Context(), contactsql.Input{Name: name})
 	if err != nil {
@@ -190,13 +213,13 @@ func testParameters(t *testing.T, db *sql.DB, _ string) {
 
 // Create through one Go pool, close it, and read through a newly opened pool.
 // The row must survive because PostgreSQL owns the data, not the client pool.
-func testReconnect(t *testing.T, _ *sql.DB, dsn string) {
+func testReconnect(t *testing.T, _ *sql.DB, dsn string, newStore storeFactory) {
 	first, err := contactsql.Open(t.Context(), dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { first.Close() })
-	created, err := contactsql.NewStore(first).Create(t.Context(), contactsql.Input{Name: "Persistent"})
+	created, err := newStore(first).Create(t.Context(), contactsql.Input{Name: "Persistent"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +231,7 @@ func testReconnect(t *testing.T, _ *sql.DB, dsn string) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { second.Close() })
-	got, err := contactsql.NewStore(second).Get(t.Context(), created.ID)
+	got, err := newStore(second).Get(t.Context(), created.ID)
 	if err != nil || got.Name != created.Name {
 		t.Fatalf("reconnected read = (%+v, %v)", got, err)
 	}
@@ -216,8 +239,8 @@ func testReconnect(t *testing.T, _ *sql.DB, dsn string) {
 
 // Release six inserts with one name together. PostgreSQL must allow one row
 // and return five name conflicts, regardless of which goroutine wins.
-func testConcurrentCreate(t *testing.T, db *sql.DB, _ string) {
-	store := contactsql.NewStore(db)
+func testConcurrentCreate(t *testing.T, db *sql.DB, _ string, newStore storeFactory) {
+	store := newStore(db)
 	start := make(chan struct{})
 	results := make(chan error, 6)
 	var workers sync.WaitGroup
@@ -252,7 +275,7 @@ func testConcurrentCreate(t *testing.T, db *sql.DB, _ string) {
 
 // Reserve the pool's only connection so List must wait for capacity. Its
 // deadline must stop that wait, and releasing the connection must restore normal reads.
-func testPoolCancellation(t *testing.T, db *sql.DB, _ string) {
+func testPoolCancellation(t *testing.T, db *sql.DB, _ string, newStore storeFactory) {
 	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { db.SetMaxOpenConns(4) })
 	// Reserve the only connection. A query must now wait in sql.DB's queue;
@@ -265,7 +288,7 @@ func testPoolCancellation(t *testing.T, db *sql.DB, _ string) {
 	before := db.Stats().WaitCount
 	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	defer cancel()
-	_, err = contactsql.NewStore(db).List(ctx, 10)
+	_, err = newStore(db).List(ctx, 10)
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("waiting query = %v", err)
 	}
@@ -276,7 +299,7 @@ func testPoolCancellation(t *testing.T, db *sql.DB, _ string) {
 		t.Fatal(err)
 	}
 	// Cancellation while waiting did not write a contact or break later reads.
-	page, err := contactsql.NewStore(db).List(t.Context(), 10)
+	page, err := newStore(db).List(t.Context(), 10)
 	if err != nil || len(page) != 0 {
 		t.Fatalf("read after cancellation = (%v, %v)", page, err)
 	}

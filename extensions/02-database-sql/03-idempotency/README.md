@@ -264,8 +264,8 @@ the test assumes a write has happened. `TestIdempotencyProcessHelper` is the
 test-binary entry point used by the child processes; in an ordinary parent run
 it returns without opening another fixture.
 
-The next block compares manual queries with sqlc-generated queries. Persistent
-REST/gRPC adapters follow that comparison.
+Continue to the [sqlc comparison](../04-sqlc/README.md) for generated queries
+beside the manual implementation. Persistent REST/gRPC adapters follow it.
 
 References: [Go transactions](https://go.dev/doc/database/execute-transactions),
 [PostgreSQL transaction advisory locks](https://www.postgresql.org/docs/18/explicit-locking.html#ADVISORY-LOCKS),

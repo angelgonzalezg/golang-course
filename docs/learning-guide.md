@@ -98,8 +98,11 @@ observes the server's lock wait before canceling the writer. Next, follow
 [durable idempotency](../extensions/02-database-sql/03-idempotency/README.md):
 bind a key to a caller and the original fields, commit the contact and result
 together, then recover that snapshot through concurrent retries and a new
-process. A sqlc variant alongside the manual implementation and persistent
-REST/gRPC adapters follow later. The lab's [stage plan](../extensions/02-database-sql/README.md)
+process. Then [compare manual and sqlc queries](../extensions/02-database-sql/04-sqlc/README.md):
+trace named SQL into generated parameters/scanning, follow the adapter's shared
+validation and error rules, and bind queries to a caller-owned transaction.
+Run the shared PostgreSQL contracts and generation check. Persistent REST/gRPC
+adapters follow later. The lab's [stage plan](../extensions/02-database-sql/README.md)
 separates implemented behavior from those future blocks.
 
 ## First pass through pointers

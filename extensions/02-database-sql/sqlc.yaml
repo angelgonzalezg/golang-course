@@ -1,0 +1,13 @@
+version: "2"
+sql:
+  - engine: postgresql
+    # Read the same schema the manual lesson bootstraps at runtime.
+    schema: contactsql/schema.sql
+    queries: contactsqlc/queries.sql
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/sqlcgen
+        # Keep database/sql + pgx's stdlib driver for a direct comparison.
+        sql_package: database/sql
+        emit_empty_slices: true

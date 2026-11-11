@@ -13,7 +13,7 @@ the HTTP contact model's normalization and PUT/PATCH rules remain in that projec
 | 1. Fundamentals | Implemented: driver/pool lifecycle, schema bootstrap, parameterized CRUD, NULL, repeated assignments, error causes, cancellation, and real PostgreSQL integration tests. |
 | 2. Transactions and migrations | Implemented: [atomic batches, rollback, golang-migrate schema changes, and concurrent version checks](02-transactions/README.md). |
 | 3. Durable idempotency | Implemented: [request-bound keys, atomic creation/results, concurrent retries, lost replies, and process-independent replay](03-idempotency/README.md). |
-| 4. sqlc comparison | Planned: typed query generation beside the manual implementation, shared integration contracts, and reproducible generation in CI. |
+| 4. sqlc comparison | Implemented: [generated CRUD beside manual SQL, shared PostgreSQL contracts, explicit transaction binding, and pinned generation checked in CI](04-sqlc/README.md). |
 | 5. Service integration | Planned: persistent adapters for REST/gRPC, `Idempotency-Key` for REST creation, and the durable creation policy for gRPC. |
 
 ## Start a local teaching database
@@ -159,7 +159,9 @@ values, rather than table or column names; this lesson keeps identifiers fixed.
    reports an error and exits.
 5. [Unit tests](contactsql/store_test.go), then
    [integration tests](integration/fundamentals_test.go): text boundaries/error
-   causes first, real SQL behavior and ownership next.
+   causes first, real SQL behavior and ownership next. Stage 4 runs those same
+   contracts against a [sqlc adapter](04-sqlc/README.md); the manual implementation
+   remains available to study each database/sql step.
 
 ### Values, NULL, and rows
 
@@ -260,10 +262,13 @@ Testcontainers starts real, disposable PostgreSQL servers, discovers their mappe
 ports, waits for readiness, and registers container cleanup. Each top-level
 suite owns a container and runs its cases serially. Stage 1 truncates its own
 test table; stages 2 and 3 reset only their respective tables and migration state.
-Stage-1 tests cover CRUD, NULL/empty values, repeated email assignments, repeated
+The fundamentals contracts run against both the manual and sqlc-backed stores.
+They cover CRUD, NULL/empty values, repeated email assignments, repeated
 deletion, parameter binding, concurrent uniqueness, reading data after
 closing/reopening a pool, deadline cancellation while waiting for a connection,
-and the finite demo with row cleanup.
+validation/error causes, and independent result values. Finite demos check their
+own row cleanup; the [sqlc cases](integration/sqlc_test.go) additionally verify
+transaction binding and preservation of other rows.
 The [stage-2 suite](integration/transactions_test.go) adds migration upgrades and
 dirty-state failures, concurrency, multi-statement rollback, and in-flight
 cancellation. Its [migration cases](integration/migrations_test.go) also cover
@@ -303,13 +308,14 @@ in ordinary tests/vet/metadata and race checks. A dedicated PostgreSQL integrati
 job runs the tagged tests with the race detector on a Docker-enabled Linux runner.
 See the [validation guide](../../docs/validation.md#postgresqlsql-module).
 
-Stages 1–3 are implemented. After the standalone fundamentals, read
+Stages 1–4 are implemented. After the standalone fundamentals, read
 [transactions and migrations](02-transactions/README.md), then
-[durable idempotency](03-idempotency/README.md). The next blocks are the sqlc
-comparison and REST/gRPC integration, in that order. The manual
+[durable idempotency](03-idempotency/README.md) and the
+[sqlc comparison](04-sqlc/README.md). The next block is REST/gRPC integration. The manual
 `database/sql` implementation remains the foundation for learning Scan, result
-sets, error causes, and resource ownership. The sqlc stage will generate query
-code for the same contracts and check it with PostgreSQL/Testcontainers.
+sets, error causes, and resource ownership. The sqlc adapter shares its CRUD
+contracts and real PostgreSQL tests. The workflow also checks pinned generation
+with `go -C extensions/02-database-sql run ./internal/cmd/sqlgen -check`.
 NoSQL/document and cache labs can follow separately; guided exercises remain
 the final course block.
 

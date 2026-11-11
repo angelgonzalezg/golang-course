@@ -22,6 +22,7 @@ one module's failure does not cancel the other module jobs.
 | Go formatting | Runs `gofmt -l chapters extensions` and fails if any file is listed. |
 | Tests and vet, per module | Runs uncached tests, `go vet`, and `go mod tidy -diff` for the course, all three versioning modules, cgo, gRPC, and SQL. |
 | Course job, extra steps | Checks the `diagnostic` build and confirms that chapter 11 generation reproduces the committed file. |
+| SQL job, extra step | Uses the pinned sqlc generator to compare expected bindings with the checked-in Go files. |
 | Race detector, all modules | Runs each module's tests with `-race`, separately from ordinary tests. |
 | PostgreSQL integration | Runs the SQL lab with `-tags=integration -race`, using Testcontainers and a real PostgreSQL server. |
 
@@ -87,9 +88,9 @@ configuration.
 ## PostgreSQL/SQL module
 
 The [SQL lab](../extensions/02-database-sql/README.md) is the seventh module.
-Its first three stages use pgx through `database/sql` for fundamentals,
-transactions/migrations, and durable idempotency. Ordinary checks need no
-running database:
+Its first four stages use pgx through `database/sql` for fundamentals,
+transactions/migrations, durable idempotency, and a manual/sqlc comparison.
+Ordinary checks need no running database:
 
 ```sh
 go -C extensions/02-database-sql test -count=1 -timeout=60s ./...
@@ -97,6 +98,18 @@ go -C extensions/02-database-sql vet ./...
 go -C extensions/02-database-sql mod tidy -diff
 go -C extensions/02-database-sql test -race -count=1 -timeout=90s ./...
 ```
+
+Check generated bindings using the same command as CI:
+
+```sh
+go -C extensions/02-database-sql run ./internal/cmd/sqlgen -check
+```
+
+The wrapper runs pinned sqlc v1.31.1's `diff` command without rewriting source.
+It needs no database; the first run can download/build the generator separately
+from the SQL module's dependencies. Regenerate with
+`go -C extensions/02-database-sql generate .` after changing schema/query inputs.
+See the [comparison guide](../extensions/02-database-sql/04-sqlc/README.md).
 
 With a Docker-compatible engine running, explicitly execute the real database
 tests (the race command also needs a C compiler):
@@ -112,7 +125,10 @@ These tests create and remove their own PostgreSQL container; they do not use
 that package is excluded. With the tag, an unavailable engine fails the test.
 Repeated email assignments are checked with nonempty text, empty text, and NULL:
 the contact identity and stored values remain stable and no extra row appears.
-Repeated deletion and concurrent name uniqueness are also covered. Those
+Repeated deletion and concurrent name uniqueness are also covered. These
+fundamentals contracts run against both the manual and sqlc-backed stores,
+including shared validation/error causes and independent optional result values.
+Generated query transaction binding and the comparison demo are also tested. Those
 fundamentals differ from durable request-key replay; see the lab's
 [idempotency explanation](../extensions/02-database-sql/README.md#idempotency-state-uniqueness-and-request-keys)
 and [implemented durable lesson](../extensions/02-database-sql/03-idempotency/README.md).

@@ -1,6 +1,6 @@
 //go:build integration
 
-// Shared PostgreSQL setup for the fundamentals and transaction suites. The tag
+// Shared PostgreSQL setup for the SQL lesson suites. The tag
 // selects real container-based tests; this file provides their owned resources.
 package integration_test
 

@@ -53,21 +53,21 @@ func (s *Store) Create(ctx context.Context, input Input) (Contact, error) {
 		RETURNING id, name, email`, input.Name, input.Email)
 	contact, err := scanContact(row)
 	if err != nil {
-		return Contact{}, fmt.Errorf("create contact: %w", queryError(ctx, err))
+		return Contact{}, fmt.Errorf("create contact: %w", QueryError(ctx, err))
 	}
 	return contact, nil
 }
 
 // Get retrieves one contact. QueryRowContext reports missing rows through Scan.
 func (s *Store) Get(ctx context.Context, id int64) (Contact, error) {
-	if err := validateID(id); err != nil {
+	if err := ValidateID(id); err != nil {
 		return Contact{}, err
 	}
 	row := s.db.QueryRowContext(ctx,
 		`SELECT id, name, email FROM sql_lab_contacts WHERE id = $1`, id)
 	contact, err := scanContact(row)
 	if err != nil {
-		return Contact{}, fmt.Errorf("get contact: %w", queryError(ctx, err))
+		return Contact{}, fmt.Errorf("get contact: %w", QueryError(ctx, err))
 	}
 	return contact, nil
 }
@@ -81,7 +81,7 @@ func (s *Store) List(ctx context.Context, limit int) ([]Contact, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, name, email FROM sql_lab_contacts ORDER BY id LIMIT $1`, limit)
 	if err != nil {
-		return nil, fmt.Errorf("list contacts: %w", queryError(ctx, err))
+		return nil, fmt.Errorf("list contacts: %w", QueryError(ctx, err))
 	}
 	// Rows holds a connection while results are being read. Close on every path,
 	// including an early return from Scan, so the pool can reuse the connection.
@@ -90,13 +90,13 @@ func (s *Store) List(ctx context.Context, limit int) ([]Contact, error) {
 	for rows.Next() {
 		contact, err := scanContact(rows)
 		if err != nil {
-			return nil, fmt.Errorf("scan contact: %w", queryError(ctx, err))
+			return nil, fmt.Errorf("scan contact: %w", QueryError(ctx, err))
 		}
 		contacts = append(contacts, contact)
 	}
 	// A successful QueryContext does not guarantee that iteration also succeeded.
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate contacts: %w", queryError(ctx, err))
+		return nil, fmt.Errorf("iterate contacts: %w", QueryError(ctx, err))
 	}
 	return contacts, nil
 }
@@ -104,10 +104,10 @@ func (s *Store) List(ctx context.Context, limit int) ([]Contact, error) {
 // UpdateEmail assigns one field. nil stores NULL; a pointer to "" stores empty
 // text. This lesson method does not implement HTTP PUT or PATCH semantics.
 func (s *Store) UpdateEmail(ctx context.Context, id int64, email *string) (Contact, error) {
-	if err := validateID(id); err != nil {
+	if err := ValidateID(id); err != nil {
 		return Contact{}, err
 	}
-	if err := validateEmail(email); err != nil {
+	if err := ValidateEmail(email); err != nil {
 		return Contact{}, err
 	}
 	row := s.db.QueryRowContext(ctx, `
@@ -115,7 +115,7 @@ func (s *Store) UpdateEmail(ctx context.Context, id int64, email *string) (Conta
 		RETURNING id, name, email`, id, email)
 	contact, err := scanContact(row)
 	if err != nil {
-		return Contact{}, fmt.Errorf("update email: %w", queryError(ctx, err))
+		return Contact{}, fmt.Errorf("update email: %w", QueryError(ctx, err))
 	}
 	return contact, nil
 }
@@ -123,12 +123,12 @@ func (s *Store) UpdateEmail(ctx context.Context, id int64, email *string) (Conta
 // Delete removes one row. ExecContext supplies a result rather than rows;
 // RowsAffected distinguishes a successful delete from a missing contact.
 func (s *Store) Delete(ctx context.Context, id int64) error {
-	if err := validateID(id); err != nil {
+	if err := ValidateID(id); err != nil {
 		return err
 	}
 	result, err := s.db.ExecContext(ctx, `DELETE FROM sql_lab_contacts WHERE id = $1`, id)
 	if err != nil {
-		return fmt.Errorf("delete contact: %w", queryError(ctx, err))
+		return fmt.Errorf("delete contact: %w", QueryError(ctx, err))
 	}
 	count, err := result.RowsAffected()
 	if err != nil {
@@ -164,27 +164,32 @@ func normalize(input Input) (Input, error) {
 		input.Name == "" || utf8.RuneCountInString(input.Name) > 80 {
 		return Input{}, fmt.Errorf("name must contain 1–80 UTF-8 runes without NUL: %w", ErrInvalidInput)
 	}
-	if err := validateEmail(input.Email); err != nil {
+	if err := ValidateEmail(input.Email); err != nil {
 		return Input{}, err
 	}
 	return input, nil
 }
 
-func validateEmail(email *string) error {
+// ValidateEmail checks optional text without losing NULL versus empty presence.
+// Both the manual store and the sqlc adapter use this same contact-model rule.
+func ValidateEmail(email *string) error {
 	if email != nil && (!utf8.ValidString(*email) || strings.ContainsRune(*email, 0) || utf8.RuneCountInString(*email) > 254) {
 		return fmt.Errorf("email must contain at most 254 UTF-8 runes without NUL: %w", ErrInvalidInput)
 	}
 	return nil
 }
 
-func validateID(id int64) error {
+// ValidateID rejects invalid identifiers before either store issues a query.
+func ValidateID(id int64) error {
 	if id <= 0 {
 		return fmt.Errorf("id must be positive: %w", ErrInvalidInput)
 	}
 	return nil
 }
 
-func queryError(ctx context.Context, err error) error {
+// QueryError gives both stores the same business errors while preserving SQL,
+// driver, and context causes. It is specific to the sql_lab_contacts schema.
+func QueryError(ctx context.Context, err error) error {
 	if ctx.Err() != nil {
 		// Preserve both cancellation and the driver cause for errors.Is/As.
 		return fmt.Errorf("%w: %w", ctx.Err(), err)

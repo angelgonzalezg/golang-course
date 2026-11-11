@@ -91,6 +91,9 @@ jobs:
         run: go -C "$MODULE_DIR" vet ./...
       - name: Check module metadata
         run: go -C "$MODULE_DIR" mod tidy -diff
+      - name: Check pinned sqlc generation
+        if: matrix.module == 'extensions/02-database-sql'
+        run: go -C "$MODULE_DIR" run ./internal/cmd/sqlgen -check
       - name: Check the diagnostic build
         if: matrix.module == '.'
         run: |
