@@ -11,7 +11,7 @@ the HTTP contact model's normalization and PUT/PATCH rules remain in that projec
 | Stage | Status and scope |
 | --- | --- |
 | 1. Fundamentals | Implemented: driver/pool lifecycle, schema bootstrap, parameterized CRUD, NULL, repeated assignments, error causes, cancellation, and real PostgreSQL integration tests. |
-| 2. Transactions and migrations | Planned: multi-statement atomicity, rollback, versioned schema changes, and concurrent version checks. |
+| 2. Transactions and migrations | Implemented: [atomic batches, rollback, golang-migrate schema changes, and concurrent version checks](02-transactions/README.md). |
 | 3. Durable idempotency | Planned: request-bound keys, business writes and saved results in one transaction, concurrent retries, lost replies, and application restarts. |
 | 4. sqlc comparison | Planned: typed query generation beside the manual implementation, shared integration contracts, and reproducible generation in CI. |
 | 5. Service integration | Planned: persistent adapters for REST/gRPC, `Idempotency-Key` for REST creation, and the durable creation policy for gRPC. |
@@ -113,7 +113,8 @@ values, rather than table or column names; this lesson keeps identifiers fixed.
 
 1. [schema.sql](contactsql/schema.sql): identity ID, required name, unique index,
    and nullable email. `CREATE TABLE IF NOT EXISTS` bootstraps this table; it
-   does not migrate an existing table whose definition differs.
+   does not migrate an existing table whose definition differs. Stage 2 adds
+   [versioned migrations](02-transactions/README.md) for its separate tables.
 2. [database.go](contactsql/database.go): driver registration, `sql.Open`, a
    four-connection teaching limit, `PingContext`, and embedded schema execution.
    The caller owns `Close`; stores borrow the pool. The chosen size is a lab
@@ -190,12 +191,13 @@ errors. Missing-row mapping retains `sql.ErrNoRows`; duplicate-name mapping
 checks PostgreSQL SQLSTATE `23505` and the named constraint, preserving the
 `*pgconn.PgError` for `errors.As`. Other database failures remain wrapped causes.
 
-Every database operation receives a context. Its budget can include waiting for
+Every business database operation receives a context. Its budget can include waiting for
 an available pooled connection. A test reserves the only connection, lets a
 waiting query's deadline expire, then verifies that the pool remains usable.
 Cancellation of a database call does not imply rollback of an already committed
-write. Each statement here commits independently; multi-statement atomicity
-and ambiguous write outcomes belong to the transaction/service stages.
+write. Each stage-1 statement commits independently. Continue to
+[transactions and migrations](02-transactions/README.md) for multi-statement
+atomicity, rollback, and the limits of Commit acknowledgments.
 
 ## Testcontainers integration tests
 
@@ -220,13 +222,18 @@ With a C compiler available, also instrument Go code for races:
 go -C extensions/02-database-sql test -tags=integration -race -count=1 -timeout=5m ./...
 ```
 
-Testcontainers starts a real, disposable PostgreSQL server, discovers its mapped
-port, waits for readiness, and registers container cleanup. A single container
-serves serial subtests; each subtest truncates only its isolated test table.
-The tests cover CRUD, NULL/empty values, repeated email assignments, repeated
+Testcontainers starts real, disposable PostgreSQL servers, discovers their mapped
+ports, waits for readiness, and registers container cleanup. Each top-level
+suite owns a container and runs its cases serially. Stage 1 truncates its own
+test table; stage 2 resets only its own transaction/migration tables.
+Stage-1 tests cover CRUD, NULL/empty values, repeated email assignments, repeated
 deletion, parameter binding, concurrent uniqueness, reading data after
 closing/reopening a pool, deadline cancellation while waiting for a connection,
 and the finite demo with row cleanup.
+The [stage-2 suite](integration/transactions_test.go) adds migration upgrades and
+dirty-state failures, concurrency, multi-statement rollback, and in-flight
+cancellation. Its [migration cases](integration/migrations_test.go) also cover
+explicit adoption of the old runner's history and isolated down/up cycles.
 
 The `integration` build tag is intentional. Without it, the Docker-dependent
 package is excluded. With it, an unavailable engine causes a failing test;
@@ -259,9 +266,10 @@ in ordinary tests/vet/metadata and race checks. A dedicated PostgreSQL integrati
 job runs the tagged tests with the race detector on a Docker-enabled Linux runner.
 See the [validation guide](../../docs/validation.md#postgresqlsql-module).
 
-Stage 1 is a standalone SQL lesson, with bounded collection reads and a simple
-schema bootstrap. Continue with transactions/migrations, durable idempotency,
-the sqlc comparison, and then REST/gRPC integration, in that order. The manual
+Stages 1 and 2 are implemented. After the standalone fundamentals, read
+[transactions and migrations](02-transactions/README.md). Continue next with
+durable idempotency, the sqlc comparison, and then REST/gRPC integration, in that
+order. The manual
 `database/sql` implementation remains the foundation for learning Scan, result
 sets, error causes, and resource ownership. The sqlc stage will generate query
 code for the same contracts and check it with PostgreSQL/Testcontainers.

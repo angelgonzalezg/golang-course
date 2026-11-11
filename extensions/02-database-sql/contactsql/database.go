@@ -40,7 +40,7 @@ func Open(ctx context.Context, dsn string) (*sql.DB, error) {
 }
 
 // EnsureSchema creates the lesson's table if absent. It preserves existing rows.
-// Schema changes and versioned migrations belong to the next stage.
+// The transaction lesson demonstrates versioned migrations on separate tables.
 func EnsureSchema(ctx context.Context, db *sql.DB) error {
 	if _, err := db.ExecContext(ctx, schema); err != nil {
 		return fmt.Errorf("create teaching table: %w", err)
