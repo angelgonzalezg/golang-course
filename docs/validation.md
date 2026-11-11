@@ -14,21 +14,24 @@ push and pull request starts these checks. Once the workflow is on the default
 branch, you can also select **Actions → Go validation → Run workflow** in GitHub.
 
 The workflow uses Ubuntu 24.04 and reads the Go version from the module files.
-Its module matrix creates one job for each of the six `go.mod` boundaries;
+Its module matrix creates one job for each of the seven `go.mod` boundaries;
 one module's failure does not cancel the other module jobs.
 
 | Job | Checks |
 | --- | --- |
 | Go formatting | Runs `gofmt -l chapters extensions` and fails if any file is listed. |
-| Tests and vet, per module | Runs uncached tests, `go vet`, and `go mod tidy -diff` for the course, all three versioning modules, cgo, and gRPC. |
+| Tests and vet, per module | Runs uncached tests, `go vet`, and `go mod tidy -diff` for the course, all three versioning modules, cgo, gRPC, and SQL. |
 | Course job, extra steps | Checks the `diagnostic` build and confirms that chapter 11 generation reproduces the committed file. |
 | Race detector, all modules | Runs each module's tests with `-race`, separately from ordinary tests. |
+| PostgreSQL integration | Runs the SQL lab with `-tags=integration -race`, using Testcontainers and a real PostgreSQL server. |
 
 Ordinary jobs use `CGO_ENABLED=0`, except for the cgo lab's job. The race job uses
 `CGO_ENABLED=1` with the runner's C compiler. The cgo lab remains optional for
 learners, while CI includes it. Actions are pinned to full commit IDs, with their
-release versions noted beside them. Go dependencies are cached for the gRPC
-jobs using its checked-in `go.sum`.
+release versions noted beside them. Go dependencies are cached for the gRPC and
+SQL jobs using their checked-in `go.sum` files. Ordinary SQL tests do not need
+Docker; the dedicated integration job requires a working engine and fails if
+database startup fails.
 
 Open a failed job and then the failed step to find the command and its output.
 A formatting failure lists the files to format; a test failure identifies the
@@ -80,6 +83,39 @@ versioned invocation does not add it to the course's `go.mod`. Consult the offic
 [workflow syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax)
 and [setup-go inputs](https://github.com/actions/setup-go) when changing the CI
 configuration.
+
+## PostgreSQL/SQL module
+
+The [SQL lab](../extensions/02-database-sql/README.md) is the seventh module.
+Its first stage uses pgx through `database/sql`. Ordinary checks need no running
+database:
+
+```sh
+go -C extensions/02-database-sql test -count=1 -timeout=60s ./...
+go -C extensions/02-database-sql vet ./...
+go -C extensions/02-database-sql mod tidy -diff
+go -C extensions/02-database-sql test -race -count=1 -timeout=90s ./...
+```
+
+With a Docker-compatible engine running, explicitly execute the real database
+tests (the race command also needs a C compiler):
+
+```sh
+docker info
+go -C extensions/02-database-sql test -tags=integration -count=1 -timeout=5m -v ./...
+go -C extensions/02-database-sql test -tags=integration -race -count=1 -timeout=5m ./...
+```
+
+These tests create and remove their own PostgreSQL container; they do not use
+`DATABASE_URL` or a learner's existing database. Without the `integration` tag,
+that package is excluded. With the tag, an unavailable engine fails the test.
+Repeated email assignments are checked with nonempty text, empty text, and NULL:
+the contact identity and stored values remain stable and no extra row appears.
+Repeated deletion and concurrent name uniqueness are also covered. These checks
+do not provide durable request-key replay; see the lab's
+[idempotency explanation](../extensions/02-database-sql/README.md#idempotency-state-uniqueness-and-request-keys)
+and planned stages.
+See the lab guide for Compose/demo commands and Rancher Desktop configuration.
 
 ## Root module and formatting
 

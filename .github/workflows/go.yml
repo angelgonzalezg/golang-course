@@ -67,6 +67,9 @@ jobs:
           - name: gRPC lab
             module: extensions/01-protobuf-and-grpc
             cgo: '0'
+          - name: SQL lab
+            module: extensions/02-database-sql
+            cgo: '0'
     env:
       MODULE_DIR: ${{ matrix.module }}
       CGO_ENABLED: ${{ matrix.cgo }}
@@ -79,9 +82,9 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: ${{ matrix.module }}/go.mod
-          # Only the gRPC module downloads external Go dependencies.
-          cache: ${{ matrix.module == 'extensions/01-protobuf-and-grpc' }}
-          cache-dependency-path: extensions/01-protobuf-and-grpc/go.sum
+          # The supplementary network/database labs have external dependencies.
+          cache: ${{ matrix.module == 'extensions/01-protobuf-and-grpc' || matrix.module == 'extensions/02-database-sql' }}
+          cache-dependency-path: ${{ matrix.module }}/go.sum
       - name: Run uncached tests
         run: go -C "$MODULE_DIR" test -count=1 -timeout=60s ./...
       - name: Analyze Go code
@@ -115,7 +118,9 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-          cache-dependency-path: extensions/01-protobuf-and-grpc/go.sum
+          cache-dependency-path: |
+            extensions/01-protobuf-and-grpc/go.sum
+            extensions/02-database-sql/go.sum
       - name: Run race checks across every module
         run: |
           # Root ./... stops at nested go.mod files, so list every module.
@@ -126,9 +131,31 @@ jobs:
             chapters/10-modules-and-packages/02-module-versions/greeting-v2
             chapters/16-reflect-unsafe-and-cgo/03-cgo
             extensions/01-protobuf-and-grpc
+            extensions/02-database-sql
           )
           for module in "${modules[@]}"; do
             echo "::group::Race tests: $module"
             go -C "$module" test -race -count=1 -timeout=90s ./...
             echo '::endgroup::'
           done
+
+  postgres-integration:
+    name: PostgreSQL integration (Testcontainers)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CGO_ENABLED: '1'
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: extensions/02-database-sql/go.mod
+          cache-dependency-path: extensions/02-database-sql/go.sum
+      - name: Check the container runtime
+        run: docker info
+      - name: Run real PostgreSQL tests with the race detector
+        run: go -C extensions/02-database-sql test -tags=integration -race -count=1 -timeout=5m ./...

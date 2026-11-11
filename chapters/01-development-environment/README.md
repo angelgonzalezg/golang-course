@@ -55,6 +55,8 @@ Git is useful for obtaining the repository and reviewing your practice changes.
 An existing downloaded copy can also be used for the commands in this guide.
 The root lessons use Go's standard library. The separate gRPC lab downloads its
 pinned dependencies when first used; the optional cgo lab needs a C compiler.
+The PostgreSQL lab also has pinned dependencies. Its demo and integration tests
+need a running container engine; its unit tests work without Docker.
 
 ## 2. Find the repository root
 
@@ -181,6 +183,7 @@ The independent labs are:
 | [Chapter 10 greeting v2](../10-modules-and-packages/02-module-versions/greeting-v2/go.mod) | Its separate major-version module. |
 | [Chapter 16 cgo](../16-reflect-unsafe-and-cgo/03-cgo/README.md) | Optional Go/C interoperation with a C compiler. |
 | [Protobuf/gRPC](../../extensions/01-protobuf-and-grpc/README.md) | The supplementary lab with its own external dependencies. |
+| [PostgreSQL/database/sql](../../extensions/02-database-sql/README.md) | SQL access with separate unit and container-based integration tests. |
 
 Use `go -C` to select a lab directory for one command while keeping your terminal
 at the repository root. For example:

@@ -15,6 +15,11 @@ The supplementary [Protobuf/gRPC lab](extensions/01-protobuf-and-grpc/README.md)
 also has an independent module, with external dependencies kept outside the
 main course module.
 
+The [PostgreSQL/database/sql lab](extensions/02-database-sql/README.md) is another
+independent module. Its first stage teaches SQL access and real database tests
+with Testcontainers; running the demo and integration tests needs a container
+runtime. Its unit tests can run without one.
+
 ## Requirements
 
 Use Go 1.27 or later, as declared in `go.mod`. Run the commands below from the
@@ -89,13 +94,14 @@ Read that context chapter before the advanced concurrency pattern lesson in chap
 | Math helpers with errors | 9. Errors | [Run after error handling](chapters/09-errors/03-project-math-helpers/README.md) |
 | Contact resources over HTTP | 13. The standard library | [REST API with CRUD, validation, context, and tests](chapters/13-standard-library/06-project-rest-api/README.md); revisit after chapters 14–15. |
 | Protobuf and gRPC contacts lab | Supplement after REST | [Contract and serialization foundation](extensions/01-protobuf-and-grpc/README.md), then [unary client/server application](extensions/01-protobuf-and-grpc/02-unary/README.md). |
+| PostgreSQL and database/sql lab | Supplement after context and testing | [SQL fundamentals, parameterized CRUD, pool ownership, NULL, and Testcontainers integration tests](extensions/02-database-sql/README.md). |
 
 ## Validate the course
 
 The [Go validation workflow](.github/workflows/go.yml) runs on pushes and pull
 requests, and can also be started manually from GitHub Actions. It checks Go
-formatting, tests, vet, and module metadata for all six modules, with a separate
-race-detector job. See [continuous integration](docs/validation.md#continuous-integration)
+formatting, tests, vet, and module metadata for all seven modules, with a separate
+race-detector job and a PostgreSQL integration job. See [continuous integration](docs/validation.md#continuous-integration)
 for its scope and how to reproduce the checks locally.
 
 ```sh
@@ -110,7 +116,8 @@ race checks, fuzzing, benchmarks, unsafe instrumentation, and the optional cgo l
 
 The root commands cover the main module. Chapter 10's three versioning modules
 and chapter 16's cgo module have their own boundaries and explicit commands.
-The Protobuf/gRPC lab also uses explicit `go -C` commands from its guide.
+The Protobuf/gRPC and PostgreSQL labs also use explicit `go -C` commands from
+their guides.
 The main course also passes with `CGO_ENABLED=0`; the optional cgo lab needs a
 C compiler.
 
@@ -143,3 +150,9 @@ reader/writer access, health, reflection, and grpcurl exercises. Its resilience
 stage adds message limits, bounded retries, keyed creation, and OpenTelemetry.
 All five gRPC stages and the [lab's final review](extensions/01-protobuf-and-grpc/05-resilience/review.md)
 are complete. This lab is supplementary to the book's chapter mapping.
+
+The [SQL lab](extensions/02-database-sql/README.md) begins the persistence
+extension with a standalone PostgreSQL lesson and integration tests. Its next
+stages are transactions/migrations, durable idempotency, a sqlc comparison, and
+persistent adapters for the REST/gRPC contracts. Those services currently retain
+their in-memory stores.

@@ -82,6 +82,18 @@ and finally logs/metrics/traces. Each guide defines its new terms beside the exa
 The lab uses its own module; all five stages and the
 [final review](../extensions/01-protobuf-and-grpc/05-resilience/review.md) are complete.
 
+For persistence, continue to the independent
+[PostgreSQL/database/sql lab](../extensions/02-database-sql/README.md) after
+context and testing. Its first stage follows a parameterized insert through
+`Scan`, then bounded result sets, NULL/empty values, error causes, and pool-wait
+cancellation. Run the integration-tagged tests to observe a real PostgreSQL
+container with owned cleanup. Compare repeated email assignments and deletion
+with unique-name rejection; the current SQL stage has no durable request-key
+records. Continue in order with transactions/migrations, durable idempotency,
+a sqlc variant alongside the manual implementation, and persistent REST/gRPC
+adapters. The lab's [stage plan](../extensions/02-database-sql/README.md) separates
+implemented behavior from those future blocks.
+
 ## First pass through pointers
 
 Sections 1–5 of the pointer lesson cover address/dereference, nil, `new`,
