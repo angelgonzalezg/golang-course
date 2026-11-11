@@ -88,15 +88,18 @@ context and testing. Its first stage follows a parameterized insert through
 `Scan`, then bounded result sets, NULL/empty values, error causes, and pool-wait
 cancellation. Run the integration-tagged tests to observe a real PostgreSQL
 container with owned cleanup. Compare repeated email assignments and deletion
-with unique-name rejection; the current SQL stage has no durable request-key
-records. Then run [transactions and migrations](../extensions/02-database-sql/02-transactions/README.md):
+with unique-name rejection; the fundamentals store has no request-key records.
+Then run [transactions and migrations](../extensions/02-database-sql/02-transactions/README.md):
 trace a batch commit and rollback, the common commit of a contact and its
 history, and the rejection of a stale version. Then study a `golang-migrate`
 schema upgrade and its dirty-state handling. Migration recovery and adoption
 of the previous runner's history are optional operations. The cancellation test
-observes the server's lock wait before canceling the writer. Durable idempotency,
-a sqlc variant alongside the manual implementation, and persistent REST/gRPC
-adapters follow later. The lab's [stage plan](../extensions/02-database-sql/README.md)
+observes the server's lock wait before canceling the writer. Next, follow
+[durable idempotency](../extensions/02-database-sql/03-idempotency/README.md):
+bind a key to a caller and the original fields, commit the contact and result
+together, then recover that snapshot through concurrent retries and a new
+process. A sqlc variant alongside the manual implementation and persistent
+REST/gRPC adapters follow later. The lab's [stage plan](../extensions/02-database-sql/README.md)
 separates implemented behavior from those future blocks.
 
 ## First pass through pointers

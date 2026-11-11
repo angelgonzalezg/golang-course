@@ -12,7 +12,7 @@ the HTTP contact model's normalization and PUT/PATCH rules remain in that projec
 | --- | --- |
 | 1. Fundamentals | Implemented: driver/pool lifecycle, schema bootstrap, parameterized CRUD, NULL, repeated assignments, error causes, cancellation, and real PostgreSQL integration tests. |
 | 2. Transactions and migrations | Implemented: [atomic batches, rollback, golang-migrate schema changes, and concurrent version checks](02-transactions/README.md). |
-| 3. Durable idempotency | Planned: request-bound keys, business writes and saved results in one transaction, concurrent retries, lost replies, and application restarts. |
+| 3. Durable idempotency | Implemented: [request-bound keys, atomic creation/results, concurrent retries, lost replies, and process-independent replay](03-idempotency/README.md). |
 | 4. sqlc comparison | Planned: typed query generation beside the manual implementation, shared integration contracts, and reproducible generation in CI. |
 | 5. Service integration | Planned: persistent adapters for REST/gRPC, `Idempotency-Key` for REST creation, and the durable creation policy for gRPC. |
 
@@ -196,7 +196,7 @@ contact state, rather than asserting that the second statement never runs.
 
 The unique-name constraint protects a business rule. It does not identify a
 client's original request or save its response for later retrieval. A repeated
-create currently returns `ErrNameTaken`; this stage has no request-key records.
+create in stage 1 returns `ErrNameTaken`; that store has no request-key records.
 
 The related course examples have different scopes:
 
@@ -207,13 +207,16 @@ The related course examples have different scopes:
   creation key to the caller and request, and saves results in memory. Its tests
   include concurrent retries and a simulated lost reply. The records do not
   survive a process restart.
-- This SQL stage exercises repeated state changes and database uniqueness.
-  Durable request-key handling is planned for stage 3, before transport wiring.
+- The SQL fundamentals exercise repeated state changes and database uniqueness.
+  [Stage 3](03-idempotency/README.md) adds durable request-key handling before
+  transport wiring.
 
-The durable stage will store a business write and its idempotency record in one
-transaction. Its tests will cover retries with the same request, changed content
-under an existing key, concurrent requests, a lost reply after commit, rollback,
-and application restart with records retained in PostgreSQL.
+The durable stage stores a business write and its complete creation result in
+one transaction. Its tests cover repeated requests, changed data under an
+existing key, concurrent requests, rollback, cancellation, and a lost reply
+followed by recovery in a separate process. Retained result snapshots remain
+replayable even after the contact changes or is deleted. This stage saves only
+successful committed results; its guide explains the retry and retention policy.
 
 ### Errors and cancellation
 
@@ -256,7 +259,7 @@ go -C extensions/02-database-sql test -tags=integration -race -count=1 -timeout=
 Testcontainers starts real, disposable PostgreSQL servers, discovers their mapped
 ports, waits for readiness, and registers container cleanup. Each top-level
 suite owns a container and runs its cases serially. Stage 1 truncates its own
-test table; stage 2 resets only its own transaction/migration tables.
+test table; stages 2 and 3 reset only their respective tables and migration state.
 Stage-1 tests cover CRUD, NULL/empty values, repeated email assignments, repeated
 deletion, parameter binding, concurrent uniqueness, reading data after
 closing/reopening a pool, deadline cancellation while waiting for a connection,
@@ -265,6 +268,9 @@ The [stage-2 suite](integration/transactions_test.go) adds migration upgrades an
 dirty-state failures, concurrency, multi-statement rollback, and in-flight
 cancellation. Its [migration cases](integration/migrations_test.go) also cover
 explicit adoption of the old runner's history and isolated down/up cycles.
+The [stage-3 suite](integration/idempotency_test.go) checks durable creation and
+replay, request binding, concurrent retries across pools, atomic rollback,
+cancellation, historical results, and lost-reply recovery across child processes.
 
 The `integration` build tag is intentional. Without it, the Docker-dependent
 package is excluded. With it, an unavailable engine causes a failing test;
@@ -297,10 +303,10 @@ in ordinary tests/vet/metadata and race checks. A dedicated PostgreSQL integrati
 job runs the tagged tests with the race detector on a Docker-enabled Linux runner.
 See the [validation guide](../../docs/validation.md#postgresqlsql-module).
 
-Stages 1 and 2 are implemented. After the standalone fundamentals, read
-[transactions and migrations](02-transactions/README.md). Continue next with
-durable idempotency, the sqlc comparison, and then REST/gRPC integration, in that
-order. The manual
+Stages 1–3 are implemented. After the standalone fundamentals, read
+[transactions and migrations](02-transactions/README.md), then
+[durable idempotency](03-idempotency/README.md). The next blocks are the sqlc
+comparison and REST/gRPC integration, in that order. The manual
 `database/sql` implementation remains the foundation for learning Scan, result
 sets, error causes, and resource ownership. The sqlc stage will generate query
 code for the same contracts and check it with PostgreSQL/Testcontainers.

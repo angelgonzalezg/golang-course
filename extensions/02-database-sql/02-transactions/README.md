@@ -160,9 +160,10 @@ conflict after its first successful replacement. A new accepted replacement
 increments the counter even if the supplied fields are equal. This counter is
 different from the REST project's content-derived ETag.
 
-Durable request-key records, lost-reply recovery, and transport wiring remain
-the [next stages](../README.md). The transaction boundary here provides the
-foundation for committing a business write and its key record together later.
+Continue to [durable idempotency](../03-idempotency/README.md) for request-key
+records and lost-reply recovery. It uses the transaction boundary learned here
+to commit a business write and its saved result together. Transport wiring
+remains a [later stage](../README.md).
 
 ## 4. Evolve the schema without editing applied files
 
@@ -222,7 +223,7 @@ lesson's forward-only policy; the library executes and records migrations.
 ## Validate with PostgreSQL and Testcontainers
 
 The existing [integration command and Rancher setup](../README.md#testcontainers-integration-tests)
-run both SQL stages:
+run all implemented SQL stages:
 
 ```sh
 go -C extensions/02-database-sql test -tags=integration -race -count=1 -timeout=5m -v ./...

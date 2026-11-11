@@ -94,7 +94,7 @@ Read that context chapter before the advanced concurrency pattern lesson in chap
 | Math helpers with errors | 9. Errors | [Run after error handling](chapters/09-errors/03-project-math-helpers/README.md) |
 | Contact resources over HTTP | 13. The standard library | [REST API with CRUD, validation, context, and tests](chapters/13-standard-library/06-project-rest-api/README.md); revisit after chapters 14–15. |
 | Protobuf and gRPC contacts lab | Supplement after REST | [Contract and serialization foundation](extensions/01-protobuf-and-grpc/README.md), then [unary client/server application](extensions/01-protobuf-and-grpc/02-unary/README.md). |
-| PostgreSQL and database/sql lab | Supplement after context and testing | [SQL fundamentals and Testcontainers](extensions/02-database-sql/README.md), then [transactions and migrations](extensions/02-database-sql/02-transactions/README.md). |
+| PostgreSQL and database/sql lab | Supplement after context and testing | [SQL fundamentals and Testcontainers](extensions/02-database-sql/README.md), then [transactions and migrations](extensions/02-database-sql/02-transactions/README.md), then [durable idempotency](extensions/02-database-sql/03-idempotency/README.md). |
 
 ## Validate the course
 
@@ -152,7 +152,8 @@ All five gRPC stages and the [lab's final review](extensions/01-protobuf-and-grp
 are complete. This lab is supplementary to the book's chapter mapping.
 
 The [SQL lab](extensions/02-database-sql/README.md) begins the persistence
-extension with standalone fundamentals and a transaction/migration lesson,
-both covered by real PostgreSQL integration tests. Its next stages are durable
-idempotency, a sqlc comparison, and persistent adapters for the REST/gRPC
-contracts. Those services currently retain their in-memory stores.
+extension with standalone fundamentals, transactions/migrations, and
+[durable idempotency](extensions/02-database-sql/03-idempotency/README.md), all
+covered by real PostgreSQL integration tests. Its next stages are a sqlc
+comparison and persistent adapters for the REST/gRPC contracts. Those services
+currently retain their in-memory stores.

@@ -87,8 +87,9 @@ configuration.
 ## PostgreSQL/SQL module
 
 The [SQL lab](../extensions/02-database-sql/README.md) is the seventh module.
-Its first two stages use pgx through `database/sql` for fundamentals and
-transactions/migrations. Ordinary checks need no running database:
+Its first three stages use pgx through `database/sql` for fundamentals,
+transactions/migrations, and durable idempotency. Ordinary checks need no
+running database:
 
 ```sh
 go -C extensions/02-database-sql test -count=1 -timeout=60s ./...
@@ -111,16 +112,19 @@ These tests create and remove their own PostgreSQL container; they do not use
 that package is excluded. With the tag, an unavailable engine fails the test.
 Repeated email assignments are checked with nonempty text, empty text, and NULL:
 the contact identity and stored values remain stable and no extra row appears.
-Repeated deletion and concurrent name uniqueness are also covered. These checks
-do not provide durable request-key replay; see the lab's
+Repeated deletion and concurrent name uniqueness are also covered. Those
+fundamentals differ from durable request-key replay; see the lab's
 [idempotency explanation](../extensions/02-database-sql/README.md#idempotency-state-uniqueness-and-request-keys)
-and planned stages.
+and [implemented durable lesson](../extensions/02-database-sql/03-idempotency/README.md).
 The transaction suite also checks upgrade preservation, repeated/concurrent
 migrations with `golang-migrate`, dirty/future state rejection, per-file migration
 rollback, explicit legacy adoption, isolated down/up cycles, atomic batch
 inserts, contact/history atomicity, stale writers, and cancellation after an
-UPDATE has run. Each top-level suite owns a separate PostgreSQL container;
-test-only table resets are confined to that container.
+UPDATE has run. The durable-idempotency suite adds caller/key/payload binding,
+concurrent retries across pools, business/result rollback, cancellation while
+waiting and after insertion, historical replay after edits/deletion, and
+lost-reply recovery in a second OS process. Each top-level suite owns a separate
+PostgreSQL container; test-only table resets are confined to that container.
 See the lab guide for Compose/demo commands and Rancher Desktop configuration.
 
 ## Root module and formatting
