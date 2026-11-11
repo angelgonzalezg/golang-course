@@ -92,6 +92,12 @@ Read that context chapter before the advanced concurrency pattern lesson in chap
 
 ## Validate the course
 
+The [Go validation workflow](.github/workflows/go.yml) runs on pushes and pull
+requests, and can also be started manually from GitHub Actions. It checks Go
+formatting, tests, vet, and module metadata for all six modules, with a separate
+race-detector job. See [continuous integration](docs/validation.md#continuous-integration)
+for its scope and how to reproduce the checks locally.
+
 ```sh
 go test -count=1 -timeout=60s ./...
 go vet ./...

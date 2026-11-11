@@ -5,6 +5,82 @@ grouped by what they verify; ordinary tests, race instrumentation, fuzzing, and
 benchmarks exercise different properties. The optional cgo group also requires
 a matching C compiler and `CGO_ENABLED=1`.
 
+## Continuous integration
+
+The [Go validation workflow](../.github/workflows/go.yml) is a GitHub Actions
+configuration. A **workflow** starts on an event, a **job** runs checks on a
+runner machine, and a **step** performs one operation inside that job. Each
+push and pull request starts these checks. Once the workflow is on the default
+branch, you can also select **Actions → Go validation → Run workflow** in GitHub.
+
+The workflow uses Ubuntu 24.04 and reads the Go version from the module files.
+Its module matrix creates one job for each of the six `go.mod` boundaries;
+one module's failure does not cancel the other module jobs.
+
+| Job | Checks |
+| --- | --- |
+| Go formatting | Runs `gofmt -l chapters extensions` and fails if any file is listed. |
+| Tests and vet, per module | Runs uncached tests, `go vet`, and `go mod tidy -diff` for the course, all three versioning modules, cgo, and gRPC. |
+| Course job, extra steps | Checks the `diagnostic` build and confirms that chapter 11 generation reproduces the committed file. |
+| Race detector, all modules | Runs each module's tests with `-race`, separately from ordinary tests. |
+
+Ordinary jobs use `CGO_ENABLED=0`, except for the cgo lab's job. The race job uses
+`CGO_ENABLED=1` with the runner's C compiler. The cgo lab remains optional for
+learners, while CI includes it. Actions are pinned to full commit IDs, with their
+release versions noted beside them. Go dependencies are cached for the gRPC
+jobs using its checked-in `go.sum`.
+
+Open a failed job and then the failed step to find the command and its output.
+A formatting failure lists the files to format; a test failure identifies the
+package and test. `mod tidy -diff` reports metadata differences and fails without
+rewriting the module files. Apply an intentional dependency update locally and
+review its diff before committing it.
+
+### Reproduce a module job locally
+
+Run from the repository root in a POSIX-compatible shell. Start with the course:
+
+```sh
+module_dir=.
+CGO_ENABLED=0 go -C "$module_dir" test -count=1 -timeout=60s ./...
+CGO_ENABLED=0 go -C "$module_dir" vet ./...
+CGO_ENABLED=0 go -C "$module_dir" mod tidy -diff
+```
+
+Set `module_dir` to one of the module paths in the workflow to check that lab.
+Use `CGO_ENABLED=1` for cgo. To reproduce a race check, use a supported platform
+with a matching C compiler:
+
+```sh
+CGO_ENABLED=1 go -C "$module_dir" test -race -count=1 -timeout=90s ./...
+```
+
+For the format gate, `gofmt -l chapters extensions` must print nothing. Run the
+commands under [alternate builds and generated source](#alternate-builds-and-generated-source)
+to reproduce the course job's extra steps. The workflow's Bash snippets can also
+be copied directly into a Bash terminal at the repository root.
+
+CI provides this repeatable baseline on Linux. The specialized checks later in
+this guide also cover executable lessons, active fuzzing, benchmarks, checkptr,
+cgo pointer instrumentation, Protobuf regeneration with the pinned compiler,
+and the optional live OpenAPI validator. Those remain explicit local checks;
+ordinary CI tests already run fuzz seeds and exercise the REST and gRPC demos
+through their tests. A green CI run describes the executed checks on that runner.
+
+When adding another module, update both the ordinary-test matrix and the race
+job's module list. After editing the workflow, check its YAML and GitHub Actions
+expressions with the pinned actionlint tool:
+
+```sh
+go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/go.yml
+```
+
+This command may download the tool and its dependencies into Go's cache; the
+versioned invocation does not add it to the course's `go.mod`. Consult the official
+[workflow syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax)
+and [setup-go inputs](https://github.com/actions/setup-go) when changing the CI
+configuration.
+
 ## Root module and formatting
 
 ```sh

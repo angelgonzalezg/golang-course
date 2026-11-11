@@ -1,0 +1,134 @@
+name: Go validation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer update to the same branch replaces its older validation run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  format:
+    name: Go formatting
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Require standard Go formatting
+        run: |
+          unformatted_files=$(gofmt -l chapters extensions)
+          if [[ -n "$unformatted_files" ]]; then
+            printf 'Run gofmt on these files:\n%s\n' "$unformatted_files"
+            exit 1
+          fi
+
+  modules:
+    name: Tests and vet (${{ matrix.name }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      # Keep checking other modules when one module fails.
+      fail-fast: false
+      matrix:
+        include:
+          - name: course
+            module: .
+            cgo: '0'
+          - name: module-version app
+            module: chapters/10-modules-and-packages/02-module-versions/app
+            cgo: '0'
+          - name: greeting v1
+            module: chapters/10-modules-and-packages/02-module-versions/greeting-v1
+            cgo: '0'
+          - name: greeting v2
+            module: chapters/10-modules-and-packages/02-module-versions/greeting-v2
+            cgo: '0'
+          - name: cgo lab
+            module: chapters/16-reflect-unsafe-and-cgo/03-cgo
+            cgo: '1'
+          - name: gRPC lab
+            module: extensions/01-protobuf-and-grpc
+            cgo: '0'
+    env:
+      MODULE_DIR: ${{ matrix.module }}
+      CGO_ENABLED: ${{ matrix.cgo }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go for this module
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          # Only the gRPC module downloads external Go dependencies.
+          cache: ${{ matrix.module == 'extensions/01-protobuf-and-grpc' }}
+          cache-dependency-path: extensions/01-protobuf-and-grpc/go.sum
+      - name: Run uncached tests
+        run: go -C "$MODULE_DIR" test -count=1 -timeout=60s ./...
+      - name: Analyze Go code
+        run: go -C "$MODULE_DIR" vet ./...
+      - name: Check module metadata
+        run: go -C "$MODULE_DIR" mod tidy -diff
+      - name: Check the diagnostic build
+        if: matrix.module == '.'
+        run: |
+          go test -count=1 -timeout=60s -tags=diagnostic ./chapters/11-go-tooling/...
+          go vet -tags=diagnostic ./chapters/11-go-tooling/...
+      - name: Check chapter 11 generated source
+        if: matrix.module == '.'
+        run: |
+          go generate ./chapters/11-go-tooling/04-go-generate
+          git diff --exit-code -- chapters/11-go-tooling/04-go-generate/status_names_gen.go
+
+  race:
+    name: Race detector (all modules)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      # The race detector and the cgo lab both need the runner's C compiler.
+      CGO_ENABLED: '1'
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: extensions/01-protobuf-and-grpc/go.sum
+      - name: Run race checks across every module
+        run: |
+          # Root ./... stops at nested go.mod files, so list every module.
+          modules=(
+            .
+            chapters/10-modules-and-packages/02-module-versions/app
+            chapters/10-modules-and-packages/02-module-versions/greeting-v1
+            chapters/10-modules-and-packages/02-module-versions/greeting-v2
+            chapters/16-reflect-unsafe-and-cgo/03-cgo
+            extensions/01-protobuf-and-grpc
+          )
+          for module in "${modules[@]}"; do
+            echo "::group::Race tests: $module"
+            go -C "$module" test -race -count=1 -timeout=90s ./...
+            echo '::endgroup::'
+          done
