@@ -124,6 +124,16 @@ earlier generic in-memory cache. The lab's
 [stage plan](../extensions/02-database-sql/README.md)
 separates implemented behavior from those future blocks.
 
+For document persistence, run the independent
+[MongoDB fundamentals lab](../extensions/03-mongodb/01-fundamentals/README.md).
+Follow a typed Go struct into BSON, an ObjectID lookup, and a bounded cursor.
+Compare a missing field, BSON null, and empty text; then trace `$set`/`$unset`,
+server-enforced uniqueness, and caller cancellation. Unit tests inspect BSON
+without a database; Testcontainers tests use a real authenticated MongoDB server.
+The complete standalone guide includes Compose, environment, test, and cleanup
+commands. Further document modeling and caching can follow as separate blocks;
+guided exercises remain last.
+
 ## First pass through pointers
 
 Sections 1–5 of the pointer lesson cover address/dereference, nil, `new`,

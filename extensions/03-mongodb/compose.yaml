@@ -1,0 +1,23 @@
+services:
+  mongodb:
+    image: mongo:8.0.38-noble
+    environment:
+      # Local teaching credentials. Go uses the scoped user created by init/.
+      MONGO_INITDB_ROOT_USERNAME: mongo_admin
+      MONGO_INITDB_ROOT_PASSWORD: mongo_admin_local
+      MONGO_INITDB_DATABASE: mongo_lab
+    ports:
+      - "127.0.0.1:27018:27017"
+    volumes:
+      - mongo_data:/data/db
+      - ./init/01-user.js:/docker-entrypoint-initdb.d/01-user.js:ro
+    healthcheck:
+      # Authentication also checks that first-volume user initialization finished.
+      test: ["CMD", "mongosh", "--quiet", "--host", "127.0.0.1", "--username", "mongo_lab", "--password", "mongo_lab_local", "--authenticationDatabase", "mongo_lab", "--eval", "db.adminCommand({ping: 1})"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+volumes:
+  mongo_data:

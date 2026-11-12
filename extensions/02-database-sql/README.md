@@ -347,8 +347,10 @@ Stages 1–5 are implemented. After the standalone fundamentals, read
 sets, error causes, and resource ownership. The sqlc adapter shares its CRUD
 contracts and real PostgreSQL tests. The workflow also checks pinned generation
 with `go -C extensions/02-database-sql run ./internal/cmd/sqlgen -check`.
-NoSQL/document and cache labs can follow separately; guided exercises remain
-the final course block.
+The separate [MongoDB fundamentals lab](../03-mongodb/01-fundamentals/README.md)
+now introduces document CRUD, BSON presence, unique indexes, and real database
+tests. Further document modeling and cache labs can follow separately; guided
+exercises remain the final course block.
 
 References: [Go database/sql guides](https://go.dev/doc/database/),
 [pgx's stdlib adapter](https://pkg.go.dev/github.com/jackc/pgx/v5/stdlib),

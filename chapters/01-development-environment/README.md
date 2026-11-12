@@ -184,6 +184,7 @@ The independent labs are:
 | [Chapter 16 cgo](../16-reflect-unsafe-and-cgo/03-cgo/README.md) | Optional Go/C interoperation with a C compiler. |
 | [Protobuf/gRPC](../../extensions/01-protobuf-and-grpc/README.md) | The supplementary lab with its own external dependencies. |
 | [PostgreSQL/database/sql](../../extensions/02-database-sql/README.md) | SQL access with separate unit and container-based integration tests. |
+| [MongoDB documents](../../extensions/03-mongodb/README.md) | Official driver, BSON, CRUD, and separate unit/real-database tests. |
 
 Use `go -C` to select a lab directory for one command while keeping your terminal
 at the repository root. For example:

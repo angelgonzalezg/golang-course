@@ -14,17 +14,18 @@ push and pull request starts these checks. Once the workflow is on the default
 branch, you can also select **Actions → Go validation → Run workflow** in GitHub.
 
 The workflow uses Ubuntu 24.04 and reads the Go version from the module files.
-Its module matrix creates one job for each of the seven `go.mod` boundaries;
+Its module matrix creates one job for each of the eight `go.mod` boundaries;
 one module's failure does not cancel the other module jobs.
 
 | Job | Checks |
 | --- | --- |
 | Go formatting | Runs `gofmt -l chapters extensions` and fails if any file is listed. |
-| Tests and vet, per module | Runs uncached tests, `go vet`, and `go mod tidy -diff` for the course, all three versioning modules, cgo, gRPC, and SQL. |
+| Tests and vet, per module | Runs uncached tests, `go vet`, and `go mod tidy -diff` for the course, all three versioning modules, cgo, gRPC, SQL, and MongoDB. |
 | Course job, extra steps | Checks the `diagnostic` build and confirms that chapter 11 generation reproduces the committed file. |
 | SQL job, extra step | Uses the pinned sqlc generator to compare expected bindings with the checked-in Go files. |
 | Race detector, all modules | Runs each module's tests with `-race`, separately from ordinary tests. |
 | PostgreSQL integration | Runs SQL and persistent gRPC tests with `-tags=integration -race`, using Testcontainers and real PostgreSQL servers. |
+| MongoDB integration | Runs the MongoDB module's `-tags=integration -race` tests with a real authenticated MongoDB server owned by Testcontainers. |
 
 Ordinary jobs use `CGO_ENABLED=0`, except for the cgo lab's job. The race job uses
 `CGO_ENABLED=1` with the runner's C compiler. The cgo lab remains optional for
@@ -171,6 +172,37 @@ rollback and error redaction, SQL cancellation/deadlines, REST sharing,
 separate-process recovery, TLS/discovery/message limits/telemetry, and finite
 cleanup preserving unrelated data. The CI PostgreSQL job runs both modules.
 See the SQL setup guide for Rancher Desktop environment settings.
+
+### MongoDB document module
+
+The independent [MongoDB lab](../extensions/03-mongodb/README.md) is the eighth
+module. Ordinary tests need no running database; race instrumentation needs a
+C compiler. From the repository root:
+
+```sh
+go -C extensions/03-mongodb test -count=1 -timeout=60s ./...
+go -C extensions/03-mongodb vet ./...
+go -C extensions/03-mongodb mod tidy -diff
+CGO_ENABLED=1 go -C extensions/03-mongodb test -race -count=1 -timeout=90s ./...
+```
+
+With the engine running, execute the same real MongoDB suite used by CI:
+
+```sh
+docker info
+CGO_ENABLED=1 go -C extensions/03-mongodb test -tags=integration -race -count=1 -timeout=5m -v ./...
+go -C extensions/03-mongodb vet -tags=integration ./...
+```
+
+The fixture owns an authenticated server and test namespaces, registers cleanup,
+and never reads `MONGODB_URI` or connects to Compose. Cases verify CRUD and actual
+BSON presence, bounded cursor ordering, repeated index/field operations, twelve
+competing creates, cancellation/deadlines, failed authentication, independent
+clients/results, and finite-demo cleanup preserving unrelated documents. Ordinary
+tests cover validation and BSON/error behavior without a server. See the
+[standalone guide](../extensions/03-mongodb/01-fundamentals/README.md) for Compose,
+Rancher Desktop, expected output, and cleanup commands. Tagged tests fail when
+the engine is missing; they do not silently skip verification.
 
 ## Root module and formatting
 

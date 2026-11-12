@@ -20,6 +20,10 @@ independent module. Its first stage teaches SQL access and real database tests
 with Testcontainers; running the demo and integration tests needs a container
 runtime. Its unit tests can run without one.
 
+The independent [MongoDB document lab](extensions/03-mongodb/README.md) introduces
+the official Go driver, BSON, CRUD, unique indexes, and real MongoDB integration
+tests. Its standalone guides include all runtime and test setup.
+
 ## Requirements
 
 Use Go 1.27 or later, as declared in `go.mod`. Run the commands below from the
@@ -97,13 +101,14 @@ Read that context chapter before the advanced concurrency pattern lesson in chap
 | PostgreSQL and database/sql lab | Supplement after context and testing | [SQL fundamentals and Testcontainers](extensions/02-database-sql/README.md), [transactions and migrations](extensions/02-database-sql/02-transactions/README.md), [durable idempotency](extensions/02-database-sql/03-idempotency/README.md), then [sqlc comparison](extensions/02-database-sql/04-sqlc/README.md). |
 | REST with PostgreSQL | Supplement after REST fundamentals and the SQL lessons | [Persistent contacts, atomic conditional writes, and durable keyed POST](extensions/02-database-sql/05-rest-postgres/README.md). |
 | gRPC with PostgreSQL | Supplement after the gRPC and SQL lessons | [Persistent unary/streaming RPCs and durable keyed creation](extensions/01-protobuf-and-grpc/06-postgres/README.md). |
+| MongoDB fundamentals | Supplement after context and testing; compare with SQL fundamentals | [Real document CRUD, BSON presence, unique indexes, and Testcontainers](extensions/03-mongodb/01-fundamentals/README.md). |
 
 ## Validate the course
 
 The [Go validation workflow](.github/workflows/go.yml) runs on pushes and pull
 requests, and can also be started manually from GitHub Actions. It checks Go
-formatting, tests, vet, and module metadata for all seven modules, with a separate
-race-detector job and a PostgreSQL integration job. See [continuous integration](docs/validation.md#continuous-integration)
+formatting, tests, vet, and module metadata for all eight modules, with separate
+race-detector, PostgreSQL integration, and MongoDB integration jobs. See [continuous integration](docs/validation.md#continuous-integration)
 for its scope and how to reproduce the checks locally.
 
 ```sh
@@ -166,3 +171,10 @@ gRPC lesson uses the same SQL adapter and retained creation results. The earlier
 in-memory lessons remain available for learning the underlying concepts.
 The REST learning path is **REST fundamentals → SQL lessons → REST with PostgreSQL**.
 Both REST projects share the contact rules and HTTP adapter.
+
+The [MongoDB lab](extensions/03-mongodb/README.md) adds document persistence in a
+separate module. Its first stage covers ObjectID/BSON, parameter-like typed
+filters, bounded cursors, `$set`/`$unset`, a unique index, and client/context
+ownership. Unit tests check BSON and validation without a database; tagged
+Testcontainers tests use a real authenticated MongoDB server. Further document
+modeling and caching remain separate blocks, with guided exercises last.
