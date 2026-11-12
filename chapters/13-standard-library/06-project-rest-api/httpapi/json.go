@@ -120,6 +120,8 @@ func (a *api) writeStoreError(w http.ResponseWriter, err error) {
 		a.writeProblem(w, http.StatusNotFound, "contact not found")
 	case errors.Is(err, contacts.ErrNameTaken):
 		a.writeProblem(w, http.StatusConflict, "another contact already uses that name")
+	case errors.Is(err, contacts.ErrKeyReuse):
+		a.writeProblem(w, http.StatusConflict, "Idempotency-Key already identifies different input; retry the original input")
 	case errors.Is(err, contacts.ErrPreconditionFailed):
 		a.writeProblem(w, http.StatusPreconditionFailed, "contact version precondition failed; read the current contact before retrying")
 	case errors.Is(err, contacts.ErrIDExhausted):

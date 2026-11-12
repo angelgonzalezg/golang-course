@@ -100,7 +100,7 @@ input, duplicate names, missing IDs, and exhausted IDs with explicit errors.
 Later exercises can add JSON persistence and synchronization for shared use.
 
 After the HTTP, context, and testing lessons, the
-[contacts REST project](../../13-standard-library/06-project-rest-api/README.md)
+[REST fundamentals project](../../13-standard-library/06-project-rest-api/README.md)
 builds a separate concurrent store with explicit errors and exposes contacts
 over HTTP. Compare its snapshots and stable IDs with this book's ownership
 rules before studying the transport layer.

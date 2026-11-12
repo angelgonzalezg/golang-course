@@ -1,7 +1,7 @@
 # Protobuf and gRPC: contacts lab
 
 This optional backend extension follows the course's
-[REST project](../../chapters/13-standard-library/06-project-rest-api/README.md).
+[REST fundamentals](../../chapters/13-standard-library/06-project-rest-api/README.md).
 It is supplementary material, outside the book's numbered chapter mapping.
 Read packages, interfaces, errors, concurrency, context, testing, and REST first.
 

@@ -42,7 +42,8 @@ type Page struct {
 	Query    Query
 }
 
-func normalizeQuery(query Query) (Query, error) {
+// NormalizeQuery validates paging/filter options for every storage backend.
+func NormalizeQuery(query Query) (Query, error) {
 	if query.Limit < 1 || query.Limit > MaxLimit {
 		return Query{}, &ValidationError{Field: "limit", Message: fmt.Sprintf("must be between 1 and %d", MaxLimit)}
 	}
@@ -70,7 +71,7 @@ func (s *Store) Search(ctx context.Context, query Query) (Page, error) {
 	if err := ctx.Err(); err != nil {
 		return Page{}, err
 	}
-	query, err := normalizeQuery(query)
+	query, err := NormalizeQuery(query)
 	if err != nil {
 		return Page{}, err
 	}
@@ -78,8 +79,23 @@ func (s *Store) Search(ctx context.Context, query Query) (Page, error) {
 	if err != nil {
 		return Page{}, err
 	}
+	return SelectPage(ctx, values, query)
+}
+
+// SelectPage takes ownership of a private snapshot in increasing ID order.
+// Both stores use Go's Unicode lowercase, name comparison, and ID tie-breaker,
+// so database collation cannot change collection responses or their ETags.
+// The returned page owns its slice and does not retain the full snapshot.
+func SelectPage(ctx context.Context, values []Contact, query Query) (Page, error) {
+	if err := ctx.Err(); err != nil {
+		return Page{}, err
+	}
+	query, err := NormalizeQuery(query)
+	if err != nil {
+		return Page{}, err
+	}
 	needle := strings.ToLower(query.NameContains)
-	// List returned our own slice. Filtering it in place cannot edit the store.
+	// The caller supplied a private slice. Filtering it cannot edit the store.
 	matched := values[:0]
 	for _, contact := range values {
 		if err := ctx.Err(); err != nil {

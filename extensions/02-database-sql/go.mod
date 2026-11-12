@@ -7,7 +7,11 @@ require (
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/testcontainers/testcontainers-go v0.45.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.45.0
+	golangcourse v0.0.0
 )
+
+// Share the course's contact rules and HTTP adapter without publishing them.
+replace golangcourse => ../..
 
 require (
 	dario.cat/mergo v1.0.2 // indirect

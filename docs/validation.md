@@ -141,6 +141,13 @@ concurrent retries across pools, business/result rollback, cancellation while
 waiting and after insertion, historical replay after edits/deletion, and
 lost-reply recovery in a second OS process. Each top-level suite owns a separate
 PostgreSQL container; test-only table resets are confined to that container.
+The [persistent REST suite](../extensions/02-database-sql/integration/rest_test.go)
+compares HTTP responses from memory and PostgreSQL stores. It also checks keyed
+POST, concurrent requests across pools/servers, atomic ETag conditions, partial
+updates without lost fields, forced result-insert rollback, cancellation, and
+lost-HTTP-reply recovery in a second process. The
+[REST with PostgreSQL guide](../extensions/02-database-sql/05-rest-postgres/README.md)
+includes finite and interactive server commands. gRPC persistence remains pending.
 See the lab guide for Compose/demo commands and Rancher Desktop configuration.
 
 ## Root module and formatting
@@ -257,7 +264,7 @@ modules use the explicit `go -C` run commands in this guide. Lessons run
 finite demonstrations, including local HTTP servers that shut down themselves;
 I/O examples own temporary storage and cleanup.
 
-The [REST project](../chapters/13-standard-library/06-project-rest-api/README.md)
+The [REST fundamentals project](../chapters/13-standard-library/06-project-rest-api/README.md)
 also runs a finite demo by default and is included in the bulk pass. Its
 optional `-serve` flag keeps a server running for manual requests; omit that
 flag in automated validation. To validate this extension on its own:
@@ -382,7 +389,7 @@ practice" items remain optional exercises beyond the agreed improvement plan.
 
 ### REST extension validation
 
-The later contacts REST project was checked on the same Go 1.27.0 darwin/arm64
+The REST fundamentals project was checked on the same Go 1.27.0 darwin/arm64
 toolchain. Its finite demo completed, all root-module tests and `go vet ./...`
 passed, and its three packages passed the race detector with `-count=3 -cpu=1,2`.
 Tests also exercised interactive-mode cancellation, an active request during

@@ -11,3 +11,12 @@ sql:
         # Keep database/sql + pgx's stdlib driver for a direct comparison.
         sql_package: database/sql
         emit_empty_slices: true
+  - engine: postgresql
+    schema: contactpg/migrations
+    queries: contactpg/queries.sql
+    gen:
+      go:
+        package: servicegen
+        out: internal/servicegen
+        sql_package: database/sql
+        emit_empty_slices: true

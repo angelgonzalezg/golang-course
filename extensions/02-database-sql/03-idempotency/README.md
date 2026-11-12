@@ -7,8 +7,9 @@ PostgreSQL retains both after the Go process exits.
 Read [SQL fundamentals](../README.md) and
 [transactions and migrations](../02-transactions/README.md) first. Start with the
 finite demonstration, then read the transaction, then its concurrency tests.
-The REST and gRPC projects still use their existing in-memory stores; this
-standalone lesson prepares the database policy before transport integration.
+The REST fundamentals and gRPC chapter commands use in-memory stores. This
+standalone lesson prepares the database policy before transport integration in
+[REST with PostgreSQL](../05-rest-postgres/README.md) and the later gRPC block.
 
 ## Run the demonstration
 

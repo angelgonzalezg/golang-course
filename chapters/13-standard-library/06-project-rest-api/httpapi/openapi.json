@@ -426,7 +426,7 @@
       "post": {
         "operationId": "createContact",
         "summary": "Create a contact with a server-assigned ID",
-        "description": "If-Match and If-None-Match are rejected with 400 on this route. Uncompressed application/json body, maximum 4096 bytes. Names are unique after trimming and case sensitive.",
+        "description": "If-Match and If-None-Match are rejected with 400 on this route. Uncompressed application/json body, maximum 4096 bytes. Names are unique after trimming and case sensitive. When keyed creation is configured, one optional Idempotency-Key binds the trusted caller and original decoded fields to a successful creation snapshot. Matching retries replay the original 201, Location and ETag even after edits/deletion. Changed valid fields return 409. The basic unconfigured handler rejects the header with 400. Successful records are retained without automatic expiry; retry the same key and fields after an ambiguous outcome.",
         "requestBody": {
           "required": true,
           "content": {
@@ -443,7 +443,7 @@
         },
         "responses": {
           "201": {
-            "description": "Created contact. Location identifies the new resource; ETag matches its GET representation.",
+            "description": "Created contact or original successful keyed-creation snapshot. Location and ETag describe that response; GET the resource for current state after a replay.",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/CacheControl"
@@ -456,6 +456,16 @@
               },
               "Location": {
                 "$ref": "#/components/headers/Location"
+              },
+              "Idempotency-Replayed": {
+                "description": "Present for successful keyed creation: false for a fresh commit, true for a saved result.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "false",
+                    "true"
+                  ]
+                }
               }
             },
             "content": {
@@ -483,8 +493,41 @@
           },
           "503": {
             "$ref": "#/components/responses/503"
+          },
+          "403": {
+            "description": "The configured identity resolver did not permit this caller to use keyed creation.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Optional on servers configured for keyed creation. Send exactly one unquoted value of 1–64 ASCII letters, digits, underscore or hyphen. Caller identity comes from server configuration/authentication, not an arbitrary identity header.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "example": "create-ana-1"
+          }
+        ]
       }
     },
     "/contacts/{id}": {

@@ -1,6 +1,6 @@
 # Collection queries: filter, order, and paginate
 
-Read the [REST project](README.md) and run its ordinary CRUD demonstration first.
+Read [REST fundamentals](README.md) and run its ordinary CRUD demonstration first.
 This extension bounds collection responses and lets a client navigate selected
 results. The choices below are this API's query contract.
 

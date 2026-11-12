@@ -30,7 +30,7 @@ func (s *Store) Create(ctx context.Context, input Input) (Contact, error) {
 	if err := ctx.Err(); err != nil {
 		return Contact{}, err
 	}
-	input, err := normalize(input)
+	input, err := NormalizeInput(input)
 	if err != nil {
 		return Contact{}, err
 	}
@@ -62,7 +62,7 @@ func (s *Store) Get(ctx context.Context, id int64) (Contact, error) {
 	if err := ctx.Err(); err != nil {
 		return Contact{}, err
 	}
-	if err := validateID(id); err != nil {
+	if err := ValidateID(id); err != nil {
 		return Contact{}, err
 	}
 	s.mu.Lock()
@@ -108,10 +108,10 @@ func (s *Store) ReplaceIf(ctx context.Context, id int64, input Input, conditions
 	if err := ctx.Err(); err != nil {
 		return Contact{}, err
 	}
-	if err := validateID(id); err != nil {
+	if err := ValidateID(id); err != nil {
 		return Contact{}, err
 	}
-	input, err := normalize(input)
+	input, err := NormalizeInput(input)
 	if err != nil {
 		return Contact{}, err
 	}
@@ -140,7 +140,7 @@ func (s *Store) PatchIf(ctx context.Context, id int64, changes Changes, conditio
 	if err := ctx.Err(); err != nil {
 		return Contact{}, err
 	}
-	if err := validateID(id); err != nil {
+	if err := ValidateID(id); err != nil {
 		return Contact{}, err
 	}
 	s.mu.Lock()
@@ -162,7 +162,7 @@ func (s *Store) PatchIf(ctx context.Context, id int64, changes Changes, conditio
 	if changes.Phone != nil {
 		input.Phone = *changes.Phone
 	}
-	input, err := normalize(input)
+	input, err := NormalizeInput(input)
 	if err != nil {
 		return Contact{}, err
 	}
@@ -175,7 +175,7 @@ func (s *Store) replaceLocked(old Contact, input Input, conditions Conditions) (
 	if owner, exists := s.byName[input.Name]; exists && owner != old.ID {
 		return Contact{}, ErrNameTaken
 	}
-	if err := conditions.check(old); err != nil {
+	if err := conditions.Check(old); err != nil {
 		return Contact{}, err
 	}
 	updated := Contact{ID: old.ID, Name: input.Name, Email: input.Email, Phone: input.Phone}
@@ -197,7 +197,7 @@ func (s *Store) DeleteIf(ctx context.Context, id int64, conditions Conditions) e
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := validateID(id); err != nil {
+	if err := ValidateID(id); err != nil {
 		return err
 	}
 	s.mu.Lock()
@@ -209,7 +209,7 @@ func (s *Store) DeleteIf(ctx context.Context, id int64, conditions Conditions) e
 	if !exists {
 		return ErrNotFound
 	}
-	if err := conditions.check(contact); err != nil {
+	if err := conditions.Check(contact); err != nil {
 		return err
 	}
 	delete(s.byID, id)

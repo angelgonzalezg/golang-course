@@ -37,7 +37,11 @@ The optional cgo lab needs a C compiler. The rest of the course can be tested
 with `CGO_ENABLED=0`.
 
 After stages 6–8, complete the
-[contacts REST project](../chapters/13-standard-library/06-project-rest-api/README.md).
+[REST fundamentals](../chapters/13-standard-library/06-project-rest-api/README.md).
+This first REST project keeps contacts in process memory; restarting the server
+starts an empty collection. After the SQL lessons, continue to
+[REST with PostgreSQL](../extensions/02-database-sql/05-rest-postgres/README.md)
+for persistent data and durable keyed creation.
 Use its [learning passes](../chapters/13-standard-library/06-project-rest-api/README.md#learn-in-passes):
 trace one create/read before moving to updates, failures, collection queries,
 conditions, and OpenAPI. Trace a request from HTTP to the contact store and back.
@@ -101,8 +105,12 @@ together, then recover that snapshot through concurrent retries and a new
 process. Then [compare manual and sqlc queries](../extensions/02-database-sql/04-sqlc/README.md):
 trace named SQL into generated parameters/scanning, follow the adapter's shared
 validation and error rules, and bind queries to a caller-owned transaction.
-Run the shared PostgreSQL contracts and generation check. Persistent REST/gRPC
-adapters follow later. The lab's [stage plan](../extensions/02-database-sql/README.md)
+Run the shared PostgreSQL contracts and generation check. Then follow
+[REST with PostgreSQL](../extensions/02-database-sql/05-rest-postgres/README.md): keep
+the HTTP behavior, lock rows while checking validators, and bind keyed POST to
+a trusted caller and a saved creation snapshot. Test replay after deletion and
+across processes. PostgreSQL integration for gRPC follows later. The lab's
+[stage plan](../extensions/02-database-sql/README.md)
 separates implemented behavior from those future blocks.
 
 ## First pass through pointers

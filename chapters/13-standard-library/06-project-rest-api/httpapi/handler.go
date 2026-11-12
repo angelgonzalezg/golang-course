@@ -50,8 +50,9 @@ type Collection struct {
 }
 
 type api struct {
-	store  ContactStore
-	logger *slog.Logger
+	store   ContactStore
+	logger  *slog.Logger
+	subject SubjectResolver
 }
 
 const contactMethods = "DELETE, GET, HEAD, OPTIONS, PATCH, PUT"
@@ -59,13 +60,17 @@ const contactMethods = "DELETE, GET, HEAD, OPTIONS, PATCH, PUT"
 // NewHandler requires a usable store. A nil logger selects a local discard
 // logger, so the package never changes the process-global logging settings.
 func NewHandler(store ContactStore, logger *slog.Logger) http.Handler {
+	return newHandler(store, logger, nil)
+}
+
+func newHandler(store ContactStore, logger *slog.Logger, subject SubjectResolver) http.Handler {
 	if store == nil {
 		panic("httpapi: store is required")
 	}
 	if logger == nil {
 		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
-	a := &api{store: store, logger: logger}
+	a := &api{store: store, logger: logger, subject: subject}
 	// The mux chooses a handler from the HTTP method and URL path. For example,
 	// POST /contacts reaches create; that function handles decoding and the reply.
 	mux := http.NewServeMux()
@@ -149,9 +154,8 @@ func (a *api) create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	value, err := a.store.Create(r.Context(), input)
-	if err != nil {
-		a.writeStoreError(w, err)
+	value, ok := a.createContact(w, r, input)
+	if !ok {
 		return
 	}
 	// The store returned ordinary Go data. Add this HTTP API's representation

@@ -173,7 +173,7 @@ the client's original `DeadlineExceeded` classification or custom cause.
 | Other service failure | 500. |
 
 The report store in this lesson is an in-process dependency. As in the
-[REST project](../../13-standard-library/06-project-rest-api/README.md#input-and-failures),
+[REST fundamentals](../../13-standard-library/06-project-rest-api/README.md#input-and-failures),
 the handler chooses 503 when a deadline or cancellation prevents it from finishing.
 This is an explicit HTTP policy; a context error does not choose a status code
 by itself. [504 Gateway Timeout](https://www.rfc-editor.org/rfc/rfc9110.html#section-15.6.5)

@@ -48,9 +48,9 @@ func (m *VersionMatch) matches(contact Contact) bool {
 	return false
 }
 
-// A zero Conditions value allows an unconditional operation. Call this while
-// holding the same lock that protects the mutation, after normal validation.
-func (c Conditions) check(contact Contact) error {
+// Check allows an unconditional operation for a zero Conditions value. Call it
+// while holding the lock protecting the mutation, after normal validation.
+func (c Conditions) Check(contact Contact) error {
 	if c.Match != nil && !c.Match.matches(contact) {
 		return ErrPreconditionFailed
 	}

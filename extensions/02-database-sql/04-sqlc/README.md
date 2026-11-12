@@ -246,8 +246,9 @@ Some packages show `[no test files]` in an ordinary run: their database contract
 live in the explicitly tagged `integration` package. The generated files are
 checked by compilation, the drift check, and those real database tests.
 
-Next, connect PostgreSQL adapters to the REST and gRPC service contracts,
-including durable request-key handling for creation.
+Continue to [REST with PostgreSQL](../05-rest-postgres/README.md), which connects
+generated PostgreSQL queries to the existing HTTP contract and durable keyed
+creation. PostgreSQL integration for gRPC follows it.
 
 References: [sqlc v1.31.1](https://github.com/sqlc-dev/sqlc/releases/tag/v1.31.1),
 [configuration](https://docs.sqlc.dev/en/latest/reference/config.html),

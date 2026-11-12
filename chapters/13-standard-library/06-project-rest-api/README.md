@@ -1,10 +1,15 @@
-# Contact resources over HTTP
+# REST fundamentals
 
 Build a small REST-style contacts API with `net/http` and the standard library.
 Start by creating and reading one contact, then add updates, error handling,
 collection queries, and version checks. This extends the
 [HTTP lesson](../04-http/README.md) from returning a greeting to managing data
 that clients can find again through stable URLs.
+
+This is the first REST project. Contacts live in the Go process's memory and
+are lost when the server stops. After the SQL lessons, continue to
+[REST with PostgreSQL](../../../extensions/02-database-sql/05-rest-postgres/README.md)
+to add persistent storage and durable keyed creation to the same HTTP API.
 
 Read methods, interfaces, errors, packages, concurrency, JSON, HTTP, and logging
 first. Revisit [context](../../14-context/01-context/README.md) and
@@ -232,6 +237,14 @@ statuses: the first DELETE returns 204 and the next returns 404, with the contac
 absent in both cases. POST is not generally idempotent. Here a duplicate name
 produces 409; clients still need a deliberate retry policy after an ambiguous
 network failure. GET and HEAD do not request changes to resource state.
+
+After the SQL lessons, continue to the
+[REST with PostgreSQL](../../../extensions/02-database-sql/05-rest-postgres/README.md).
+It reuses this HTTP adapter with persistent storage and optional durable
+`Idempotency-Key` creation. Its configured handler replays the original 201
+response after retries or process restart. This chapter's default in-memory
+command keeps ordinary POST; supplying a key without configuring keyed creation
+returns 400 rather than silently performing an unkeyed create.
 
 The patches accepted here only assign or remove fields, so repeating the same
 patch is also idempotent. PATCH in general does not guarantee idempotency: other

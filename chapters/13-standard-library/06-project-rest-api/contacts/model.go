@@ -50,7 +50,9 @@ type ValidationError struct {
 func (e *ValidationError) Error() string { return fmt.Sprintf("%s: %s", e.Field, e.Message) }
 func (e *ValidationError) Unwrap() error { return ErrInvalidInput }
 
-func normalize(input Input) (Input, error) {
+// NormalizeInput applies the contact rules shared by memory and database stores.
+// It returns normalized values without changing the caller's Input.
+func NormalizeInput(input Input) (Input, error) {
 	input.Name = strings.TrimSpace(input.Name)
 	input.Email = strings.TrimSpace(input.Email)
 	input.Phone = strings.TrimSpace(input.Phone)
@@ -76,7 +78,8 @@ func normalize(input Input) (Input, error) {
 	return input, nil
 }
 
-func validateID(id int64) error {
+// ValidateID rejects invalid identifiers before a storage operation starts.
+func ValidateID(id int64) error {
 	if id <= 0 {
 		return &ValidationError{Field: "id", Message: "must be positive"}
 	}

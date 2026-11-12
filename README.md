@@ -92,9 +92,10 @@ Read that context chapter before the advanced concurrency pattern lesson in chap
 | Contact book | 6. Pointers | [Start with a small lookup](chapters/06-pointers/04-project-contact-list/01-pointer-lookup/README.md), then [build the complete book](chapters/06-pointers/04-project-contact-list/README.md) |
 | Log levels | 7. Types, methods, and interfaces | [Run after Stringer](chapters/07-types-methods-and-interfaces/05-project-log-levels/README.md) |
 | Math helpers with errors | 9. Errors | [Run after error handling](chapters/09-errors/03-project-math-helpers/README.md) |
-| Contact resources over HTTP | 13. The standard library | [REST API with CRUD, validation, context, and tests](chapters/13-standard-library/06-project-rest-api/README.md); revisit after chapters 14–15. |
+| REST fundamentals | 13. The standard library | [Contacts API using in-memory storage](chapters/13-standard-library/06-project-rest-api/README.md); revisit after chapters 14–15. |
 | Protobuf and gRPC contacts lab | Supplement after REST | [Contract and serialization foundation](extensions/01-protobuf-and-grpc/README.md), then [unary client/server application](extensions/01-protobuf-and-grpc/02-unary/README.md). |
 | PostgreSQL and database/sql lab | Supplement after context and testing | [SQL fundamentals and Testcontainers](extensions/02-database-sql/README.md), [transactions and migrations](extensions/02-database-sql/02-transactions/README.md), [durable idempotency](extensions/02-database-sql/03-idempotency/README.md), then [sqlc comparison](extensions/02-database-sql/04-sqlc/README.md). |
+| REST with PostgreSQL | Supplement after REST fundamentals and the SQL lessons | [Persistent contacts, atomic conditional writes, and durable keyed POST](extensions/02-database-sql/05-rest-postgres/README.md). |
 
 ## Validate the course
 
@@ -133,11 +134,12 @@ check your understanding before adding those extensions.
 
 ## Backend extensions
 
-The [contacts REST project](chapters/13-standard-library/06-project-rest-api/README.md)
+The [REST fundamentals](chapters/13-standard-library/06-project-rest-api/README.md) project
 extends the HTTP lesson with resource URLs, CRUD operations, PUT versus PATCH,
 paged and filtered collections, problem responses, and a reusable contact store.
 It includes conditional requests with ETag and a served, checked OpenAPI
-contract. Its default demo is finite; use `-serve` for interactive requests.
+contract. Contacts live in process memory and disappear when the server stops.
+Its default demo is finite; use `-serve` for interactive requests.
 The agreed REST extension blocks are complete. The
 [Protobuf/gRPC lab](extensions/01-protobuf-and-grpc/README.md) starts with a
 versioned contact contract, generated bindings, local serialization examples,
@@ -155,5 +157,10 @@ The [SQL lab](extensions/02-database-sql/README.md) begins the persistence
 extension with standalone fundamentals, transactions/migrations,
 [durable idempotency](extensions/02-database-sql/03-idempotency/README.md), and a
 [manual/sqlc comparison](extensions/02-database-sql/04-sqlc/README.md), all covered
-by real PostgreSQL integration tests. Its next block adds persistent adapters
-for the REST/gRPC contracts. Those services currently retain their in-memory stores.
+by real PostgreSQL integration tests. The
+[REST with PostgreSQL](extensions/02-database-sql/05-rest-postgres/README.md) project
+adds database-backed HTTP operations and durable keyed POST. PostgreSQL
+integration for gRPC remains next; the original chapter commands retain their
+in-memory teaching examples.
+The REST learning path is **REST fundamentals → SQL lessons → REST with PostgreSQL**.
+Both REST projects share the contact rules and HTTP adapter.

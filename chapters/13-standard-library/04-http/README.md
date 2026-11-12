@@ -29,7 +29,7 @@ certificate files, or manual stop is required. It is a finite demonstration;
 it does not remain running for interactive requests afterward.
 
 After this lesson, logging, context, and testing, continue with the
-[contacts REST project](../06-project-rest-api/README.md). It adds resource URLs,
+[REST fundamentals](../06-project-rest-api/README.md). It adds resource URLs,
 CRUD, 201/Location, full replacement with PUT, partial changes with PATCH, and
 consistent problem responses.
 Its optional `-serve` mode also supports interactive `curl` requests.

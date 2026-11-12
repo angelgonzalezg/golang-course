@@ -14,7 +14,7 @@ the HTTP contact model's normalization and PUT/PATCH rules remain in that projec
 | 2. Transactions and migrations | Implemented: [atomic batches, rollback, golang-migrate schema changes, and concurrent version checks](02-transactions/README.md). |
 | 3. Durable idempotency | Implemented: [request-bound keys, atomic creation/results, concurrent retries, lost replies, and process-independent replay](03-idempotency/README.md). |
 | 4. sqlc comparison | Implemented: [generated CRUD beside manual SQL, shared PostgreSQL contracts, explicit transaction binding, and pinned generation checked in CI](04-sqlc/README.md). |
-| 5. Service integration | Planned: persistent adapters for REST/gRPC, `Idempotency-Key` for REST creation, and the durable creation policy for gRPC. |
+| 5. Service integration | [REST with PostgreSQL](05-rest-postgres/README.md) implemented: persistent contacts, atomic conditional writes, and durable `Idempotency-Key` creation. PostgreSQL integration for gRPC remains pending. |
 
 ## Start a local teaching database
 
@@ -202,9 +202,10 @@ create in stage 1 returns `ErrNameTaken`; that store has no request-key records.
 
 The related course examples have different scopes:
 
-- [REST](../../chapters/13-standard-library/06-project-rest-api/README.md#idempotency-and-atomicity)
-  tests repeated PUT, DELETE, and its assignment/removal PATCH operations. POST
-  does not yet support `Idempotency-Key`.
+- [REST fundamentals](../../chapters/13-standard-library/06-project-rest-api/README.md#idempotency-and-atomicity)
+  tests repeated PUT, DELETE, and its assignment/removal PATCH operations. Its
+  [REST with PostgreSQL](05-rest-postgres/README.md) project adds durable keyed POST
+  through the shared HTTP adapter; the base in-memory command keeps ordinary POST.
 - [gRPC resilience](../01-protobuf-and-grpc/05-resilience/README.md) binds a
   creation key to the caller and request, and saves results in memory. Its tests
   include concurrent retries and a simulated lost reply. The records do not
@@ -276,6 +277,9 @@ explicit adoption of the old runner's history and isolated down/up cycles.
 The [stage-3 suite](integration/idempotency_test.go) checks durable creation and
 replay, request binding, concurrent retries across pools, atomic rollback,
 cancellation, historical results, and lost-reply recovery across child processes.
+The [persistent REST suite](integration/rest_test.go) adds matching HTTP responses
+across memory/PostgreSQL, atomic conditional writes, keyed POST, cancellation,
+and HTTP recovery across separate processes.
 
 The `integration` build tag is intentional. Without it, the Docker-dependent
 package is excluded. With it, an unavailable engine causes a failing test;
@@ -311,7 +315,8 @@ See the [validation guide](../../docs/validation.md#postgresqlsql-module).
 Stages 1–4 are implemented. After the standalone fundamentals, read
 [transactions and migrations](02-transactions/README.md), then
 [durable idempotency](03-idempotency/README.md) and the
-[sqlc comparison](04-sqlc/README.md). The next block is REST/gRPC integration. The manual
+[sqlc comparison](04-sqlc/README.md). Continue to
+[REST with PostgreSQL](05-rest-postgres/README.md); gRPC persistence remains next. The manual
 `database/sql` implementation remains the foundation for learning Scan, result
 sets, error causes, and resource ownership. The sqlc adapter shares its CRUD
 contracts and real PostgreSQL tests. The workflow also checks pinned generation
