@@ -354,8 +354,10 @@ embedding, filters/projections, and nested updates. Its
 [third stage](../03-mongodb/03-schema-evolution/README.md) introduces database
 validation and repeatable data evolution. Its
 [fourth stage](../03-mongodb/04-references-and-aggregation/README.md) adds references,
-aggregation reports, and explain. Cache labs can follow separately; guided
-exercises remain last.
+aggregation reports, and explain. The independent
+[Valkey fundamentals](../04-valkey-cache/01-fundamentals/README.md) introduce
+remote cache values, TTLs, and serialization. PostgreSQL/cache-aside integration
+and cache concurrency/failure policy remain later blocks; guided exercises stay last.
 
 References: [Go database/sql guides](https://go.dev/doc/database/),
 [pgx's stdlib adapter](https://pkg.go.dev/github.com/jackc/pgx/v5/stdlib),

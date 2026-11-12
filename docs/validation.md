@@ -14,26 +14,27 @@ push and pull request starts these checks. Once the workflow is on the default
 branch, you can also select **Actions → Go validation → Run workflow** in GitHub.
 
 The workflow uses Ubuntu 24.04 and reads the Go version from the module files.
-Its module matrix creates one job for each of the eight `go.mod` boundaries;
+Its module matrix creates one job for each of the nine `go.mod` boundaries;
 one module's failure does not cancel the other module jobs.
 
 | Job | Checks |
 | --- | --- |
 | Go formatting | Runs `gofmt -l chapters extensions` and fails if any file is listed. |
-| Tests and vet, per module | Runs uncached tests, `go vet`, and `go mod tidy -diff` for the course, all three versioning modules, cgo, gRPC, SQL, and MongoDB. |
+| Tests and vet, per module | Runs uncached tests, `go vet`, and `go mod tidy -diff` for the course, all three versioning modules, cgo, gRPC, SQL, MongoDB, and Valkey. |
 | Course job, extra steps | Checks the `diagnostic` build and confirms that chapter 11 generation reproduces the committed file. |
 | SQL job, extra step | Uses the pinned sqlc generator to compare expected bindings with the checked-in Go files. |
 | Race detector, all modules | Runs each module's tests with `-race`, separately from ordinary tests. |
 | PostgreSQL integration | Runs SQL and persistent gRPC tests with `-tags=integration -race`, using Testcontainers and real PostgreSQL servers. |
 | MongoDB integration | Runs the MongoDB module's `-tags=integration -race` tests with a real authenticated MongoDB server owned by Testcontainers. |
+| Valkey integration | Runs the cache module's `-tags=integration -race` tests with real authenticated Valkey, observed expiration, and owned server-failure checks. |
 
 Ordinary jobs use `CGO_ENABLED=0`, except for the cgo lab's job. The race job uses
 `CGO_ENABLED=1` with the runner's C compiler. The cgo lab remains optional for
 learners, while CI includes it. Actions are pinned to full commit IDs, with their
-release versions noted beside them. Go dependencies are cached for the gRPC and
-SQL jobs using their checked-in `go.sum` files. Ordinary SQL tests do not need
-Docker; the dedicated integration job requires a working engine and fails if
-database startup fails.
+release versions noted beside them. Go dependencies are cached for extension
+jobs using their checked-in `go.sum` files. Ordinary database/cache tests do not
+need a server; their dedicated integration jobs require a working engine and
+fail if container startup fails.
 
 Open a failed job and then the failed step to find the command and its output.
 A formatting failure lists the files to format; a test failure identifies the
@@ -228,6 +229,36 @@ compare known fixture results and forced access paths without assuming one
 optimizer plan tree or wall-clock performance. The
 [stage-4 guide](../extensions/03-mongodb/04-references-and-aggregation/README.md)
 includes all setup/test commands and needs only the normal data account.
+
+### Valkey cache module
+
+The independent [Valkey lab](../extensions/04-valkey-cache/README.md) is the ninth
+module. Ordinary tests need no server. The race detector needs a C compiler:
+
+```sh
+go -C extensions/04-valkey-cache test -count=1 -timeout=60s ./...
+go -C extensions/04-valkey-cache vet ./...
+go -C extensions/04-valkey-cache mod tidy -diff
+CGO_ENABLED=1 go -C extensions/04-valkey-cache test -race -count=1 -timeout=90s ./...
+```
+
+Start the container engine for the real server suite:
+
+```sh
+docker info
+CGO_ENABLED=1 go -C extensions/04-valkey-cache test -tags=integration -race -count=1 -timeout=5m -v ./...
+go -C extensions/04-valkey-cache vet -tags=integration ./...
+```
+
+Tests own an authenticated Valkey instance and never use `VALKEY_URL` or the
+Compose cache. Cases cover empty/binary hits, misses, TTL metadata, actual
+expiration with bounded polling, typed/corrupt JSON, wrong server value types,
+clients/contexts/authentication, cleanup preserving another key, and a connection
+failure after stopping only the test-owned server. The
+[standalone guide](../extensions/04-valkey-cache/01-fundamentals/README.md)
+includes Compose, Rancher Desktop, expected output, and cleanup. The supplied
+cache disables persistence; authoritative PostgreSQL/cache-aside integration
+will follow in a separate block. CI runs these checks in the new Valkey jobs.
 
 ## Root module and formatting
 

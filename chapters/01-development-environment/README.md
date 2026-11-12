@@ -185,6 +185,7 @@ The independent labs are:
 | [Protobuf/gRPC](../../extensions/01-protobuf-and-grpc/README.md) | The supplementary lab with its own external dependencies. |
 | [PostgreSQL/database/sql](../../extensions/02-database-sql/README.md) | SQL access with separate unit and container-based integration tests. |
 | [MongoDB documents](../../extensions/03-mongodb/README.md) | Official driver, BSON, CRUD, and separate unit/real-database tests. |
+| [Valkey cache](../../extensions/04-valkey-cache/README.md) | Remote keys, TTL, serialization, and separate unit/real-server tests. |
 
 Use `go -C` to select a lab directory for one command while keeping your terminal
 at the repository root. For example:

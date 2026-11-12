@@ -24,6 +24,10 @@ The independent [MongoDB document lab](extensions/03-mongodb/README.md) introduc
 the official Go driver, BSON, CRUD, unique indexes, and real MongoDB integration
 tests. Its standalone guides include all runtime and test setup.
 
+The [Valkey cache lab](extensions/04-valkey-cache/README.md) is another independent
+module. Its first stage teaches remote values, TTLs, cache misses, typed JSON,
+and real server tests; later stages will add cache-aside and resilience.
+
 ## Requirements
 
 Use Go 1.27 or later, as declared in `go.mod`. Run the commands below from the
@@ -102,13 +106,14 @@ Read that context chapter before the advanced concurrency pattern lesson in chap
 | REST with PostgreSQL | Supplement after REST fundamentals and the SQL lessons | [Persistent contacts, atomic conditional writes, and durable keyed POST](extensions/02-database-sql/05-rest-postgres/README.md). |
 | gRPC with PostgreSQL | Supplement after the gRPC and SQL lessons | [Persistent unary/streaming RPCs and durable keyed creation](extensions/01-protobuf-and-grpc/06-postgres/README.md). |
 | MongoDB documents | Supplement after context and testing; compare with SQL fundamentals | [Fundamentals](extensions/03-mongodb/01-fundamentals/README.md), [document modeling](extensions/03-mongodb/02-document-modeling/README.md), [schema evolution](extensions/03-mongodb/03-schema-evolution/README.md), then [references, aggregation, and explain](extensions/03-mongodb/04-references-and-aggregation/README.md). |
+| Valkey cache | Supplement after context and testing | [Remote values, TTL, hits/misses, typed JSON, and Testcontainers](extensions/04-valkey-cache/01-fundamentals/README.md). |
 
 ## Validate the course
 
 The [Go validation workflow](.github/workflows/go.yml) runs on pushes and pull
 requests, and can also be started manually from GitHub Actions. It checks Go
-formatting, tests, vet, and module metadata for all eight modules, with separate
-race-detector, PostgreSQL integration, and MongoDB integration jobs. See [continuous integration](docs/validation.md#continuous-integration)
+formatting, tests, vet, and module metadata for all nine modules, with separate
+race-detector and PostgreSQL/MongoDB/Valkey integration jobs. See [continuous integration](docs/validation.md#continuous-integration)
 for its scope and how to reproduce the checks locally.
 
 ```sh
@@ -185,4 +190,8 @@ validation, mixed-version reads, repeatable backfill, audited cutover, and
 separate schema permissions. The
 [fourth stage](extensions/03-mongodb/04-references-and-aggregation/README.md)
 adds company references/left lookup, city/tag aggregation reports, typed results,
-and explain comparisons. Caching remains a separate block, with guided exercises last.
+and explain comparisons. The
+[Valkey cache fundamentals](extensions/04-valkey-cache/01-fundamentals/README.md)
+introduce atomic value/TTL assignment, hit/miss versus failure, expiration,
+versioned JSON, and client/key ownership. Cache-aside with PostgreSQL and
+concurrency/failure policy remain separate blocks, with guided exercises last.

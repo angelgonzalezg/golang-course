@@ -129,5 +129,6 @@ then [document modeling and queries](02-document-modeling/README.md), followed b
 [validation and schema evolution](03-schema-evolution/README.md), to read the
 commented implementation and tests. Finish with
 [references and aggregation](04-references-and-aggregation/README.md).
-All four planned MongoDB stages are implemented. Caching remains a separate
-block; guided exercises remain the final course block.
+All four planned MongoDB stages are implemented. Continue separately to
+[Valkey cache fundamentals](../04-valkey-cache/01-fundamentals/README.md).
+Cache-aside/concurrency policy remain later blocks; guided exercises remain last.

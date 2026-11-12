@@ -1,0 +1,12 @@
+services:
+  valkey:
+    image: valkey/valkey:9.0.7-alpine3.24
+    # This is a disposable cache: restart loses keys. Only loopback is published.
+    command: ["valkey-server", "--save", "", "--appendonly", "no", "--requirepass", "cache_lab_local"]
+    ports:
+      - "127.0.0.1:6380:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "--no-auth-warning", "-a", "cache_lab_local", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 30

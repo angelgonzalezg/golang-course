@@ -73,6 +73,9 @@ jobs:
           - name: MongoDB lab
             module: extensions/03-mongodb
             cgo: '0'
+          - name: Valkey cache lab
+            module: extensions/04-valkey-cache
+            cgo: '0'
     env:
       MODULE_DIR: ${{ matrix.module }}
       CGO_ENABLED: ${{ matrix.cgo }}
@@ -128,6 +131,7 @@ jobs:
             extensions/01-protobuf-and-grpc/go.sum
             extensions/02-database-sql/go.sum
             extensions/03-mongodb/go.sum
+            extensions/04-valkey-cache/go.sum
       - name: Run race checks across every module
         run: |
           # Root ./... stops at nested go.mod files, so list every module.
@@ -140,6 +144,7 @@ jobs:
             extensions/01-protobuf-and-grpc
             extensions/02-database-sql
             extensions/03-mongodb
+            extensions/04-valkey-cache
           )
           for module in "${modules[@]}"; do
             echo "::group::Race tests: $module"
@@ -190,3 +195,24 @@ jobs:
         run: docker info
       - name: Run real MongoDB tests with the race detector
         run: go -C extensions/03-mongodb test -tags=integration -race -count=1 -timeout=5m ./...
+
+  valkey-integration:
+    name: Valkey integration (Testcontainers)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CGO_ENABLED: '1'
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: extensions/04-valkey-cache/go.mod
+          cache-dependency-path: extensions/04-valkey-cache/go.sum
+      - name: Check the container runtime
+        run: docker info
+      - name: Run real Valkey tests with the race detector
+        run: go -C extensions/04-valkey-cache test -tags=integration -race -count=1 -timeout=5m ./...

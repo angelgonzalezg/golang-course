@@ -150,8 +150,15 @@ lookup targets, and observe shared-company changes. Follow city/tag pipelines
 into typed Go reports, deduplicate tag membership, and group before applying a
 report limit. Compare forced natural/indexed access with the optimizer's plan
 using explain counters rather than timing thresholds. The guide includes the
-complete ordinary-account setup and real database tests. Caching can follow as
-a separate block; guided exercises remain last.
+complete ordinary-account setup and real database tests. Continue to
+[Valkey cache fundamentals](../extensions/04-valkey-cache/01-fundamentals/README.md):
+connect a reusable client, assign a value/expiration atomically, and distinguish
+empty hits, misses, payload errors, and connection failures. Observe real server
+expiration, map PTTL states explicitly, and serialize a versioned typed contact.
+The guide includes standalone Compose/Rancher/test setup; tagged tests own Valkey
+and demonstrate cleanup without flushing neighboring keys. Cache-aside with
+PostgreSQL and concurrency/failure handling remain later blocks; guided exercises
+remain last.
 
 ## First pass through pointers
 
