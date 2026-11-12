@@ -136,6 +136,25 @@ SQL/REST/gRPC database, including its contacts and saved replay records.
 
 ## Keep the REST contract
 
+Follow one ordinary request through the existing HTTP adapter. PostgreSQL owns
+the data, so a new Go process can use the same committed rows:
+
+```mermaid
+flowchart LR
+    C[HTTP client] --> H[httpapi handler]
+    H --> S[contactpg.Store]
+    S --> Q[Generated SQL via database/sql and pgx]
+    Q --> P[(PostgreSQL)]
+    P --> S
+    S --> H
+    H --> R[HTTP status, headers, and JSON]
+    R --> C
+```
+
+The arrows show logical calls and results. They do not imply that every method
+uses the same SQL transaction; the mutation and keyed-create paths below define
+their own boundaries.
+
 The [shared HTTP adapter](../../../chapters/13-standard-library/06-project-rest-api/httpapi/handler.go)
 still handles JSON limits, problem responses, route methods, resource links,
 HEAD, OPTIONS, ETags, and HTTP preconditions. The PostgreSQL adapter implements
@@ -159,6 +178,38 @@ read the row with `SELECT ... FOR UPDATE`. PATCH merges into that locked value;
 then normal validation, name checks, and `Conditions.Check` precede the write.
 The write and commit use the same transaction. DELETE similarly holds the row
 lock from its condition check through removal.
+
+For an accepted conditional PATCH, the current value, version check, and write
+stay under one row lock:
+
+```mermaid
+sequenceDiagram
+    participant C as HTTP client
+    participant H as httpapi handler
+    participant S as contactpg.Store
+    participant P as PostgreSQL
+    C->>H: PATCH with changes and If-Match
+    H->>S: PatchIf with parsed conditions
+    S->>P: BeginTx
+    S->>P: SELECT FOR UPDATE
+    P-->>S: Current contact with row locked
+    S->>S: Merge, validate fields/name, check conditions
+    alt Preconditions pass
+        S->>P: UPDATE in the same tx
+        S->>P: COMMIT
+        P-->>S: Commit confirmed
+        S-->>H: Updated contact
+        H-->>C: 200 with the current ETag
+    else Stale If-Match
+        S->>P: ROLLBACK
+        S-->>H: ErrPreconditionFailed
+        H-->>C: 412 problem response
+    end
+```
+
+This sequence assumes valid input and successful database operations. Validation
+or SQL errors follow their existing error paths; no success is reported before
+commit. PUT and DELETE retain their own response/header rules.
 
 A second writer waits for the row and then reads the newly committed values.
 Two requests using the same old If-Match validator cannot both change the

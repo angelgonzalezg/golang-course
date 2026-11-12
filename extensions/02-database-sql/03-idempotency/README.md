@@ -135,6 +135,27 @@ BeginTx(ReadCommitted)
 Any earlier error -> rollback both writes and release the lock.
 ```
 
+The saved-result lookup happens after the key lock. The successful branches
+share the transaction boundary; a different fingerprint rejects the request:
+
+```mermaid
+flowchart TD
+    B[BeginTx] --> L[Acquire transaction lock for subject and key]
+    L --> Q[Read saved result in a fresh statement]
+    Q --> E{Saved result exists?}
+    E -->|No| I[Insert contact and complete saved result in the same tx]
+    E -->|Yes| F{Original fields match the fingerprint?}
+    F -->|Yes| H[Use the historical snapshot]
+    F -->|No| R[Rollback; return ErrKeyReuse]
+    I --> C[Commit]
+    H --> C
+    C --> S[After confirmed commit, return result and replay flag]
+```
+
+Statement errors before commit take the rollback path too. A Commit error can
+leave an uncertain outcome: retry the same subject, key, and original fields
+to recover it. The historical snapshot does not depend on the live row surviving.
+
 Use the same `tx` for both inserts. Calling `db.ExecContext` for the second write
 would run outside this transaction and break their common commit. There is no
 committed "pending" reservation: another successful reader sees a complete

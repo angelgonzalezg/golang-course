@@ -105,7 +105,26 @@ contactsqlc.Store.Create
   classify errors and convert the row -> Contact
 ```
 
-The SQL remains visible in [queries.sql](../contactsqlc/queries.sql):
+The SQL remains visible in [queries.sql](../contactsqlc/queries.sql).
+
+Choose one implementation for a call. Both paths still execute SQL through the
+same driver stack and preserve the shared contact contract:
+
+```mermaid
+flowchart TD
+    I[Create with typed input] --> A{Selected adapter}
+    A -->|Manual| M[contactsql.Store: normalize input]
+    M --> Q[Handwritten QueryRowContext and Scan]
+    A -->|sqlc| G[contactsqlc.Store: normalize and map input]
+    G --> C[Generated Queries.CreateContact and row decoding]
+    Q --> D[database/sql with pgx]
+    C --> D
+    D --> P[(PostgreSQL)]
+```
+
+sqlc generates the query code before execution. It does not replace PostgreSQL
+or move application validation into the database. The SQL example below is the
+source used for generation.
 
 ```sql
 -- name: CreateContact :one

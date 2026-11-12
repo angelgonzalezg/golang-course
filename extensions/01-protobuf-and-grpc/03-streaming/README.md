@@ -98,6 +98,26 @@ Client Recv: io.EOF -> final OK
 There is one request and several response messages. The client reads through
 the end to learn whether the whole RPC succeeded.
 
+The successful path selects a page before sending its contacts:
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as StreamContacts handler
+    participant D as Contact store
+    C->>S: One StreamContacts request
+    S->>D: Search for one bounded page
+    D-->>S: Snapshot of selected contacts
+    loop Each contact in that page
+        S-->>C: Contact response
+    end
+    S-->>C: Final OK status
+    Note over C: Recv returns io.EOF after successful completion
+```
+
+An empty snapshot skips the loop and still ends OK. A terminal error can replace
+that final OK even after some contacts were delivered.
+
 `StreamContacts` accepts the same query as `ListContacts`: zero limit selects
 20, other limits must be 1–100, offset must be nonnegative, and filter/sort rules
 are shared. The handler obtains one page, releases the store lock, and sends
@@ -131,6 +151,32 @@ Client result: summary, nil error -> final OK
 The server saves each item as it reads it; it can start work before the client
 finishes sending. A transactional batch would save all items or none. This
 import saves immediately, so a later failure can leave earlier contacts stored.
+
+The success sequence shows why finishing the request direction and receiving
+the final result are separate steps:
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as ImportContacts handler
+    participant D as Contact store
+    C->>S: Send contact Ana
+    S->>D: Create Ana
+    D-->>S: Ana stored
+    C->>S: Send contact Bea
+    S->>D: Create Bea
+    D-->>S: Bea stored
+    C->>S: CloseAndRecv half-closes request direction
+    Note over S: Recv returns request-side io.EOF
+    S-->>C: SendAndClose with count and IDs
+    S-->>C: Final OK status
+    Note over C: CloseAndRecv returns summary and nil error
+```
+
+The two creates are separate store operations. If the second fails, the server
+returns an error instead of the successful summary and Ana remains stored.
+Arrows show logical processing; a successful client Send alone acknowledges
+neither receipt by the handler nor a completed create.
 
 The client sends `CreateContactRequest` messages, then calls `CloseAndRecv`.
 That call half-closes the request direction and waits for the summary and final
@@ -179,6 +225,34 @@ Client keeps receiving, then sees io.EOF -> final OK
 The request ID connects each reply to the input that caused it. The invalid
 contact ID is represented inside one reply; it does not terminate this API's
 conversation. The demo sends and receives concurrently, as explained below.
+
+Here is one possible message order, followed by normal completion or cancellation
+while the server waits for more requests:
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as LookupContacts handler
+    C->>S: request_id=1, existing contact ID
+    S-->>C: request_id=1, contact outcome
+    C->>S: request_id=2, invalid contact ID
+    S-->>C: request_id=2, item failure outcome
+    alt Client finishes sending normally
+        C->>S: CloseSend half-closes request direction
+        Note over S: Recv returns request-side io.EOF
+        S-->>C: Final OK status
+        Note over C: Keep receiving until io.EOF
+    else Client cancels while the handler waits
+        C->>C: Cancel stream context
+        C->>S: Cancellation reaches stream.Context
+        Note over S: Blocked receive stops and handler returns
+        Note over C: Receive ends with Canceled, then join sender
+    end
+```
+
+The diagram displays a conversation, not a requirement to alternate Send and
+Recv in client code. The actual client has one sender and one concurrent
+receiver. An item failure does not itself fail the RPC.
 
 Each `LookupContactsRequest` contains a contact ID and a client-chosen
 `request_id`. The server echoes the correlation value and sends one response

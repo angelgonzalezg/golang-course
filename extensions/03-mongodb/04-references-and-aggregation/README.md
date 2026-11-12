@@ -98,6 +98,24 @@ as `[]` when absent. Imported data must follow the intended string/array model;
 the earlier schema lesson shows how to add database-enforced rules. Companies
 created here always have ObjectID identities.
 
+The stored relationship is an ObjectID value shared by two references:
+
+```mermaid
+flowchart LR
+    subgraph Profiles[Profiles collection]
+        A[Ana: company_id is C1]
+        B[Bea: company_id is C1]
+    end
+    subgraph Companies[Companies collection]
+        C[Company with _id C1 and name Atlas]
+    end
+    A -.->|Match company_id to _id| C
+    B -.->|Match company_id to _id| C
+```
+
+C1 stands for an ObjectID, not a Go memory address. The dashed edges describe
+lookup matches; they do not enforce existence or cascade behavior.
+
 ## Follow the directory pipeline
 
 | Stage | Purpose |
@@ -127,6 +145,23 @@ not update storage or another row's decoded company.
 Limit precedes lookup because each foreign `_id` yields at most one match and
 there is no post-join filter. Moving a company-name filter after that limit would
 change the meaning of the query. Pipeline order is part of the report contract.
+
+Follow each stage's output into the next. The empty-match path still produces
+a directory row, with a nil Company in the Go read model:
+
+```mermaid
+flowchart TD
+    P[Profiles] --> M["$match: optional exact city"]
+    M --> S["$sort: name, then _id"]
+    S --> L["$limit: source profiles"]
+    L --> K["$lookup: company_id to company _id"]
+    K --> U["$unwind: preserve empty company matches"]
+    U --> R["$project: directory fields"]
+    R --> G[Go DirectoryEntry values]
+```
+
+This limit bounds source directory rows before the join. The grouping reports
+below intentionally place their limit after counting.
 
 ## Grouping into typed reports
 
@@ -169,6 +204,25 @@ the order of set-union's intermediate array does not matter.
 
 Results decode into `[]TagCount`. A small generic helper owns cursor iteration,
 decoding, error checks, and fresh-context cleanup for all three typed read models.
+
+In TagTotals, deduplication happens inside each profile before counting across
+profiles. Both report pipelines group before applying their final row limit:
+
+```mermaid
+flowchart TD
+    P[Profiles] --> M["$match: optional city"]
+    M --> D["$project with $setUnion: distinct tags per profile"]
+    D --> U["$unwind: one row per tag"]
+    U --> G["$group: count profiles for each tag"]
+    G --> R["$project: tag and profile count"]
+    R --> S["$sort: count descending, then tag"]
+    S --> L["$limit: returned groups"]
+    L --> T[Go TagCount values]
+```
+
+For example, one profile with tags `go, go, backend` contributes one count to
+go and one to backend. An empty array contributes no tag rows.
+
 Empty reports are nonnil empty slices. Returned row limits do not bound all
 upstream scans, grouping, sort memory, or join work; contexts bound operation time.
 The report pipelines perform reads and do not write materialized results.

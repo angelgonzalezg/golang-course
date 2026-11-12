@@ -98,6 +98,35 @@ Client: verified TLS + bearer credential + x-idempotency-key
 Client: Contact plus x-idempotency-replayed trailer
 ```
 
+The finite demo models a reply lost after commit by returning `Unavailable`.
+Retry keeps the identity and input stable, and authorization runs again:
+
+```mermaid
+sequenceDiagram
+    participant C as TLS client
+    participant S as gRPC server
+    participant A as rpcpostgres.Store
+    participant P as PostgreSQL
+    C->>S: CreateContact with credential and stable key
+    S->>S: Authenticate, authorize, check key
+    S->>A: Create with verified subject and key
+    A->>P: CreateOnce locks key, inserts contact and result
+    P-->>A: Commit confirmed with original snapshot
+    A-->>S: Contact with replay=false
+    S-->>C: Unavailable because demo discards reply
+    C->>S: Retry same credential, key, and original fields
+    S->>S: Authenticate, authorize, check key again
+    S->>A: Create with the same identity
+    A->>P: CreateOnce locks key, reads saved result
+    P-->>A: Read transaction committed with original snapshot
+    A-->>S: Contact with replay=true
+    S-->>C: Contact and replay trailer
+```
+
+These are the successful database paths behind two RPC attempts. A fresh server
+or pool can read the same retained snapshot; neither request depends on an
+in-process cache. The retry client still obeys its existing attempt/deadline limits.
+
 Authorization runs on every invocation, including replay. The caller cannot
 choose a subject using an identity/role header. The lab policy maps verified
 tokens to `reader-client` or `writer-client`; only the writer may mutate or use

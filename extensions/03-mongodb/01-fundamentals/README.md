@@ -104,6 +104,28 @@ store BSON null. A nonnil pointer uses `$set`, including an empty string.
 4. Let MongoDB enforce the unique name index.
 5. Return the created Go value or a wrapped error.
 
+For valid input, follow the boundary between ordinary Go data and stored BSON:
+
+```mermaid
+sequenceDiagram
+    participant A as Application
+    participant S as contactmongo.Store
+    participant M as MongoDB
+    A->>S: Create with Input
+    S->>S: Normalize, validate, assign ObjectID
+    S->>M: InsertOne with BSON and caller context
+    alt Insert acknowledged
+        M-->>S: Success after checking unique index
+        S-->>A: Created Go Contact
+    else Name already exists
+        M-->>S: Duplicate-key error
+        S-->>A: ErrDuplicate with driver cause
+    end
+```
+
+The return value is a Go copy. Later edits to it require a new database write
+to change storage. Input, network, and context failures retain their own errors.
+
 Strings are values in a typed document/filter; they are never concatenated into
 a query language or accepted as caller-supplied BSON operators. Names are unique
 after whitespace trimming, with case-sensitive matching under this lab's default

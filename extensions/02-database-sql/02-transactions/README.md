@@ -128,6 +128,23 @@ After: only the original "Bea" remains
 Use the `tx` methods throughout the unit of work. A call to `db.ExecContext`
 would use the pool outside that transaction, potentially on another connection.
 
+Both inserts belong to one transaction. The diagram separates a statement
+failure from a Commit error, whose outcome may be uncertain to the caller:
+
+```mermaid
+flowchart TD
+    B[BeginTx] --> I[Insert batch using tx]
+    I --> Q{Inserts succeeded?}
+    Q -->|No| R[Rollback tentative rows]
+    Q -->|Yes| C[Call Commit]
+    C --> A{Commit confirmed?}
+    A -->|Yes| S[Return created contacts]
+    A -->|Error| U[Return error: outcome uncertain]
+```
+
+BeginTx errors return before any inserts. Identity sequence numbers can still
+be consumed on the rollback path, even though no new contact rows remain.
+
 `defer tx.Rollback()` supplies cleanup for an early error or panic. Once Commit
 succeeds, that deferred call returns `sql.ErrTxDone` and does not undo the commit.
 Identity sequences can have gaps after rollback; this is separate from whether
@@ -221,6 +238,26 @@ version 1 remains applied, version 2's DDL rolls back, and the version table
 records `(2, true)`. Repeating the command stops for review. A process failure
 can also leave dirty state even when SQL committed; the flag alone does not
 prove which statements took effect.
+
+The runner reads migration state under the advisory lock and rejects dirty or
+invalid targets. For a clean schema and a valid forward target, it then advances
+one file at a time while holding that lock:
+
+```mermaid
+flowchart TD
+    N{Pending file?} -->|No| D[Release lock, report version]
+    N -->|Yes| M[Record next version: dirty=true]
+    M --> F[Run file: BEGIN, DDL, COMMIT]
+    F --> S{SQL succeeded?}
+    S -->|Yes| C[Record version: dirty=false]
+    C --> N
+    S -->|SQL failure| X[Roll back file SQL, retain dirty state]
+    X --> U[Release lock, return error for review]
+```
+
+The failure branch illustrates a SQL failure inside the file. A lost connection
+or process interruption still requires inspecting actual schema state; this
+diagram does not treat every error as proof that DDL rolled back.
 
 The migration pool is separately owned and closed because the library closes
 its driver's pool. The business store's pool remains available. Unlike the

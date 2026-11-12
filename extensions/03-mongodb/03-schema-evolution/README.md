@@ -95,6 +95,22 @@ It does not write on read. `Insert` trims/validates new input and always writes 
 Do not marshal the normalized read model back as a replacement document: it does
 not contain every stored field. Unknown fields are retained by the migration.
 
+Reading compatibility does not migrate a stored record. Both known shapes map
+to the same Go read model; unsupported data returns an error:
+
+```mermaid
+flowchart TD
+    R[Read raw BSON document] --> V{Supported valid shape?}
+    V -->|Version absent or integer 1| A[Read top-level city]
+    V -->|Integer version 2| B[Read address.city]
+    V -->|Malformed or unsupported| E[Return document or version error]
+    A --> G[Go Profile with City and StoredVersion]
+    B --> G
+```
+
+Only the explicit backfill changes v1 documents to v2. New Insert calls already
+write v2; no read in this diagram writes back to MongoDB.
+
 ## Rules in Go and in MongoDB
 
 Go validation gives callers early errors. A MongoDB `$jsonSchema` validator also
@@ -173,6 +189,25 @@ If incompatible documents remain, it returns `ErrMigrationRequired` and leaves
 the v2 policy installed. Valid legacy records can still be updated directly to
 valid v2 by the backfill; repair unsupported records deliberately, then retry
 finalization. Errors never cause an automatic fallback to the permissive policy.
+
+After expansion, compatible readers/new v2 writers, and the initial backfill,
+the cutover follows this order:
+
+```mermaid
+flowchart TD
+    R[Retire old v1 writers] --> I[Finalize installs the strict v2 validator]
+    I --> A[Audit existing documents against v2]
+    A --> Q{All documents satisfy v2?}
+    Q -->|Yes| S[Finalize succeeds]
+    Q -->|No| E[ErrMigrationRequired; keep the v2 validator]
+    E --> F[Backfill valid v1 or explicitly repair unsupported data]
+    F --> T[Retry Finalize without reinstalling compatibility policy]
+    T --> I
+```
+
+Existing v1 rows can remain after the validator changes. They may still be
+updated into valid v2 rows. This loop is a rollout/recovery sequence, not one
+transaction over the collection.
 
 `InstallCompatible` is an explicit rollout step, not startup housekeeping.
 Calling it after finalization would reopen old writes. Repeating the backfill

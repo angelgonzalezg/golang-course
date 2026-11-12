@@ -37,6 +37,29 @@ It attempts to remove only its own randomly named contact and closes its pools
 before exiting. The table bootstrap is separate from the versioned migration
 examples introduced in the next lesson. IDs can have gaps; use returned IDs.
 
+## Follow one create
+
+The Go adapter validates fields, sends SQL with separate arguments, and scans
+the returned row. This is the successful insert path:
+
+```mermaid
+sequenceDiagram
+    participant A as Application
+    participant S as contactsql.Store
+    participant P as PostgreSQL
+    A->>S: Create with name and optional email
+    S->>S: Normalize and validate input
+    S->>P: QueryRowContext with INSERT and bound arguments
+    P->>P: Assign identity and check constraints
+    P-->>S: Returned row
+    S->>S: Scan ID, name, and nullable email
+    S-->>A: Go Contact
+```
+
+Arguments remain values, including SQL NULL for an absent email. A rejected
+constraint or failed call follows the adapter's error path instead of returning
+a created Contact. The pool is reused across operations; it does not own rows.
+
 ## Ordinary tests
 
 These commands compile/check the module without a running database:

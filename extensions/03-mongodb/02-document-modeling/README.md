@@ -74,6 +74,23 @@ One stored profile has this shape:
 counts Unicode runes, lowercases/deduplicates tags, and copies the input slice.
 It always produces a nonnil tags slice. An input with no tags is encoded as `[]`.
 
+The related fields live inside the same stored document:
+
+```mermaid
+flowchart TD
+    subgraph Document[One profile BSON document]
+        P[Profile with its own _id and name]
+        P --> A[Embedded address]
+        A --> S[street]
+        A --> C[city]
+        P --> T[Embedded tags array, at most 8 inputs]
+    end
+    U[UpdateCity] -->|set address.city only| C
+```
+
+Inside the box, arrows mean field containment, not extra queries or Go pointers.
+The city update targets one child field in that document and preserves street.
+
 | Field | Teaching rule |
 | --- | --- |
 | Name / city | Required trimmed text, at most 80 Unicode runes |

@@ -115,6 +115,21 @@ Every successful wrapper SET assigns a fresh TTL, including overwrites. Raw SET
 without expiration normally removes an existing TTL; the demo uses one such
 command to show a persistent key. The wrapper itself always requires expiration.
 
+Follow one key written through the wrapper. GET observes the value; it does
+not renew its lifetime. A later successful SET assigns a fresh TTL:
+
+```mermaid
+flowchart TD
+    A[Absent key] -->|SET value with PX| B[Value with an expiration]
+    B -->|GET before expiration| H[HIT with the stored value]
+    B -->|TTL elapses or DEL succeeds| A
+    A -->|GET| M[ErrMiss]
+    B -->|SET again with PX| B
+```
+
+An empty string follows the same HIT path. This diagram assumes successful
+commands; connection errors remain failures, as shown in the table above.
+
 `TTL` uses PTTL for millisecond metadata:
 
 | PTTL reply | `Expiration` |

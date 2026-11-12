@@ -53,6 +53,65 @@ it is different from an unavailable cache or invalid JSON. Missing contacts are
 not cached, so repeated missing-ID reads still reach PostgreSQL. IDs are never
 reused. Collection queries remain outside this lesson's cache.
 
+### Writes commit before invalidation
+
+Replace, Patch, and Delete use this order. The source adapter owns the SQL
+transaction; the cache layer calls DEL only after that adapter reports success:
+
+```mermaid
+sequenceDiagram
+    participant C as Caller
+    participant A as contactcache.Store
+    participant P as PostgreSQL via contactpg
+    participant V as Valkey
+    C->>A: Replace, Patch, or Delete
+    A->>P: Write through the source adapter
+    alt Source confirms success
+        P-->>A: Write committed
+        A->>V: DEL contact key
+        alt DEL succeeds, including an absent key
+            V-->>A: Key absent
+            A-->>C: Success
+        else DEL fails
+            V-->>A: Cache error
+            A-->>C: InvalidationError, source already committed
+        end
+    else Source returns an error
+        P-->>A: Source error, success not confirmed
+        A-->>C: Source error, no DEL attempted
+    end
+```
+
+Create writes only to PostgreSQL and leaves cache population to the next Get.
+The sequence does not make the two services one transaction; read the
+[error and consistency limits](#errors-and-consistency-limits) below.
+
+### Expiration removes the copy, not the row
+
+This is the successful path for the demo's short-lived contact:
+
+```mermaid
+sequenceDiagram
+    participant C as Caller
+    participant A as contactcache.Store
+    participant V as Valkey
+    participant P as PostgreSQL
+    Note over V,P: Cached copy exists, source row remains durable
+    V->>V: TTL elapses and key becomes absent
+    C->>A: Get contact
+    A->>V: GET contact key
+    V-->>A: MISS
+    A->>P: Get contact by ID
+    P-->>A: Current contact
+    A->>V: SET JSON with a fresh TTL
+    V-->>A: Stored
+    A-->>C: Contact
+```
+
+The initial read diagram and these sequences assume successful decoding and
+cache fills. Cache failures are propagated in this stage; they do not silently
+take the MISS branch.
+
 ## Prerequisites and manual services
 
 Use a full checkout, Go 1.27 on PATH, and Docker CLI/Compose v2 with a running
