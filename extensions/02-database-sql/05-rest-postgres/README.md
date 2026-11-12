@@ -249,7 +249,8 @@ through a new server/pool in a second OS process. It models lost-response
 recovery without claiming real packet-loss injection. `TestRESTProcessHelper`
 is that test-binary child entry and simply returns during ordinary parent runs.
 
-The next block connects PostgreSQL to the existing gRPC service contracts.
+Continue to [gRPC with PostgreSQL](../../01-protobuf-and-grpc/06-postgres/README.md)
+to reuse this store and durable creation policy with the existing RPC contracts.
 
 References: [PostgreSQL row/advisory locks](https://www.postgresql.org/docs/18/explicit-locking.html),
 [PostgreSQL character storage](https://www.postgresql.org/docs/18/datatype-character.html),

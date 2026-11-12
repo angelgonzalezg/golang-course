@@ -248,7 +248,8 @@ checked by compilation, the drift check, and those real database tests.
 
 Continue to [REST with PostgreSQL](../05-rest-postgres/README.md), which connects
 generated PostgreSQL queries to the existing HTTP contract and durable keyed
-creation. PostgreSQL integration for gRPC follows it.
+creation. Then follow
+[gRPC with PostgreSQL](../../01-protobuf-and-grpc/06-postgres/README.md).
 
 References: [sqlc v1.31.1](https://github.com/sqlc-dev/sqlc/releases/tag/v1.31.1),
 [configuration](https://docs.sqlc.dev/en/latest/reference/config.html),

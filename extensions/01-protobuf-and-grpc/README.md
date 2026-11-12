@@ -5,12 +5,12 @@ This optional backend extension follows the course's
 It is supplementary material, outside the book's numbered chapter mapping.
 Read packages, interfaces, errors, concurrency, context, testing, and REST first.
 
-The lab has its own module so external Protobuf/gRPC dependencies do not enter
+The lab has its own module so external Protobuf/gRPC/database dependencies do not enter
 the main course module. Use Go 1.27. The first run downloads pinned dependencies;
 subsequent runs can reuse the module cache. Generated source is checked in, so
 running the lesson and ordinary tests does not require protoc.
 
-## Available stages: all five stages implemented
+## Available stages
 
 The implemented first stage provides a versioned `.proto` contract, generated
 message types and gRPC interfaces, a finite local serialization demo, and tests
@@ -23,8 +23,14 @@ with per-item outcomes, cancellation, flow control, and lifecycle tests. The
 [fourth stage](04-infrastructure/README.md) adds metadata, interceptor chains,
 completion logging, verified TLS, reader/writer access, health, reflection, and
 grpcurl exercises around the same service. The [fifth stage](05-resilience/README.md)
-completes the lab with byte limits, bounded retries, keyed creation, local
+completes the in-memory sequence with byte limits, bounded retries, keyed creation, local
 OpenTelemetry metrics/traces, controlled failures, and a [final review](05-resilience/review.md).
+
+The [sixth stage, gRPC with PostgreSQL](06-postgres/README.md), follows the SQL
+lessons and REST with PostgreSQL. It reuses their persistent store for unary and
+streaming RPCs, commits keyed creations/results atomically, and verifies recovery
+across server/pool/process lifetimes. It keeps TLS, permissions, bounds, discovery,
+and owned telemetry. All six stages are implemented.
 
 Start with the [dedicated Protobuf lesson](01-protobuf/README.md), then follow
 the short passes in each stage's guide. Read the worked request/result examples,
@@ -58,6 +64,13 @@ separate server/client modes; stage 5 runs controlled finite scenarios.
 The infrastructure demo creates its temporary CA,
 certificates, and credentials in memory; ordinary runs need no external tools.
 The resilience lesson also collects local metrics/traces without a collector.
+
+After the [SQL prerequisites](06-postgres/README.md), start the dedicated lab
+database, set `DATABASE_URL`, and run
+`go -C extensions/01-protobuf-and-grpc run ./06-postgres`.
+Its finite and separate-process modes are documented in
+[gRPC with PostgreSQL](06-postgres/README.md). Ordinary tests compile all stages
+without a database; select `-tags=integration` to run real PostgreSQL contracts.
 
 ## Read in order
 

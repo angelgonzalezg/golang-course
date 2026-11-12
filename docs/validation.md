@@ -24,7 +24,7 @@ one module's failure does not cancel the other module jobs.
 | Course job, extra steps | Checks the `diagnostic` build and confirms that chapter 11 generation reproduces the committed file. |
 | SQL job, extra step | Uses the pinned sqlc generator to compare expected bindings with the checked-in Go files. |
 | Race detector, all modules | Runs each module's tests with `-race`, separately from ordinary tests. |
-| PostgreSQL integration | Runs the SQL lab with `-tags=integration -race`, using Testcontainers and a real PostgreSQL server. |
+| PostgreSQL integration | Runs SQL and persistent gRPC tests with `-tags=integration -race`, using Testcontainers and real PostgreSQL servers. |
 
 Ordinary jobs use `CGO_ENABLED=0`, except for the cgo lab's job. The race job uses
 `CGO_ENABLED=1` with the runner's C compiler. The cgo lab remains optional for
@@ -147,8 +147,30 @@ POST, concurrent requests across pools/servers, atomic ETag conditions, partial
 updates without lost fields, forced result-insert rollback, cancellation, and
 lost-HTTP-reply recovery in a second process. The
 [REST with PostgreSQL guide](../extensions/02-database-sql/05-rest-postgres/README.md)
-includes finite and interactive server commands. gRPC persistence remains pending.
+includes finite and interactive server commands. The gRPC integration follows below.
 See the lab guide for Compose/demo commands and Rancher Desktop configuration.
+
+### gRPC PostgreSQL integration
+
+[gRPC with PostgreSQL](../extensions/01-protobuf-and-grpc/06-postgres/README.md)
+reuses the SQL adapter through a local module dependency. Its ordinary tests
+compile the lesson without Docker; the tagged package owns a disposable database
+and never reads the learner's `DATABASE_URL`. Run it with:
+
+```sh
+go -C extensions/01-protobuf-and-grpc test -tags=integration -race -count=1 -timeout=5m ./...
+go -C extensions/01-protobuf-and-grpc vet -tags=integration ./...
+go -C extensions/01-protobuf-and-grpc mod tidy -diff
+```
+
+The [suite](../extensions/01-protobuf-and-grpc/integration/postgres_test.go)
+compares memory/PostgreSQL unary and streaming behavior, then checks durable
+caller/key binding, authorization before replay, twelve concurrent retries across
+independent pools/servers, competing payloads, atomic version/partial updates,
+rollback and error redaction, SQL cancellation/deadlines, REST sharing,
+separate-process recovery, TLS/discovery/message limits/telemetry, and finite
+cleanup preserving unrelated data. The CI PostgreSQL job runs both modules.
+See the SQL setup guide for Rancher Desktop environment settings.
 
 ## Root module and formatting
 

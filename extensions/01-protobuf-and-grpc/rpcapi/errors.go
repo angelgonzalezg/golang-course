@@ -42,6 +42,8 @@ func (s *Service) rpcError(ctx context.Context, err error) error {
 		return status.Error(codes.NotFound, "contact not found")
 	case errors.Is(err, contacts.ErrNameTaken):
 		return status.Error(codes.AlreadyExists, "contact name already exists")
+	case errors.Is(err, contacts.ErrKeyReuse):
+		return status.Error(codes.FailedPrecondition, "idempotency key is already bound to another request")
 	case errors.Is(err, contacts.ErrPreconditionFailed):
 		// This is a stale write, not a missing resource. The caller must read
 		// current state before deciding whether a new write is still appropriate.

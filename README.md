@@ -96,6 +96,7 @@ Read that context chapter before the advanced concurrency pattern lesson in chap
 | Protobuf and gRPC contacts lab | Supplement after REST | [Contract and serialization foundation](extensions/01-protobuf-and-grpc/README.md), then [unary client/server application](extensions/01-protobuf-and-grpc/02-unary/README.md). |
 | PostgreSQL and database/sql lab | Supplement after context and testing | [SQL fundamentals and Testcontainers](extensions/02-database-sql/README.md), [transactions and migrations](extensions/02-database-sql/02-transactions/README.md), [durable idempotency](extensions/02-database-sql/03-idempotency/README.md), then [sqlc comparison](extensions/02-database-sql/04-sqlc/README.md). |
 | REST with PostgreSQL | Supplement after REST fundamentals and the SQL lessons | [Persistent contacts, atomic conditional writes, and durable keyed POST](extensions/02-database-sql/05-rest-postgres/README.md). |
+| gRPC with PostgreSQL | Supplement after the gRPC and SQL lessons | [Persistent unary/streaming RPCs and durable keyed creation](extensions/01-protobuf-and-grpc/06-postgres/README.md). |
 
 ## Validate the course
 
@@ -150,8 +151,9 @@ imports with partial commits, bidirectional lookup outcomes, and lifecycle
 tests. Its infrastructure stage adds verified TLS, metadata/interceptors,
 reader/writer access, health, reflection, and grpcurl exercises. Its resilience
 stage adds message limits, bounded retries, keyed creation, and OpenTelemetry.
-All five gRPC stages and the [lab's final review](extensions/01-protobuf-and-grpc/05-resilience/review.md)
-are complete. This lab is supplementary to the book's chapter mapping.
+The five original gRPC stages and their [review](extensions/01-protobuf-and-grpc/05-resilience/review.md)
+are complete. [gRPC with PostgreSQL](extensions/01-protobuf-and-grpc/06-postgres/README.md)
+adds persistence after the SQL lessons. This lab is supplementary to the book's chapter mapping.
 
 The [SQL lab](extensions/02-database-sql/README.md) begins the persistence
 extension with standalone fundamentals, transactions/migrations,
@@ -159,8 +161,8 @@ extension with standalone fundamentals, transactions/migrations,
 [manual/sqlc comparison](extensions/02-database-sql/04-sqlc/README.md), all covered
 by real PostgreSQL integration tests. The
 [REST with PostgreSQL](extensions/02-database-sql/05-rest-postgres/README.md) project
-adds database-backed HTTP operations and durable keyed POST. PostgreSQL
-integration for gRPC remains next; the original chapter commands retain their
-in-memory teaching examples.
+adds database-backed HTTP operations and durable keyed POST. The persistent
+gRPC lesson uses the same SQL adapter and retained creation results. The earlier
+in-memory lessons remain available for learning the underlying concepts.
 The REST learning path is **REST fundamentals → SQL lessons → REST with PostgreSQL**.
 Both REST projects share the contact rules and HTTP adapter.

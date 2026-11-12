@@ -186,6 +186,7 @@ func TestNilRequestsAndAdditionalStatusMappings(t *testing.T) {
 		code codes.Code
 	}{
 		{contacts.ErrIDExhausted, codes.ResourceExhausted},
+		{contacts.ErrKeyReuse, codes.FailedPrecondition},
 		{context.Canceled, codes.Canceled},
 		{context.DeadlineExceeded, codes.DeadlineExceeded},
 	} {

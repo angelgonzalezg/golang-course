@@ -1,4 +1,4 @@
-// Package rpcobserve connects gRPC to OpenTelemetry in the finite resilience lab.
+// Package rpcobserve connects the resilience and PostgreSQL gRPC lessons to OpenTelemetry.
 // It records numbers about calls (metrics) and related pieces of work (traces)
 // locally, without a separate collector process or global provider settings.
 package rpcobserve

@@ -83,8 +83,10 @@ to follow one permitted/rejected call before setting up separate processes.
 Then use the [stage-5 passes](../extensions/01-protobuf-and-grpc/05-resilience/README.md#learn-in-passes):
 first understand the retry and saved-result examples, then message limits,
 and finally logs/metrics/traces. Each guide defines its new terms beside the example.
-The lab uses its own module; all five stages and the
-[final review](../extensions/01-protobuf-and-grpc/05-resilience/review.md) are complete.
+The lab uses its own module; the five original stages and their
+[review](../extensions/01-protobuf-and-grpc/05-resilience/review.md) are complete.
+After the SQL lessons, its sixth stage adds
+[gRPC with PostgreSQL](../extensions/01-protobuf-and-grpc/06-postgres/README.md).
 
 For persistence, continue to the independent
 [PostgreSQL/database/sql lab](../extensions/02-database-sql/README.md) after
@@ -109,7 +111,12 @@ Run the shared PostgreSQL contracts and generation check. Then follow
 [REST with PostgreSQL](../extensions/02-database-sql/05-rest-postgres/README.md): keep
 the HTTP behavior, lock rows while checking validators, and bind keyed POST to
 a trusted caller and a saved creation snapshot. Test replay after deletion and
-across processes. PostgreSQL integration for gRPC follows later. The lab's
+across processes. Continue to
+[gRPC with PostgreSQL](../extensions/01-protobuf-and-grpc/06-postgres/README.md):
+follow verified caller/key metadata into the same SQL transaction, preserve
+stream-item commits and version conditions, and recover the original result
+through a new server/process. Compare its success-only retention with the
+earlier generic in-memory cache. The lab's
 [stage plan](../extensions/02-database-sql/README.md)
 separates implemented behavior from those future blocks.
 

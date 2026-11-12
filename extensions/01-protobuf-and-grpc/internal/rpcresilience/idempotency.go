@@ -1,4 +1,5 @@
-// Package rpcresilience contains the explicit policies used only in stage 5.
+// Package rpcresilience contains the stage-5 memory cache and bounded retry
+// policies. Stage 6 reuses the retry/limit policies with durable SQL creation.
 package rpcresilience
 
 import (

@@ -14,7 +14,7 @@ the HTTP contact model's normalization and PUT/PATCH rules remain in that projec
 | 2. Transactions and migrations | Implemented: [atomic batches, rollback, golang-migrate schema changes, and concurrent version checks](02-transactions/README.md). |
 | 3. Durable idempotency | Implemented: [request-bound keys, atomic creation/results, concurrent retries, lost replies, and process-independent replay](03-idempotency/README.md). |
 | 4. sqlc comparison | Implemented: [generated CRUD beside manual SQL, shared PostgreSQL contracts, explicit transaction binding, and pinned generation checked in CI](04-sqlc/README.md). |
-| 5. Service integration | [REST with PostgreSQL](05-rest-postgres/README.md) implemented: persistent contacts, atomic conditional writes, and durable `Idempotency-Key` creation. PostgreSQL integration for gRPC remains pending. |
+| 5. Service integration | Implemented: [REST with PostgreSQL](05-rest-postgres/README.md) and [gRPC with PostgreSQL](../01-protobuf-and-grpc/06-postgres/README.md) share persistent contacts, atomic version checks, and durable keyed creation. |
 
 ## Start a local teaching database
 
@@ -210,6 +210,10 @@ The related course examples have different scopes:
   creation key to the caller and request, and saves results in memory. Its tests
   include concurrent retries and a simulated lost reply. The records do not
   survive a process restart.
+- [gRPC with PostgreSQL](../01-protobuf-and-grpc/06-postgres/README.md) uses the
+  same service store/ledger as persistent REST. It retains committed successes
+  and tests concurrent RPCs, cancellation, cross-transport writes/replay, and
+  separate-process recovery.
 - The SQL fundamentals exercise repeated state changes and database uniqueness.
   [Stage 3](03-idempotency/README.md) adds durable request-key handling before
   transport wiring.
@@ -312,11 +316,12 @@ in ordinary tests/vet/metadata and race checks. A dedicated PostgreSQL integrati
 job runs the tagged tests with the race detector on a Docker-enabled Linux runner.
 See the [validation guide](../../docs/validation.md#postgresqlsql-module).
 
-Stages 1–4 are implemented. After the standalone fundamentals, read
+Stages 1–5 are implemented. After the standalone fundamentals, read
 [transactions and migrations](02-transactions/README.md), then
 [durable idempotency](03-idempotency/README.md) and the
 [sqlc comparison](04-sqlc/README.md). Continue to
-[REST with PostgreSQL](05-rest-postgres/README.md); gRPC persistence remains next. The manual
+[REST with PostgreSQL](05-rest-postgres/README.md), then
+[gRPC with PostgreSQL](../01-protobuf-and-grpc/06-postgres/README.md). The manual
 `database/sql` implementation remains the foundation for learning Scan, result
 sets, error causes, and resource ownership. The sqlc adapter shares its CRUD
 contracts and real PostgreSQL tests. The workflow also checks pinned generation

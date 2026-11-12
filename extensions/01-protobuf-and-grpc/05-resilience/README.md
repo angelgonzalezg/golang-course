@@ -331,8 +331,11 @@ go -C extensions/01-protobuf-and-grpc vet ./...
 go -C extensions/01-protobuf-and-grpc mod tidy -diff
 ```
 
-The [review and validation guide](review.md) maps all five stages, their checks,
+The [review and validation guide](review.md) maps the five original stages, their checks,
 and the limits of the completed educational scope. Before finishing, explain
 why `Unavailable` alone cannot make a write safe to retry, why a key must be
 bound to a payload and authenticated subject, why message limits do not cap
 an entire stream, and why handler/client/transport outcomes can differ.
+
+After the SQL lessons, continue to [gRPC with PostgreSQL](../06-postgres/README.md)
+to compare this generic memory cache with atomic, durable creation results.

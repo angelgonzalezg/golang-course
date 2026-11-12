@@ -6,6 +6,7 @@ import (
 	"time"
 
 	contactsv1 "example.com/course/grpc-lab/gen/contacts/v1"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -46,9 +47,9 @@ func (c *Client) ListContacts(ctx context.Context, request *contactsv1.ListConta
 
 // CreateOnce uses a key to label one intended create operation. If its reply is
 // lost, the same key/data asks the server for the saved result. This requires
-// the server's CreateCache after authorization; the key alone cannot prevent
-// duplicate work on endpoints without that cache.
-func (c *Client) CreateOnce(ctx context.Context, key string, request *contactsv1.CreateContactRequest) (*contactsv1.Contact, error) {
+// a server policy after authorization: stage 5 uses CreateCache, while stage 6
+// commits the contact/result together in PostgreSQL. A key alone supplies no guarantee.
+func (c *Client) CreateOnce(ctx context.Context, key string, request *contactsv1.CreateContactRequest, options ...grpc.CallOption) (*contactsv1.Contact, error) {
 	if !validKey(key) {
 		return nil, status.Error(codes.InvalidArgument, "a valid idempotency key is required before retrying creation")
 	}
@@ -58,7 +59,11 @@ func (c *Client) CreateOnce(ctx context.Context, key string, request *contactsv1
 	md = md.Copy()
 	md.Set(KeyHeader, key)
 	ctx = metadata.NewOutgoingContext(ctx, md)
-	return retryUnary(ctx, func(ctx context.Context) (*contactsv1.Contact, error) { return c.api.CreateContact(ctx, request) })
+	// Options apply to each sequential attempt, including trailer capture from
+	// the final invocation. They do not add another application retry policy.
+	return retryUnary(ctx, func(ctx context.Context) (*contactsv1.Contact, error) {
+		return c.api.CreateContact(ctx, request, options...)
+	})
 }
 
 func retryUnary[T any](parent context.Context, invoke func(context.Context) (T, error)) (T, error) {

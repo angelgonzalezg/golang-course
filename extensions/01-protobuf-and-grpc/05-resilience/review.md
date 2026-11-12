@@ -4,6 +4,10 @@ The five agreed stages form one progression. The core contact rules still live
 in the course's REST project; gRPC adds a separate transport without moving
 those rules or bringing external libraries into the root module.
 
+This review covers the original five-stage sequence. Continue after the SQL
+lessons to [gRPC with PostgreSQL](../06-postgres/README.md) for persistent
+contacts, durable creation results, and real PostgreSQL integration tests.
+
 | Stage | Concepts and executable | What to inspect |
 | --- | --- | --- |
 | 1. [Protobuf](../01-protobuf/README.md) | Field numbers, presence, masks, binary/ProtoJSON, cloning, compatibility. | `01-protobuf`, versioned contract, checked-in generated code, reproducible generation. |

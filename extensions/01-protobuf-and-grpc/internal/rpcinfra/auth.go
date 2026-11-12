@@ -1,4 +1,4 @@
-// Package rpcinfra supplies metadata, logging, and access control for stages 4 and 5.
+// Package rpcinfra supplies metadata, logging, and access control for the TLS lessons.
 package rpcinfra
 
 import (

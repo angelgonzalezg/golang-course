@@ -10,8 +10,8 @@ import (
 	"golangcourse/chapters/13-standard-library/06-project-rest-api/contacts"
 )
 
-// Store is the behavior this adapter needs. Both REST and gRPC can receive the
-// same *contacts.Store; neither transport defines the contact business rules.
+// Store is the behavior this adapter needs. REST and gRPC can share a memory or
+// PostgreSQL backend; neither transport defines the contact business rules.
 type Store interface {
 	Create(context.Context, contacts.Input) (contacts.Contact, error)
 	Get(context.Context, int64) (contacts.Contact, error)
@@ -49,7 +49,8 @@ func New(store Store, logger *slog.Logger) *Service {
 var _ contactsv1.ContactServiceServer = (*Service)(nil)
 
 // CreateContact requires input and returns the store-assigned ID/content version.
-// The base operation has no deduplication; stage 5 adds it around unary RPC calls.
+// The base operation has no deduplication; stages 5 and 6 add their respective
+// in-memory and durable policies around unary RPC calls.
 func (s *Service) CreateContact(ctx context.Context, request *contactsv1.CreateContactRequest) (*contactsv1.Contact, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, s.rpcError(ctx, err)
@@ -153,7 +154,7 @@ func (s *Service) UpdateContact(ctx context.Context, request *contactsv1.UpdateC
 	if err != nil {
 		return nil, err
 	}
-	// Comparison and mutation happen inside PatchIf's single store lock.
+	// Comparison and mutation share PatchIf's memory lock or SQL transaction.
 	value, err := s.store.PatchIf(ctx, request.GetId(), changes, conditions)
 	if err != nil {
 		return nil, s.rpcError(ctx, err)
