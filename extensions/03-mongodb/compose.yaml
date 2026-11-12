@@ -19,5 +19,16 @@ services:
       retries: 30
       start_period: 10s
 
+  schema-setup:
+    # Explicit one-shot setup works with existing volumes as well as new ones.
+    profiles: ["schema"]
+    image: mongo:8.0.38-noble
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./setup/schema-user.js:/schema-user.js:ro
+    entrypoint: ["mongosh", "--quiet", "--host", "mongodb", "--username", "mongo_admin", "--password", "mongo_admin_local", "--authenticationDatabase", "admin", "/schema-user.js"]
+
 volumes:
   mongo_data:

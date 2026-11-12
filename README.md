@@ -101,7 +101,7 @@ Read that context chapter before the advanced concurrency pattern lesson in chap
 | PostgreSQL and database/sql lab | Supplement after context and testing | [SQL fundamentals and Testcontainers](extensions/02-database-sql/README.md), [transactions and migrations](extensions/02-database-sql/02-transactions/README.md), [durable idempotency](extensions/02-database-sql/03-idempotency/README.md), then [sqlc comparison](extensions/02-database-sql/04-sqlc/README.md). |
 | REST with PostgreSQL | Supplement after REST fundamentals and the SQL lessons | [Persistent contacts, atomic conditional writes, and durable keyed POST](extensions/02-database-sql/05-rest-postgres/README.md). |
 | gRPC with PostgreSQL | Supplement after the gRPC and SQL lessons | [Persistent unary/streaming RPCs and durable keyed creation](extensions/01-protobuf-and-grpc/06-postgres/README.md). |
-| MongoDB documents | Supplement after context and testing; compare with SQL fundamentals | [Fundamentals](extensions/03-mongodb/01-fundamentals/README.md), then [embedded documents, queries, projections, and nested updates](extensions/03-mongodb/02-document-modeling/README.md). |
+| MongoDB documents | Supplement after context and testing; compare with SQL fundamentals | [Fundamentals](extensions/03-mongodb/01-fundamentals/README.md), [document modeling and queries](extensions/03-mongodb/02-document-modeling/README.md), then [validation and schema evolution](extensions/03-mongodb/03-schema-evolution/README.md). |
 
 ## Validate the course
 
@@ -179,5 +179,8 @@ ownership. Unit tests check BSON and validation without a database; tagged
 Testcontainers tests use a real authenticated MongoDB server. Its
 [second stage](extensions/03-mongodb/02-document-modeling/README.md) embeds
 addresses/tags, queries city and array values, projects summaries, and updates
-one nested field while preserving its neighbors. Further aggregation/schema
-evolution and caching remain separate blocks, with guided exercises last.
+one nested field while preserving its neighbors. The
+[third stage](extensions/03-mongodb/03-schema-evolution/README.md) adds server
+validation, mixed-version reads, repeatable backfill, audited cutover, and
+separate schema permissions. References/aggregation and caching remain separate
+blocks, with guided exercises last.

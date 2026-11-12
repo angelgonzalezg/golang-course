@@ -1,0 +1,14 @@
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "title": "Legacy profile: city at the top level",
+    "required": ["_id", "name", "city"],
+    "not": {"required": ["address"]},
+    "properties": {
+      "_id": {"bsonType": "objectId"},
+      "name": {"bsonType": "string", "minLength": 1, "maxLength": 80, "pattern": "^[^\\x00]*$"},
+      "city": {"bsonType": "string", "minLength": 1, "maxLength": 80, "pattern": "^[^\\x00]*$"},
+      "schemaVersion": {"bsonType": ["int", "long"], "enum": [1]}
+    }
+  }
+}

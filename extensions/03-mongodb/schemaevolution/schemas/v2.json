@@ -1,0 +1,20 @@
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "title": "Current profile: city inside address",
+    "required": ["_id", "name", "address", "schemaVersion"],
+    "not": {"required": ["city"]},
+    "properties": {
+      "_id": {"bsonType": "objectId"},
+      "name": {"bsonType": "string", "minLength": 1, "maxLength": 80, "pattern": "^[^\\x00]*$"},
+      "schemaVersion": {"bsonType": ["int", "long"], "enum": [2]},
+      "address": {
+        "bsonType": "object",
+        "required": ["city"],
+        "properties": {
+          "city": {"bsonType": "string", "minLength": 1, "maxLength": 80, "pattern": "^[^\\x00]*$"}
+        }
+      }
+    }
+  }
+}

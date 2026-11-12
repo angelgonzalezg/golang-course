@@ -195,7 +195,7 @@ go -C extensions/03-mongodb vet -tags=integration ./...
 ```
 
 The fixtures own authenticated servers and test namespaces, register cleanup,
-and never read `MONGODB_URI` or connect to Compose. Cases verify CRUD and actual
+and never read `MONGODB_URI`/`MONGODB_SCHEMA_URI` or connect to Compose. Cases verify CRUD and actual
 BSON presence, bounded cursor ordering, repeated index/field operations, twelve
 competing creates, cancellation/deadlines, failed authentication, independent
 clients/results, and finite-demo cleanup preserving unrelated documents. The
@@ -210,6 +210,15 @@ Rancher Desktop, expected output, and cleanup commands. Tagged tests fail when
 the engine is missing; they do not silently skip verification.
 The [stage-2 guide](../extensions/03-mongodb/02-document-modeling/README.md)
 also includes full standalone execution and test instructions.
+
+The [schema-evolution suite](../extensions/03-mongodb/integration/schema_test.go)
+provisions its own readWrite/dbAdmin users. It checks server validation and role
+boundaries, invalid pre-existing data and repair, bounded/resumable/concurrent
+backfill, future-version rejection, failed/final audits, retained v2-only policy,
+and owned demo cleanup. It does not need the Compose schema-setup command.
+The [stage-3 guide](../extensions/03-mongodb/03-schema-evolution/README.md)
+includes that explicit setup for manual runs and both required URIs. The same CI
+MongoDB integration command now executes all three stages.
 
 ## Root module and formatting
 

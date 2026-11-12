@@ -350,8 +350,10 @@ with `go -C extensions/02-database-sql run ./internal/cmd/sqlgen -check`.
 The separate [MongoDB fundamentals lab](../03-mongodb/01-fundamentals/README.md)
 now introduces document CRUD, BSON presence, unique indexes, and real database
 tests. Its [second stage](../03-mongodb/02-document-modeling/README.md) adds
-embedding, filters/projections, and nested updates. Further aggregation/schema
-evolution and cache labs can follow separately; guided exercises remain last.
+embedding, filters/projections, and nested updates. Its
+[third stage](../03-mongodb/03-schema-evolution/README.md) introduces database
+validation and repeatable data evolution. References/aggregation and cache labs
+can follow separately; guided exercises remain last.
 
 References: [Go database/sql guides](https://go.dev/doc/database/),
 [pgx's stdlib adapter](https://pkg.go.dev/github.com/jackc/pgx/v5/stdlib),

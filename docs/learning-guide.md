@@ -137,8 +137,14 @@ embed an owned address and bounded tags, compare references conceptually, then
 combine city/tag filters with ordered limits and projected summaries. Update
 `address.city` while preserving street, unknown sibling fields, and concurrent
 writes to another child. Follow the tests for slice ownership and cleanup that
-preserves both stages' other data. Aggregation/schema evolution and caching
-can follow as separate blocks; guided exercises remain last.
+preserves both stages' other data. Then follow
+[validation and schema evolution](../extensions/03-mongodb/03-schema-evolution/README.md):
+add strict server validation without assuming old records have been repaired,
+read v1/v2 while writing v2, audit and explicitly repair old data, then backfill
+in repeatable batches. Tighten to v2 before the final audit so old writers cannot
+race a pre-cutover count. Data/schema accounts have distinct roles. The guide
+includes one-shot account setup that works with existing volumes. References/
+aggregation and caching can follow as separate blocks; guided exercises remain last.
 
 ## First pass through pointers
 

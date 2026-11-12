@@ -85,7 +85,8 @@ It always produces a nonnil tags slice. An input with no tags is encoded as `[]`
 Cities and names retain case. Query tags use the same lowercase rule as stored
 tags; this is not locale-aware or accent-insensitive searching. Validation applies
 to these Go entry points. External database writers can create different shapes;
-server-side validation and schema evolution belong to a later block.
+the [schema-evolution lesson](../03-schema-evolution/README.md) introduces
+server-side validation and a controlled rollout for existing documents.
 
 Copying `Address` copies its string fields. Copying `Profile` still shares the
 Tags slice's backing array. `Create` therefore returns tags independent of the

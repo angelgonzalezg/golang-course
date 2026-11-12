@@ -8,7 +8,8 @@ compares BSON presence with SQL NULL, and checks indexes, context, and cleanup.
 | --- | --- |
 | 1. Fundamentals | Implemented: [complete walkthrough and standalone execution/test guide](01-fundamentals/README.md), ObjectID/BSON, CRUD, bounded cursors, field updates, unique indexes, validation, and Testcontainers tests. |
 | 2. Document modeling and queries | Implemented: [standalone embedded-document/query guide](02-document-modeling/README.md), address/tags modeling, embedding versus reference decisions, city/tag filters, projected summaries, ordered limits, and nested updates with real MongoDB tests. |
-| Further queries and schema evolution | Proposed: cross-collection references/aggregation, query-plan exploration, and explicit schema evolution. |
+| 3. Validation and schema evolution | Implemented: [standalone rollout guide](03-schema-evolution/README.md), database validation, mixed-version reads, repeatable/resumable backfill, audited cutover, and separate data/schema accounts. |
+| Further queries | Proposed: cross-collection references/aggregation and query-plan exploration. |
 
 ## Run directly
 
@@ -45,6 +46,22 @@ filters, projects summaries, and updates only `address.city`. Look for
 profiles. Its [README](02-document-modeling/README.md) also includes the complete
 setup and validation steps for starting directly at stage 2.
 
+For the validation/schema-evolution lesson, explicitly prepare the separate
+database-scoped schema account. This also works with existing lab volumes:
+
+```sh
+docker compose -f extensions/03-mongodb/compose.yaml --profile schema run --rm schema-setup
+export MONGODB_SCHEMA_URI='mongodb://mongo_schema:mongo_schema_local@127.0.0.1:27018/mongo_lab?authSource=mongo_lab'
+go -C extensions/03-mongodb run ./03-schema-evolution
+```
+
+Keep `MONGODB_URI` configured for ordinary reads/writes. The new account uses
+`dbAdmin` for `collMod`; its existing credentials/roles are retained on repeated
+setup. The stage demonstrates a compatibility validator, explicit repair,
+bounded backfill, and v2-only validation with an audit of existing data. Each run
+creates/drops only its random `schema_demo_*` collection. See the
+[standalone guide](03-schema-evolution/README.md) for the complete explanation.
+
 After the program exits, stop the manual database:
 
 ```sh
@@ -68,7 +85,7 @@ go -C extensions/03-mongodb mod tidy -diff
 CGO_ENABLED=1 go -C extensions/03-mongodb test -race -count=1 -timeout=90s ./...
 ```
 
-Tagged integration tests own a real, authenticated MongoDB container. They wait
+Tagged integration tests own real, authenticated MongoDB containers. They wait
 for readiness and clean it up, without using Compose or `MONGODB_URI`. Start the
 engine; a missing runtime makes these tests fail. The first run may pull images.
 
@@ -96,6 +113,7 @@ and quiet output from successful vet/metadata checks. CI includes this module
 in ordinary/race checks and runs the MongoDB integration suite separately.
 
 After the first run, follow the [fundamentals guide](01-fundamentals/README.md),
-then [document modeling and queries](02-document-modeling/README.md) to read the
-commented implementation and tests. Further aggregation/schema evolution and
-caching remain separate blocks; guided exercises remain the final course block.
+then [document modeling and queries](02-document-modeling/README.md), followed by
+[validation and schema evolution](03-schema-evolution/README.md), to read the
+commented implementation and tests. References/aggregation and caching remain
+separate blocks; guided exercises remain the final course block.
