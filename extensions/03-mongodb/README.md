@@ -9,7 +9,7 @@ compares BSON presence with SQL NULL, and checks indexes, context, and cleanup.
 | 1. Fundamentals | Implemented: [complete walkthrough and standalone execution/test guide](01-fundamentals/README.md), ObjectID/BSON, CRUD, bounded cursors, field updates, unique indexes, validation, and Testcontainers tests. |
 | 2. Document modeling and queries | Implemented: [standalone embedded-document/query guide](02-document-modeling/README.md), address/tags modeling, embedding versus reference decisions, city/tag filters, projected summaries, ordered limits, and nested updates with real MongoDB tests. |
 | 3. Validation and schema evolution | Implemented: [standalone rollout guide](03-schema-evolution/README.md), database validation, mixed-version reads, repeatable/resumable backfill, audited cutover, and separate data/schema accounts. |
-| Further queries | Proposed: cross-collection references/aggregation and query-plan exploration. |
+| 4. References and aggregation | Implemented: [standalone reports/explain guide](04-references-and-aggregation/README.md), company references and left lookup, grouped city/tag reports, typed results, index/access-path inspection, and real MongoDB tests. |
 
 ## Run directly
 
@@ -61,6 +61,18 @@ setup. The stage demonstrates a compatibility validator, explicit repair,
 bounded backfill, and v2-only validation with an audit of existing data. Each run
 creates/drops only its random `schema_demo_*` collection. See the
 [standalone guide](03-schema-evolution/README.md) for the complete explanation.
+
+The references/reporting stage uses only the ordinary `MONGODB_URI` account:
+
+```sh
+go -C extensions/03-mongodb run ./04-references-and-aggregation
+```
+
+It creates two random `report_demo_*` collections, demonstrates valid/unassigned/
+dangling company references, groups city/tag counts, and compares natural,
+indexed, and automatic access with explain. Cleanup drops only its two owned
+collections. Its [README](04-references-and-aggregation/README.md) includes the
+full direct-run setup; schema-account provisioning is unnecessary for this stage.
 
 After the program exits, stop the manual database:
 
@@ -115,5 +127,7 @@ in ordinary/race checks and runs the MongoDB integration suite separately.
 After the first run, follow the [fundamentals guide](01-fundamentals/README.md),
 then [document modeling and queries](02-document-modeling/README.md), followed by
 [validation and schema evolution](03-schema-evolution/README.md), to read the
-commented implementation and tests. References/aggregation and caching remain
-separate blocks; guided exercises remain the final course block.
+commented implementation and tests. Finish with
+[references and aggregation](04-references-and-aggregation/README.md).
+All four planned MongoDB stages are implemented. Caching remains a separate
+block; guided exercises remain the final course block.

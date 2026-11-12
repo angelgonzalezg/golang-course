@@ -143,8 +143,15 @@ add strict server validation without assuming old records have been repaired,
 read v1/v2 while writing v2, audit and explicitly repair old data, then backfill
 in repeatable batches. Tighten to v2 before the final audit so old writers cannot
 race a pre-cutover count. Data/schema accounts have distinct roles. The guide
-includes one-shot account setup that works with existing volumes. References/
-aggregation and caching can follow as separate blocks; guided exercises remain last.
+includes one-shot account setup that works with existing volumes. Then run
+[references and aggregation](../extensions/03-mongodb/04-references-and-aggregation/README.md):
+store company IDs instead of company copies, preserve profiles with missing
+lookup targets, and observe shared-company changes. Follow city/tag pipelines
+into typed Go reports, deduplicate tag membership, and group before applying a
+report limit. Compare forced natural/indexed access with the optimizer's plan
+using explain counters rather than timing thresholds. The guide includes the
+complete ordinary-account setup and real database tests. Caching can follow as
+a separate block; guided exercises remain last.
 
 ## First pass through pointers
 

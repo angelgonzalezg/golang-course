@@ -3,7 +3,8 @@
 Add database-enforced rules, read old and new documents during a rollout, and
 backfill data without assuming the entire collection changes atomically. This
 stage can be run directly; Go context, BSON, and MongoDB fundamentals are useful
-background. References/aggregation remain a separate future block.
+background. The separate [references/aggregation stage](../04-references-and-aggregation/README.md)
+builds on document persistence with lookups and reports.
 
 A backfill updates documents already stored in the database to the new shape.
 Here it moves the city into an embedded address while keeping its original value.

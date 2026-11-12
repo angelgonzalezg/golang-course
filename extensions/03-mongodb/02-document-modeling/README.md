@@ -103,8 +103,9 @@ you copy a returned Profile and want to edit its tags independently.
 | An ever-growing history | Separate documents referencing the profile | The parent document does not accumulate an unbounded array. |
 
 The executable demonstrates embedding. References are a modeling decision,
-not a Go pointer or an automatically enforced foreign key. Dereferencing and
-cross-collection aggregation can be introduced in the later query block.
+not a Go pointer or an automatically enforced foreign key. The
+[references/reporting stage](../04-references-and-aggregation/README.md)
+demonstrates dereferencing, missing targets, and cross-collection lookup.
 
 ## Follow the query
 

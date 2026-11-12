@@ -218,7 +218,16 @@ backfill, future-version rejection, failed/final audits, retained v2-only policy
 and owned demo cleanup. It does not need the Compose schema-setup command.
 The [stage-3 guide](../extensions/03-mongodb/03-schema-evolution/README.md)
 includes that explicit setup for manual runs and both required URIs. The same CI
-MongoDB integration command now executes all three stages.
+MongoDB integration command executes all stages.
+
+The [references/reporting suite](../extensions/03-mongodb/integration/reporting_test.go)
+adds left lookup and reference lifetime, typed counts, duplicate-tag handling,
+empty arrays, grouped limits/ties, literal criteria, explain scan counters,
+canceled reads, and repeated demo cleanup retaining other collections. Tests
+compare known fixture results and forced access paths without assuming one
+optimizer plan tree or wall-clock performance. The
+[stage-4 guide](../extensions/03-mongodb/04-references-and-aggregation/README.md)
+includes all setup/test commands and needs only the normal data account.
 
 ## Root module and formatting
 
