@@ -10,7 +10,15 @@ time. The terms and small examples below introduce each idea before its Go code.
 
 ## Run from the repository root
 
+Requirements: Go 1.27 on PATH and a full repository checkout, including its local
+modules. Use bash/zsh from the root containing `go.mod`, `chapters`, and
+`extensions`. This demo runs its own local TLS server and in-memory store;
+Docker, PostgreSQL, and an external telemetry collector are not required.
+Generated Protobuf bindings are supplied. Go can download pinned dependencies
+on the first run; race checks also require a C compiler such as clang or gcc.
+
 ```sh
+go version
 go -C extensions/01-protobuf-and-grpc run ./05-resilience
 ```
 
@@ -326,7 +334,7 @@ After working through the examples, run the checks:
 
 ```sh
 go -C extensions/01-protobuf-and-grpc test -count=1 -timeout=30s ./...
-go -C extensions/01-protobuf-and-grpc test -race -count=3 -cpu=1,2 -timeout=45s ./...
+CGO_ENABLED=1 go -C extensions/01-protobuf-and-grpc test -race -count=3 -cpu=1,2 -timeout=45s ./...
 go -C extensions/01-protobuf-and-grpc vet ./...
 go -C extensions/01-protobuf-and-grpc mod tidy -diff
 ```

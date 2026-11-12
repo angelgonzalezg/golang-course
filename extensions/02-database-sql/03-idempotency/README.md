@@ -14,13 +14,23 @@ standalone lesson prepares the database policy before transport integration in
 
 ## Run the demonstration
 
-From the repository root, start the lab's local PostgreSQL service:
+Requirements: Go 1.27, a full repository checkout, and a running Docker-compatible
+engine with the Docker CLI and Compose v2. Run bash/zsh commands from the root
+containing `go.mod`, `chapters`, and `extensions`. The first run can download
+pinned Go dependencies and container images. Race checks also need clang or gcc.
 
 ```sh
+go version
+docker info
+docker compose version
 docker compose -f extensions/02-database-sql/compose.yaml up -d --wait
-DATABASE_URL='postgres://sql_lab:sql_lab_local@127.0.0.1:5433/sql_lab?sslmode=disable' \
-  go -C extensions/02-database-sql run ./03-idempotency
+export DATABASE_URL='postgres://sql_lab:sql_lab_local@127.0.0.1:5433/sql_lab?sslmode=disable'
+go -C extensions/02-database-sql run ./03-idempotency
 ```
+
+Compose exposes the dedicated database at `127.0.0.1:5433` with the local
+credentials above and a retained volume. `sslmode=disable` matches this loopback
+database. Schema migrations run automatically before the business examples.
 
 Use a dedicated lab database. The command applies this lesson's migrations and
 prints four sections. Look for:
@@ -48,9 +58,8 @@ DATABASE_URL='postgres://sql_lab:sql_lab_local@127.0.0.1:5433/sql_lab?sslmode=di
 
 Repeating that command reports version 1 without applying the file again.
 When finished, `docker compose -f extensions/02-database-sql/compose.yaml down`
-stops the service and retains its volume. See the
-[SQL setup guide](../README.md#start-a-local-teaching-database) for configuration
-and intentional volume removal.
+stops the service and retains its volume. Use `down -v` only when intentionally
+discarding the shared SQL/REST/gRPC lab database, including retained replay keys.
 
 ## Learn in passes
 
@@ -232,18 +241,30 @@ go -C extensions/02-database-sql vet ./...
 go -C extensions/02-database-sql mod tidy -diff
 ```
 
-For real PostgreSQL tests, start the container engine. The race command also
-requires a C compiler:
+Integration tests own disposable PostgreSQL containers: they start the database,
+wait for readiness, and register cleanup. They do not use Compose or
+`DATABASE_URL`. Start the container engine; the race command also needs a C compiler.
+
+For Rancher Desktop on macOS, choose **dockerd (moby)**. With its home-directory
+socket and ports forwarded to localhost, set these in the test terminal:
+
+```sh
+export DOCKER_HOST="unix://$HOME/.rd/docker.sock"
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
+export TESTCONTAINERS_HOST_OVERRIDE=127.0.0.1
+```
+
+Docker Desktop/local Docker usually uses automatic detection. Rancher VM
+networking may require a reachable VM host address instead; inspect it with
+`rdctl shell ip a show vznat`. Keep the override nonempty. Then run:
 
 ```sh
 docker info
-go -C extensions/02-database-sql test -tags=integration -race -count=1 -timeout=5m -v ./...
+CGO_ENABLED=1 go -C extensions/02-database-sql test -tags=integration -race -count=1 -timeout=5m -v ./...
 go -C extensions/02-database-sql vet -tags=integration ./...
 ```
 
-See [Testcontainers setup](../README.md#testcontainers-integration-tests) for
-Rancher Desktop settings. These tests create their own disposable databases and
-never read your `DATABASE_URL`. The integration suite verifies:
+The integration suite verifies:
 
 - A successful create and retries retain one business row and one result.
 - Changed fields conflict; different callers have separate key namespaces.

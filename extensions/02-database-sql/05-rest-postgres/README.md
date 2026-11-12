@@ -15,9 +15,15 @@ Read [transactions/migrations](../02-transactions/README.md),
 
 ## Run the finite walkthrough
 
-From the repository root, start the dedicated lab database and configure its URL:
+Requirements: Go 1.27, a full repository checkout, and a running Docker-compatible
+engine with the Docker CLI and Compose v2. Use bash/zsh from the root containing
+`go.mod`, `chapters`, and `extensions`. Go can download pinned dependencies on
+the first run. The curl examples require curl; race checks also need clang or gcc.
 
 ```sh
+go version
+docker info
+docker compose version
 docker compose -f extensions/02-database-sql/compose.yaml up -d --wait
 export DATABASE_URL='postgres://sql_lab:sql_lab_local@127.0.0.1:5433/sql_lab?sslmode=disable'
 go -C extensions/02-database-sql run ./05-rest-postgres
@@ -56,8 +62,9 @@ go -C extensions/02-database-sql run ./05-rest-postgres -serve
 
 Its default address is `127.0.0.1:8081`. Use `-addr` to choose another address.
 The database URL comes from the environment and is not printed. The loopback
-HTTP setup uses the local lab database configuration described in the
-[SQL setup guide](../README.md#start-a-local-teaching-database).
+database is exposed on `127.0.0.1:5433` with the teaching credentials above.
+`sslmode=disable` matches this local database setup. The server applies migrations
+before handling requests; generated Go query bindings are already supplied.
 
 In another terminal, send this request twice:
 
@@ -78,14 +85,44 @@ The result is still replayed because PostgreSQL retains it. Changing a field
 under that key returns `409`. A POST without the header remains ordinary
 creation; repeating a taken name returns a name conflict rather than replay.
 
-Use the returned resource URL with the chapter's
-[PUT/PATCH examples](../../../chapters/13-standard-library/06-project-rest-api/README.md#put-versus-patch)
+To exercise the remaining methods, replace the path below with the actual
+`Location` returned by POST, then run these in the request terminal:
+
+```sh
+rest_contact_path='/contacts/REPLACE_WITH_THE_RETURNED_ID'
+rest_contact_url="http://127.0.0.1:8081$rest_contact_path"
+curl -i "$rest_contact_url"
+curl -i -X PATCH "$rest_contact_url" \
+  -H 'Content-Type: application/merge-patch+json' -d '{"phone":null}'
+curl -i -X PUT "$rest_contact_url" \
+  -H 'Content-Type: application/json' -d '{"name":"Ana Updated"}'
+curl -i "$rest_contact_url"
+```
+
+PATCH clears only phone; PUT clears omitted email/phone. To test a conditional
+write, copy the exact quoted ETag from the last GET into `rest_etag`:
+
+```sh
+rest_etag='"REPLACE_WITH_THE_ETAG_FROM_GET"'
+curl -i -X PATCH "$rest_contact_url" \
+  -H 'Content-Type: application/merge-patch+json' \
+  -H "If-Match: $rest_etag" -d '{"phone":"555-0200"}'
+# Repeating that changing PATCH with the old ETag returns 412.
+curl -i -X PATCH "$rest_contact_url" \
+  -H 'Content-Type: application/merge-patch+json' \
+  -H "If-Match: $rest_etag" -d '{"phone":"555-0200"}'
+curl -i -X DELETE "$rest_contact_url"
+curl -i "$rest_contact_url"
+```
+
+DELETE returns 204 and the following GET returns 404. Repeating the original
+keyed POST still replays its original 201 result. For deeper explanations, read
+the [PUT/PATCH examples](../../../chapters/13-standard-library/06-project-rest-api/README.md#put-versus-patch)
 and [conditional request guide](../../../chapters/13-standard-library/06-project-rest-api/conditional-requests.md).
-Read the current resource before choosing its If-Match validator.
 
 Stopping Compose with `docker compose -f extensions/02-database-sql/compose.yaml down`
-retains its volume. Intentional volume removal also removes its data and replay
-records; the setup guide explains that separate operation.
+retains its volume. Use `down -v` only when intentionally discarding the shared
+SQL/REST/gRPC database, including its contacts and saved replay records.
 
 ## Learn in passes
 
@@ -221,6 +258,9 @@ continues to depend only on the standard library.
 
 ## Verify the implementation
 
+Ordinary tests/static checks require no running database. The sqlc check uses
+the pinned generator and can download/build that tool on its first run.
+
 ```sh
 go test -count=1 -timeout=60s ./chapters/13-standard-library/06-project-rest-api/...
 go -C extensions/02-database-sql test -count=1 -timeout=60s ./...
@@ -229,14 +269,28 @@ go -C extensions/02-database-sql mod tidy -diff
 go -C extensions/02-database-sql run ./internal/cmd/sqlgen -check
 ```
 
-With the container engine and a C compiler available:
+Integration tests start/wait for their own PostgreSQL containers and register
+cleanup; they do not use Compose or `DATABASE_URL`. Start the container engine
+and have a C compiler available for the race detector.
+
+For Rancher Desktop on macOS, select **dockerd (moby)**. With the home-directory
+socket and ports forwarded to localhost, configure the same test terminal:
 
 ```sh
-go -C extensions/02-database-sql test -tags=integration -race -count=1 -timeout=5m -v ./...
+export DOCKER_HOST="unix://$HOME/.rd/docker.sock"
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
+export TESTCONTAINERS_HOST_OVERRIDE=127.0.0.1
 ```
 
-See [Testcontainers/Rancher configuration](../README.md#testcontainers-integration-tests).
-Tests create their own disposable databases and never use `DATABASE_URL`.
+Docker Desktop/local Docker usually uses automatic detection. A Rancher VM
+networking setup may need its reachable VM address instead; inspect it with
+`rdctl shell ip a show vznat`. Never set an empty host override. Then run:
+
+```sh
+docker info
+CGO_ENABLED=1 go -C extensions/02-database-sql test -tags=integration -race -count=1 -timeout=5m -v ./...
+```
+
 They compare memory/PostgreSQL HTTP responses, including UTF-8/NUL data, paging,
 PUT/PATCH, ETags, and error priority. Other cases cover independent pools/servers,
 concurrent keys and conditional writers, rollback after a forced result failure,

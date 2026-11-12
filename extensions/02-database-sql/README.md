@@ -4,13 +4,19 @@ Learn to send SQL from Go, recover typed results, and manage database resources.
 This independent module uses Go 1.27, PostgreSQL, and pgx's `database/sql` driver.
 Read functions, pointers, errors, interfaces, modules, context, and testing first.
 
+Execution requirements: a full repository checkout, Go 1.27 on PATH, and a
+Docker-compatible engine with the Docker CLI and Compose v2 for manual demos.
+Run bash/zsh commands from the root containing `go.mod`, `chapters`, and
+`extensions`. The first run can download pinned dependencies/images. Race
+checks also require clang or gcc; ordinary tests do not need a running database.
+
 The first stage is a small SQL teaching model. It does not yet replace the
 in-memory stores in REST or gRPC. Its nullable email illustrates SQL presence;
 the HTTP contact model's normalization and PUT/PATCH rules remain in that project.
 
 | Stage | Status and scope |
 | --- | --- |
-| 1. Fundamentals | Implemented: driver/pool lifecycle, schema bootstrap, parameterized CRUD, NULL, repeated assignments, error causes, cancellation, and real PostgreSQL integration tests. |
+| 1. Fundamentals | Implemented: [standalone runtime/test instructions](01-fundamentals/README.md), driver/pool lifecycle, parameterized CRUD, NULL, error causes, cancellation, and real PostgreSQL integration tests. |
 | 2. Transactions and migrations | Implemented: [atomic batches, rollback, golang-migrate schema changes, and concurrent version checks](02-transactions/README.md). |
 | 3. Durable idempotency | Implemented: [request-bound keys, atomic creation/results, concurrent retries, lost replies, and process-independent replay](03-idempotency/README.md). |
 | 4. sqlc comparison | Implemented: [generated CRUD beside manual SQL, shared PostgreSQL contracts, explicit transaction binding, and pinned generation checked in CI](04-sqlc/README.md). |
@@ -21,7 +27,9 @@ the HTTP contact model's normalization and PUT/PATCH rules remain in that projec
 Install a Docker-compatible runtime and start its engine. Check it first:
 
 ```sh
+go version
 docker info
+docker compose version
 ```
 
 From the repository root, use the supplied Compose file:
@@ -38,8 +46,8 @@ Compose keeps PostgreSQL data in its own named volume.
 Run the finite demonstration in a POSIX-compatible shell:
 
 ```sh
-DATABASE_URL='postgres://sql_lab:sql_lab_local@127.0.0.1:5433/sql_lab?sslmode=disable' \
-  go -C extensions/02-database-sql run ./01-fundamentals
+export DATABASE_URL='postgres://sql_lab:sql_lab_local@127.0.0.1:5433/sql_lab?sslmode=disable'
+go -C extensions/02-database-sql run ./01-fundamentals
 ```
 
 For PowerShell, set `$env:DATABASE_URL` to the same URL, then run the `go -C`
@@ -59,6 +67,18 @@ Duplicate name -> ErrNameTaken; canceled read -> context.Canceled.
 Data belongs to PostgreSQL, rather than to one Go connection pool.
 Deleted the demo contact; repeated lookup -> ErrNotFound.
 ```
+
+With the same database and `DATABASE_URL`, each later demo can also run directly:
+
+```sh
+go -C extensions/02-database-sql run ./02-transactions
+go -C extensions/02-database-sql run ./03-idempotency
+go -C extensions/02-database-sql run ./04-sqlc
+go -C extensions/02-database-sql run ./05-rest-postgres
+```
+
+They prepare their own schema/migrations and finite demo data. Each lesson's
+README also includes its complete runtime and integration-test setup.
 
 Stop the Compose service when finished:
 
@@ -260,7 +280,7 @@ go -C extensions/02-database-sql test -tags=integration -count=1 -timeout=5m -v 
 With a C compiler available, also instrument Go code for races:
 
 ```sh
-go -C extensions/02-database-sql test -tags=integration -race -count=1 -timeout=5m ./...
+CGO_ENABLED=1 go -C extensions/02-database-sql test -tags=integration -race -count=1 -timeout=5m ./...
 ```
 
 Testcontainers starts real, disposable PostgreSQL servers, discovers their mapped
@@ -303,7 +323,8 @@ export TESTCONTAINERS_HOST_OVERRIDE=127.0.0.1
 ```
 
 Other Rancher networking configurations use a different reachable host address;
-follow the guide for your setup. Do not export `TESTCONTAINERS_HOST_OVERRIDE`
+`rdctl shell ip a show vznat` shows the VZ interface for inspecting its VM address.
+Use that reachable address when localhost forwarding is unavailable. Do not export `TESTCONTAINERS_HOST_OVERRIDE`
 with an empty value: it can produce a URL with no host and make PostgreSQL's
 driver try a Unix socket instead. `docker info` must succeed before
 running integration tests. Keep these machine-specific settings in your shell,

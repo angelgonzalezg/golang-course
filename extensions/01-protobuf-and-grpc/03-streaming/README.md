@@ -7,7 +7,15 @@ The contact validation, store, and server lifecycle are shared with earlier stag
 
 ## Run from the repository root
 
+Requirements: Go 1.27 on PATH and a full repository checkout, including the local
+modules. Use bash/zsh from the root containing `go.mod`, `chapters`, and
+`extensions`. The demo and ordinary tests start their own local RPC servers and
+use memory storage. Docker, a database, and separately generated certificates
+are not runtime requirements. Generated Protobuf bindings are supplied; the
+first run can download pinned Go dependencies. Race checks need clang or gcc.
+
 ```sh
+go version
 go -C extensions/01-protobuf-and-grpc run ./03-streaming
 ```
 
@@ -249,7 +257,7 @@ After following the message flows, run the checks:
 
 ```sh
 go -C extensions/01-protobuf-and-grpc test -count=1 -timeout=30s ./...
-go -C extensions/01-protobuf-and-grpc test -race -count=3 -cpu=1,2 -timeout=45s ./...
+CGO_ENABLED=1 go -C extensions/01-protobuf-and-grpc test -race -count=3 -cpu=1,2 -timeout=45s ./...
 go -C extensions/01-protobuf-and-grpc vet ./...
 ```
 

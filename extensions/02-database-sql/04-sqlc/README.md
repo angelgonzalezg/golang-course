@@ -12,15 +12,24 @@ course block; its creation policy remains a separate operation.
 
 ## Run the comparison
 
-From the repository root:
+Requirements: Go 1.27, a full repository checkout, and a running Docker-compatible
+engine with the Docker CLI and Compose v2. Use bash/zsh from the root containing
+`go.mod`, `chapters`, and `extensions`. Go can download pinned dependencies on
+the first run. The supplied generated bindings are ready to compile; the
+regeneration commands below fetch their pinned sqlc tool separately. Race checks
+also require a C compiler such as clang or gcc.
 
 ```sh
+go version
+docker info
+docker compose version
 docker compose -f extensions/02-database-sql/compose.yaml up -d --wait
-DATABASE_URL='postgres://sql_lab:sql_lab_local@127.0.0.1:5433/sql_lab?sslmode=disable' \
-  go -C extensions/02-database-sql run ./04-sqlc
+export DATABASE_URL='postgres://sql_lab:sql_lab_local@127.0.0.1:5433/sql_lab?sslmode=disable'
+go -C extensions/02-database-sql run ./04-sqlc
 ```
 
-Use the dedicated lab database described in the [setup guide](../README.md#start-a-local-teaching-database).
+Compose exposes a dedicated database on `127.0.0.1:5433`, using the local teaching
+credentials above and a retained volume. `sslmode=disable` matches this loopback setup.
 The program uses the supplied generated source; you can run it before installing
 or running sqlc. Look for four summaries:
 
@@ -36,6 +45,15 @@ and attempts to remove that contact before exiting. Other rows are preserved.
 It shares `sql_lab_contacts` with the fundamentals lesson, which makes reads
 through either store directly comparable. The transaction and idempotency
 lessons retain their own tables and migration versions.
+
+After stopping the Go processes, stop the database with:
+
+```sh
+docker compose -f extensions/02-database-sql/compose.yaml down
+```
+
+This retains the volume. Use `down -v` only to intentionally remove the shared
+SQL/REST/gRPC lab database and its saved data/results.
 
 This comparison reuses `EnsureSchema` to bootstrap the fundamentals table.
 Generation reads a schema file; it does not create or migrate the live database.
@@ -224,16 +242,30 @@ go -C extensions/02-database-sql vet ./...
 go -C extensions/02-database-sql mod tidy -diff
 ```
 
-For PostgreSQL contracts, start the container engine. The race command also
-needs a C compiler:
+The integration tests start/wait for their own disposable PostgreSQL containers
+and register cleanup. They need a running container engine, plus a C compiler
+for race detection. Compose and `DATABASE_URL` are not used by these tests.
+
+For Rancher Desktop on macOS, select **dockerd (moby)**. With the home-directory
+socket and ports forwarded to localhost, configure the test terminal:
 
 ```sh
-go -C extensions/02-database-sql test -tags=integration -race -count=1 -timeout=5m -v ./...
+export DOCKER_HOST="unix://$HOME/.rd/docker.sock"
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
+export TESTCONTAINERS_HOST_OVERRIDE=127.0.0.1
+```
+
+Docker Desktop/local Docker usually works with automatic detection. For Rancher
+VM networking, use the reachable VM host address instead if needed;
+`rdctl shell ip a show vznat` shows that interface. Never use an empty host
+override. Run the integration checks:
+
+```sh
+docker info
+CGO_ENABLED=1 go -C extensions/02-database-sql test -tags=integration -race -count=1 -timeout=5m -v ./...
 go -C extensions/02-database-sql vet -tags=integration ./...
 ```
 
-Follow the [Testcontainers/Rancher setup](../README.md#testcontainers-integration-tests)
-when needed. Tests own disposable databases and never read your `DATABASE_URL`.
 `TestPostgreSQL/manual` and `TestPostgreSQL/sqlc` each cover CRUD, NULL/empty
 values, repeated email assignments/deletion, literal parameters, reopening a
 pool, concurrent unique-name enforcement, cancellation while waiting for a pool

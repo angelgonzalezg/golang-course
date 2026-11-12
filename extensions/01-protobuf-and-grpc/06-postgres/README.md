@@ -13,16 +13,27 @@ remain useful for learning each transport concept before adding persistence.
 
 ## Run the finite walkthrough
 
-From the repository root:
+Requirements: Go 1.27 on PATH and a full repository checkout, including the
+locally referenced course and SQL modules. Run bash/zsh commands from the root
+containing `go.mod`, `chapters`, and `extensions`. Demo/server modes also need a
+running Docker-compatible engine, Docker CLI, and Compose v2. Race checks need
+clang or gcc. Generated bindings are supplied; the first run can download pinned
+Go dependencies and container images. The finite demo prepares TLS/credentials
+itself and collects telemetry locally.
 
 ```sh
+go version
+docker info
+docker compose version
 docker compose -f extensions/02-database-sql/compose.yaml up -d --wait
 export DATABASE_URL='postgres://sql_lab:sql_lab_local@127.0.0.1:5433/sql_lab?sslmode=disable'
 go -C extensions/01-protobuf-and-grpc run ./06-postgres
 ```
 
 The program migrates the service schema, creates temporary TLS material and
-credentials in memory, and performs real TCP RPCs. Look for:
+credentials in memory, and performs real TCP RPCs. Compose exposes its dedicated
+database on `127.0.0.1:5433`, using the teaching credentials in the URL and a
+retained volume. Look for:
 
 ```text
 Lost reply -> two attempts, one committed creation; replay=true.
@@ -50,6 +61,15 @@ It reports `Service schema version: 1`. Both persistent transports use the
 `sql_service_*` tables and the SQL module's golang-migrate adapter. Startup
 rejects dirty/future migration state and verifies connectivity before publishing
 startup health. Health is not a continuous database-dependency probe.
+
+After stopping the Go servers/clients, stop the manual database with:
+
+```sh
+docker compose -f extensions/02-database-sql/compose.yaml down
+```
+
+This retains the volume. Use `down -v` only to intentionally discard the shared
+SQL/REST/gRPC lab database, including contacts and replay records.
 
 ## Learn in passes
 
@@ -161,11 +181,15 @@ go -C extensions/01-protobuf-and-grpc run ./06-postgres \
 ```
 
 The default address is `127.0.0.1:50053`; `-addr` can change it. In another
-terminal, use the same TLS directory and writer token:
+terminal, first set the TLS directory to the actual path printed by `-init-tls`
+and set the same writer credential. Exported variables are local to each shell;
+replace the example directory below with that printed path:
 
 ```sh
+export GRPC_PG_TLS_DIR='/absolute/path/printed/by/init-tls'
+export GRPC_LAB_WRITER_TOKEN='postgres-writer-demo'
 go -C extensions/01-protobuf-and-grpc run ./06-postgres \
-  -target 127.0.0.1:50053 -tls-dir "$GRPC_PG_LAB_DIR/tls" \
+  -target 127.0.0.1:50053 -tls-dir "$GRPC_PG_TLS_DIR" \
   -key create-persistent-1 -name 'Persistent contact' -email 'ana@example.com'
 ```
 
@@ -177,10 +201,34 @@ Changing the name/email/phone while reusing a successful key is a conflict.
 The standalone client needs the server address, public CA, and writer credential,
 not `DATABASE_URL` or the server's private key.
 
-The [infrastructure guide](../04-infrastructure/README.md) provides grpcurl
-health/reflection/message examples; use this server's port and attach
-`x-idempotency-key` when creating. Health Check is public over TLS; other health
-methods require authentication, and reflection requires the writer role.
+For optional command-line inspection, install grpcurl on PATH and keep the
+server running with `-reflection`. In the client terminal, using the TLS path
+and writer credential configured above:
+
+```sh
+grpcurl -cacert "$GRPC_PG_TLS_DIR/ca.pem" \
+  -H "authorization: Bearer $GRPC_LAB_WRITER_TOKEN" \
+  -d '{"service":"contacts.v1.ContactService"}' \
+  127.0.0.1:50053 grpc.health.v1.Health/Check
+grpcurl -cacert "$GRPC_PG_TLS_DIR/ca.pem" \
+  -H "authorization: Bearer $GRPC_LAB_WRITER_TOKEN" \
+  127.0.0.1:50053 list
+grpcurl -cacert "$GRPC_PG_TLS_DIR/ca.pem" \
+  -H "authorization: Bearer $GRPC_LAB_WRITER_TOKEN" \
+  -rpc-header 'x-idempotency-key: grpcurl-create-1' \
+  -d '{"input":{"name":"grpcurl contact"}}' \
+  127.0.0.1:50053 contacts.v1.ContactService/CreateContact
+```
+
+Health Check is public over TLS; this grpcurl command supplies credentials for
+reflection, which discovers its message schema and requires the writer role.
+Other health methods require authentication. `-H` sends authentication to both
+reflection and the requested RPC. `-rpc-header` sends the idempotency key only to
+CreateContact, because reflection is a stream and this lab rejects keys on
+streaming RPCs. See [grpcurl's flag definitions](https://github.com/fullstorydev/grpcurl/blob/master/cmd/grpcurl/grpcurl.go)
+for that distinction. Repeat the keyed create with the same fields to replay it.
+The Go client works without grpcurl; the
+[infrastructure guide](../04-infrastructure/README.md) provides further discovery examples.
 
 ### Bounds and ownership
 
@@ -236,14 +284,29 @@ go -C extensions/01-protobuf-and-grpc vet ./...
 go -C extensions/01-protobuf-and-grpc mod tidy -diff
 ```
 
-With a Docker-compatible engine and a C compiler:
+Integration tests start/wait for their own PostgreSQL containers and register
+cleanup. They require a running container engine and a C compiler for race
+detection; Compose and `DATABASE_URL` are not used by the tests.
+
+For Rancher Desktop on macOS, select **dockerd (moby)**. With its home-directory
+socket and ports forwarded to localhost, set these in the test terminal:
 
 ```sh
-go -C extensions/01-protobuf-and-grpc test -tags=integration -race -count=1 -timeout=5m -v ./...
+export DOCKER_HOST="unix://$HOME/.rd/docker.sock"
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
+export TESTCONTAINERS_HOST_OVERRIDE=127.0.0.1
+```
+
+Docker Desktop/local Docker usually works with automatic detection. Rancher VM
+networking may need its reachable VM address instead; inspect it with
+`rdctl shell ip a show vznat`. Never set an empty host override. Then run:
+
+```sh
+docker info
+CGO_ENABLED=1 go -C extensions/01-protobuf-and-grpc test -tags=integration -race -count=1 -timeout=5m -v ./...
 go -C extensions/01-protobuf-and-grpc vet -tags=integration ./...
 ```
 
-Follow the [Testcontainers/Rancher setup](../../02-database-sql/README.md#testcontainers-integration-tests).
 Tagged tests own their database/container and never read the learner's
 `DATABASE_URL`. Missing Docker is a failure, not a silent skip. Tests compare
 memory/PostgreSQL unary and streaming semantics, then cover twelve concurrent

@@ -4,6 +4,10 @@ The chapter numbers organize selected examples around *Learning Go, Second
 Edition*. Use the route below to follow dependencies while keeping a first pass
 focused on fundamentals. The [main index](../README.md) lists every lesson.
 
+REST and extension lab READMEs include their own runtime requirements, setup,
+commands, and verification steps. Follow one directly when the concepts are
+already familiar; links to earlier lessons provide background for progressive learning.
+
 ## Read, predict, run, and change
 
 Read a small helper alongside the numbered section of `main` that calls it.

@@ -9,7 +9,16 @@ service discovery. Each part uses the same contact operations from earlier stage
 
 ## Run from the repository root
 
+Requirements: Go 1.27 on PATH and a full repository checkout, including its local
+modules. Run bash/zsh commands from the root containing `go.mod`, `chapters`, and
+`extensions`. The default demo prepares its TLS material and credentials itself;
+it uses in-memory data and needs no Docker or database. Generated Protobuf
+bindings are supplied, and Go can download pinned dependencies on the first run.
+Race checks need clang or gcc. The optional grpcurl examples require grpcurl on
+PATH; the Go demo and generated client work without that additional tool.
+
 ```sh
+go version
 go -C extensions/01-protobuf-and-grpc run ./04-infrastructure
 ```
 
@@ -273,7 +282,7 @@ Once you can explain the demo's outcomes, run the checks:
 
 ```sh
 go -C extensions/01-protobuf-and-grpc test -count=1 -timeout=30s ./...
-go -C extensions/01-protobuf-and-grpc test -race -count=3 -cpu=1,2 -timeout=45s ./...
+CGO_ENABLED=1 go -C extensions/01-protobuf-and-grpc test -race -count=3 -cpu=1,2 -timeout=45s ./...
 go -C extensions/01-protobuf-and-grpc vet ./...
 ```
 

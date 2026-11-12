@@ -10,6 +10,11 @@ the main course module. Use Go 1.27. The first run downloads pinned dependencies
 subsequent runs can reuse the module cache. Generated source is checked in, so
 running the lesson and ordinary tests does not require protoc.
 
+Use a full checkout, including the root course and sibling SQL module used by
+local replacements. Run commands in bash/zsh from the repository root containing
+`go.mod`, `chapters`, and `extensions`. Race checks need a C compiler such as
+clang or gcc. Stages 1–5 use local/in-memory data; ordinary tests need Go alone.
+
 ## Available stages
 
 The implemented first stage provides a versioned `.proto` contract, generated
@@ -65,12 +70,59 @@ The infrastructure demo creates its temporary CA,
 certificates, and credentials in memory; ordinary runs need no external tools.
 The resilience lesson also collects local metrics/traces without a collector.
 
-After the [SQL prerequisites](06-postgres/README.md), start the dedicated lab
-database, set `DATABASE_URL`, and run
-`go -C extensions/01-protobuf-and-grpc run ./06-postgres`.
-Its finite and separate-process modes are documented in
-[gRPC with PostgreSQL](06-postgres/README.md). Ordinary tests compile all stages
-without a database; select `-tags=integration` to run real PostgreSQL contracts.
+## Run the PostgreSQL stage directly
+
+Start a Docker-compatible engine with Docker CLI/Compose v2, then run these
+commands from the repository root. The Compose database is local teaching data
+on `127.0.0.1:5433`; the URL uses its configured credentials and loopback setup.
+
+```sh
+go version
+docker info
+docker compose version
+docker compose -f extensions/02-database-sql/compose.yaml up -d --wait
+export DATABASE_URL='postgres://sql_lab:sql_lab_local@127.0.0.1:5433/sql_lab?sslmode=disable'
+go -C extensions/01-protobuf-and-grpc run ./06-postgres
+```
+
+The finite demo prepares migrations, TLS/credentials, and owned telemetry, then
+verifies retry/replay through new server/pool instances. It prints its expected
+outcomes and stops automatically. The [stage guide](06-postgres/README.md) also
+contains complete standalone server/client commands.
+
+After the Go processes stop, `docker compose -f extensions/02-database-sql/compose.yaml down`
+stops the manual database while retaining its volume. `down -v` deliberately
+discards the shared SQL/REST/gRPC lab data and replay records.
+
+### Run PostgreSQL integration tests
+
+Ordinary `go test ./...` commands above compile all stages without a running
+database. With `-tags=integration`, Testcontainers starts its own PostgreSQL
+container, waits for readiness, and registers cleanup. Tests do not use the
+Compose database or `DATABASE_URL`. Have the engine running and a C compiler
+available for race detection.
+
+For Rancher Desktop on macOS, choose **dockerd (moby)**. With its home-directory
+socket and ports forwarded to localhost, configure the test terminal:
+
+```sh
+export DOCKER_HOST="unix://$HOME/.rd/docker.sock"
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
+export TESTCONTAINERS_HOST_OVERRIDE=127.0.0.1
+```
+
+Docker Desktop/local Docker usually uses automatic detection. If Rancher exposes
+ports through its VM address instead, use that reachable address as the override;
+`rdctl shell ip a show vznat` shows the VZ interface. Keep the override nonempty.
+
+```sh
+docker info
+CGO_ENABLED=1 go -C extensions/01-protobuf-and-grpc test -tags=integration -race -count=1 -timeout=5m -v ./...
+go -C extensions/01-protobuf-and-grpc vet -tags=integration ./...
+```
+
+Expect `ok` for test packages; `[no test files]` for command/generated packages
+is normal. Successful `go vet` normally prints nothing.
 
 ## Read in order
 
@@ -226,8 +278,9 @@ go -C extensions/01-protobuf-and-grpc run ./internal/cmd/protogen \
 | 3. Streaming | Implemented: [three streaming call shapes](03-streaming/README.md), completion versus failure, partial imports, item outcomes, cancellation/deadlines, ordering, bounded work, flow control, and active-stream shutdown tests. |
 | 4. Service infrastructure | Implemented: [metadata and interceptor chains](04-infrastructure/README.md), completion logging, verified TLS, reader/writer authentication/authorization, health Check/List/Watch and shutdown, opt-in reflection v1/v1alpha, and [grpcurl exercises](04-infrastructure/grpcurl.md). |
 | 5. Resilience and final review | Implemented: [four message boundaries, three-attempt retry budgets, subject-scoped idempotency, OpenTelemetry, and failure tests](05-resilience/README.md), plus [end-to-end review/validation](05-resilience/review.md). |
+| 6. gRPC with PostgreSQL | Implemented: [persistent contacts, durable keyed creation, SQL cancellation, cross-transport behavior, and separate-process recovery](06-postgres/README.md), with standalone TLS server/client modes and Testcontainers tests. |
 
-All five agreed stages are implemented. Keep the examples separate so
+All six stages are implemented. Keep the examples separate so
 serialization concepts remain readable before transport and operational behavior
 are introduced. Load balancing, gateways,
 and deployment-specific integration can follow as optional deeper exercises.

@@ -13,13 +13,23 @@ input normalization rules through `contactsql.NormalizeInput`.
 
 ## Run from the repository root
 
-Start the [local teaching database](../README.md#start-a-local-teaching-database),
-then run:
+Requirements: Go 1.27, a full repository checkout, and a running Docker-compatible
+engine with the Docker CLI and Compose v2. Use bash/zsh from the root containing
+`go.mod`, `chapters`, and `extensions`. The first run can download pinned Go
+dependencies and container images. Race checks also need clang or gcc.
 
 ```sh
-DATABASE_URL='postgres://sql_lab:sql_lab_local@127.0.0.1:5433/sql_lab?sslmode=disable' \
-  go -C extensions/02-database-sql run ./02-transactions
+go version
+docker info
+docker compose version
+docker compose -f extensions/02-database-sql/compose.yaml up -d --wait
+export DATABASE_URL='postgres://sql_lab:sql_lab_local@127.0.0.1:5433/sql_lab?sslmode=disable'
+go -C extensions/02-database-sql run ./02-transactions
 ```
+
+Compose exposes the dedicated lab database on `127.0.0.1:5433` and retains data
+in a named volume. The URL above uses its local teaching credentials and disables
+database TLS for this loopback setup. The program applies migrations itself.
 
 The finite demonstration applies pending migrations, creates two contacts,
 checks a rejected batch, and performs a versioned replacement. It attempts to
@@ -42,7 +52,17 @@ DATABASE_URL='postgres://sql_lab:sql_lab_local@127.0.0.1:5433/sql_lab?sslmode=di
 
 Repeating this command checks migration state and reports version 2 without applying
 the files again. The shared [Compose file](../compose.yaml) needs no changes.
-See stage 1 for PowerShell environment syntax and stopping the database.
+These commands use POSIX environment syntax. In PowerShell, assign the same URL
+to `$env:DATABASE_URL` and run the `go -C` command.
+
+After the Go processes stop, stop the local database with:
+
+```sh
+docker compose -f extensions/02-database-sql/compose.yaml down
+```
+
+This keeps the volume. Use `down -v` only to intentionally discard the shared
+SQL/REST/gRPC lab database and its retained data.
 
 ## Learn in passes
 
@@ -222,11 +242,36 @@ lesson's forward-only policy; the library executes and records migrations.
 
 ## Validate with PostgreSQL and Testcontainers
 
-The existing [integration command and Rancher setup](../README.md#testcontainers-integration-tests)
-run all implemented SQL stages:
+Ordinary tests and checks need no running database:
 
 ```sh
-go -C extensions/02-database-sql test -tags=integration -race -count=1 -timeout=5m -v ./...
+go -C extensions/02-database-sql test -count=1 -timeout=60s ./...
+go -C extensions/02-database-sql vet ./...
+go -C extensions/02-database-sql mod tidy -diff
+```
+
+Integration tests start their own PostgreSQL containers, wait for readiness, and
+register cleanup. They do not use Compose or `DATABASE_URL`; only the container
+engine must be running. The race detector additionally requires a C compiler.
+
+For Rancher Desktop on macOS, select **dockerd (moby)**. When its socket is under
+your home directory and forwarded ports are reachable on localhost, set these
+in the same terminal before running the tests:
+
+```sh
+export DOCKER_HOST="unix://$HOME/.rd/docker.sock"
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
+export TESTCONTAINERS_HOST_OVERRIDE=127.0.0.1
+```
+
+Docker Desktop/local Docker usually works with automatic detection. A Rancher
+VM networking setup may instead need its reachable VM address as the host
+override; `rdctl shell ip a show vznat` shows the VZ interface. Never set the
+override to an empty value. Verify the engine and run:
+
+```sh
+docker info
+CGO_ENABLED=1 go -C extensions/02-database-sql test -tags=integration -race -count=1 -timeout=5m -v ./...
 go -C extensions/02-database-sql vet -tags=integration ./...
 ```
 
@@ -234,7 +279,7 @@ go -C extensions/02-database-sql vet -tags=integration ./...
 without losing data, repeated migrations, per-file rollback and dirty-state
 rejection, unknown future versions, concurrent migrators, batch commit/rollback, failure
 of the history insert, competing writers, cancellation after an UPDATE, and the
-finite demo's cleanup. The two top-level SQL suites own separate containers
+finite demo's cleanup. The top-level SQL suites own separate containers
 through [the shared fixture](../integration/database_test.go).
 [migrations_test.go](../integration/migrations_test.go) also checks explicit
 legacy adoption with retained rows, rejected legacy history, and down/up cycles

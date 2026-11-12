@@ -6,7 +6,14 @@ for gRPC calls. Read structs, pointers, errors, and packages first.
 
 ## Run from the repository root
 
+Requirements: Go 1.27 on PATH and a full repository checkout, including the local
+course/SQL modules referenced by the gRPC module. Use bash/zsh from the root
+directory containing `go.mod`, `chapters`, and `extensions`. This serialization
+lab needs no Docker, database, credentials, or external service. Go can download
+the pinned dependencies on the first run; generated bindings are supplied.
+
 ```sh
+go version
 go -C extensions/01-protobuf-and-grpc run ./01-protobuf
 ```
 

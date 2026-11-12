@@ -7,9 +7,15 @@ and completes with one response or a failure status.
 
 ## Run and validate
 
-From the repository root:
+Requirements: Go 1.27 on PATH and a full repository checkout, including its local
+modules. Run the commands in bash/zsh from the directory containing `go.mod`,
+`chapters`, and `extensions`. The finite demo and ordinary tests use in-memory
+storage and local RPC servers; they need no Docker or database. Generated
+Protobuf bindings are supplied. The first run can download pinned Go dependencies.
+The optional race checks require a C compiler such as clang or gcc.
 
 ```sh
+go version
 go -C extensions/01-protobuf-and-grpc run ./02-unary
 ```
 
@@ -239,7 +245,7 @@ After tracing the basic calls, run the checks:
 
 ```sh
 go -C extensions/01-protobuf-and-grpc test -count=1 -timeout=30s ./...
-go -C extensions/01-protobuf-and-grpc test -race -count=3 -cpu=1,2 -timeout=45s ./...
+CGO_ENABLED=1 go -C extensions/01-protobuf-and-grpc test -race -count=3 -cpu=1,2 -timeout=45s ./...
 go -C extensions/01-protobuf-and-grpc vet ./...
 go -C extensions/01-protobuf-and-grpc mod tidy -diff
 ```

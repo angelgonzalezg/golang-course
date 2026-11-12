@@ -18,9 +18,16 @@ The project uses the course's Go 1.27 toolchain and `encoding/json/v2`.
 
 ## Run the demonstration
 
-From the repository root:
+Requirements: Go 1.27 on PATH and a full checkout of this repository. Use a
+POSIX shell such as bash/zsh from the repository root, the directory containing
+`go.mod`, `chapters`, and `extensions`. This in-memory lab runs with Go alone;
+its demonstrations and ordinary tests need no Docker or database. The optional
+race checks below also require a C compiler, such as clang or gcc.
+The interactive request examples use curl; the optional OpenAPI checker lists
+its separate Python requirements in the verification section below.
 
 ```sh
+go version
 go run ./chapters/13-standard-library/06-project-rest-api
 ```
 
@@ -360,7 +367,7 @@ curl -i -X DELETE http://127.0.0.1:8080/contacts/1
 
 ```sh
 go test -count=1 -timeout=30s ./chapters/13-standard-library/06-project-rest-api/...
-go test -race -count=3 -cpu=1,2 -timeout=30s ./chapters/13-standard-library/06-project-rest-api/...
+CGO_ENABLED=1 go test -race -count=3 -cpu=1,2 -timeout=30s ./chapters/13-standard-library/06-project-rest-api/...
 go vet ./chapters/13-standard-library/06-project-rest-api/...
 ```
 
@@ -368,6 +375,23 @@ The finite demo checks its expected statuses as it runs. The tests also exercise
 input failures, independent snapshots, conditional requests, and concurrent
 changes. The optional [OpenAPI checker](openapi.md#validate-without-adding-go-dependencies)
 compares selected live responses with the published contract.
+
+To run that optional checker directly, install Python 3.10+ with venv/pip and
+keep Go on PATH. From the same repository root:
+
+```sh
+rest_contract_env=$(mktemp -d)
+python3 -m venv "$rest_contract_env"
+"$rest_contract_env/bin/python" -m pip install \
+  -r chapters/13-standard-library/06-project-rest-api/validation/requirements.txt
+"$rest_contract_env/bin/python" \
+  chapters/13-standard-library/06-project-rest-api/validation/validate_contract.py
+```
+
+The initial installation downloads the pinned Python tools. The checker builds
+and stops its own temporary HTTP server and checks the document plus 37 live
+responses. It needs no manually running server. Successful Go tests print `ok`;
+successful `go vet` normally prints nothing.
 
 ## Ownership and limits
 
