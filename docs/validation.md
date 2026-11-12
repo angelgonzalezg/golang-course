@@ -194,15 +194,22 @@ CGO_ENABLED=1 go -C extensions/03-mongodb test -tags=integration -race -count=1 
 go -C extensions/03-mongodb vet -tags=integration ./...
 ```
 
-The fixture owns an authenticated server and test namespaces, registers cleanup,
-and never reads `MONGODB_URI` or connects to Compose. Cases verify CRUD and actual
+The fixtures own authenticated servers and test namespaces, register cleanup,
+and never read `MONGODB_URI` or connect to Compose. Cases verify CRUD and actual
 BSON presence, bounded cursor ordering, repeated index/field operations, twelve
 competing creates, cancellation/deadlines, failed authentication, independent
-clients/results, and finite-demo cleanup preserving unrelated documents. Ordinary
-tests cover validation and BSON/error behavior without a server. See the
+clients/results, and finite-demo cleanup preserving unrelated documents. The
+[document-modeling suite](../extensions/03-mongodb/integration/modeling_test.go)
+adds embedded BSON/arrays, city/tag AND filters, summary projections, tied-name
+ordering, limits, literal values, nested-field writes that preserve unknown
+siblings/concurrent street updates, and demo cleanup preserving both collections.
+Ordinary tests cover input/query validation, slice ownership, and BSON/error
+behavior without a server. See the
 [standalone guide](../extensions/03-mongodb/01-fundamentals/README.md) for Compose,
 Rancher Desktop, expected output, and cleanup commands. Tagged tests fail when
 the engine is missing; they do not silently skip verification.
+The [stage-2 guide](../extensions/03-mongodb/02-document-modeling/README.md)
+also includes full standalone execution and test instructions.
 
 ## Root module and formatting
 

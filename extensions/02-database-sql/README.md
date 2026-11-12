@@ -349,8 +349,9 @@ contracts and real PostgreSQL tests. The workflow also checks pinned generation
 with `go -C extensions/02-database-sql run ./internal/cmd/sqlgen -check`.
 The separate [MongoDB fundamentals lab](../03-mongodb/01-fundamentals/README.md)
 now introduces document CRUD, BSON presence, unique indexes, and real database
-tests. Further document modeling and cache labs can follow separately; guided
-exercises remain the final course block.
+tests. Its [second stage](../03-mongodb/02-document-modeling/README.md) adds
+embedding, filters/projections, and nested updates. Further aggregation/schema
+evolution and cache labs can follow separately; guided exercises remain last.
 
 References: [Go database/sql guides](https://go.dev/doc/database/),
 [pgx's stdlib adapter](https://pkg.go.dev/github.com/jackc/pgx/v5/stdlib),

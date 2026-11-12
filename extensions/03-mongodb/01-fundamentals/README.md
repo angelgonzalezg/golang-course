@@ -239,6 +239,9 @@ This retains the MongoDB volume for another session. Use `down -v` only when
 intentionally discarding this MongoDB lab's data and users. Testcontainers owns
 its separate disposable containers; stopping Compose is unrelated to their cleanup.
 
+Continue to [document modeling and queries](../02-document-modeling/README.md)
+for embedded addresses/tags, filtered summaries, and updates to nested fields.
+
 References: [official Go driver](https://www.mongodb.com/docs/drivers/go/current/),
 [BSON](https://www.mongodb.com/docs/drivers/go/current/data-formats/bson/),
 [context](https://www.mongodb.com/docs/drivers/go/current/context/),

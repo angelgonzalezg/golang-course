@@ -7,7 +7,8 @@ compares BSON presence with SQL NULL, and checks indexes, context, and cleanup.
 | Stage | Status |
 | --- | --- |
 | 1. Fundamentals | Implemented: [complete walkthrough and standalone execution/test guide](01-fundamentals/README.md), ObjectID/BSON, CRUD, bounded cursors, field updates, unique indexes, validation, and Testcontainers tests. |
-| Further document modeling | Proposed: embedding/references, richer queries and aggregation, and explicit schema evolution. |
+| 2. Document modeling and queries | Implemented: [standalone embedded-document/query guide](02-document-modeling/README.md), address/tags modeling, embedding versus reference decisions, city/tag filters, projected summaries, ordered limits, and nested updates with real MongoDB tests. |
+| Further queries and schema evolution | Proposed: cross-collection references/aggregation, query-plan exploration, and explicit schema evolution. |
 
 ## Run directly
 
@@ -32,6 +33,18 @@ index, runs five finite sections, and attempts to remove only its own document.
 Look for `Duplicate name -> ErrDuplicate`, `Data belongs to MongoDB`, and
 `repeated lookup -> ErrNotFound`. The longer stage guide explains every operation.
 
+Using the same database and `MONGODB_URI`, run the second finite lesson directly:
+
+```sh
+go -C extensions/03-mongodb run ./02-document-modeling
+```
+
+It uses `mongo_lab.contact_profiles`, embeds an address and tags, combines city/tag
+filters, projects summaries, and updates only `address.city`. Look for
+`street, name, and tags stayed intact`. It attempts to remove only its own three
+profiles. Its [README](02-document-modeling/README.md) also includes the complete
+setup and validation steps for starting directly at stage 2.
+
 After the program exits, stop the manual database:
 
 ```sh
@@ -44,7 +57,8 @@ credentials later does not change existing database users.
 
 ## Verify directly
 
-Ordinary tests cover input validation, BSON encoding/decoding, and error causes.
+Ordinary tests cover input/query validation, BSON encoding/decoding, slice ownership,
+and error causes.
 They need no running database. Race checks additionally need clang or gcc.
 
 ```sh
@@ -81,6 +95,7 @@ Expect `ok` for tested packages, `[no test files]` for command/helper packages,
 and quiet output from successful vet/metadata checks. CI includes this module
 in ordinary/race checks and runs the MongoDB integration suite separately.
 
-After the first run, follow the [stage guide](01-fundamentals/README.md) to read
-the commented implementation and tests. Later document modeling and caching
-remain separate blocks; guided exercises remain the final course block.
+After the first run, follow the [fundamentals guide](01-fundamentals/README.md),
+then [document modeling and queries](02-document-modeling/README.md) to read the
+commented implementation and tests. Further aggregation/schema evolution and
+caching remain separate blocks; guided exercises remain the final course block.

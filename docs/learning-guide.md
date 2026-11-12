@@ -131,8 +131,14 @@ Compare a missing field, BSON null, and empty text; then trace `$set`/`$unset`,
 server-enforced uniqueness, and caller cancellation. Unit tests inspect BSON
 without a database; Testcontainers tests use a real authenticated MongoDB server.
 The complete standalone guide includes Compose, environment, test, and cleanup
-commands. Further document modeling and caching can follow as separate blocks;
-guided exercises remain last.
+commands. Continue to
+[document modeling and queries](../extensions/03-mongodb/02-document-modeling/README.md):
+embed an owned address and bounded tags, compare references conceptually, then
+combine city/tag filters with ordered limits and projected summaries. Update
+`address.city` while preserving street, unknown sibling fields, and concurrent
+writes to another child. Follow the tests for slice ownership and cleanup that
+preserves both stages' other data. Aggregation/schema evolution and caching
+can follow as separate blocks; guided exercises remain last.
 
 ## First pass through pointers
 
