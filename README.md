@@ -26,7 +26,8 @@ tests. Its standalone guides include all runtime and test setup.
 
 The [Valkey cache lab](extensions/04-valkey-cache/README.md) is another independent
 module. Its first stage teaches remote values, TTLs, cache misses, typed JSON,
-and real server tests; later stages will add cache-aside and resilience.
+and real server tests. Its second stage adds PostgreSQL cache-aside with visible
+cold/warm read counts and write invalidation; resilience follows separately.
 
 ## Requirements
 
@@ -106,7 +107,7 @@ Read that context chapter before the advanced concurrency pattern lesson in chap
 | REST with PostgreSQL | Supplement after REST fundamentals and the SQL lessons | [Persistent contacts, atomic conditional writes, and durable keyed POST](extensions/02-database-sql/05-rest-postgres/README.md). |
 | gRPC with PostgreSQL | Supplement after the gRPC and SQL lessons | [Persistent unary/streaming RPCs and durable keyed creation](extensions/01-protobuf-and-grpc/06-postgres/README.md). |
 | MongoDB documents | Supplement after context and testing; compare with SQL fundamentals | [Fundamentals](extensions/03-mongodb/01-fundamentals/README.md), [document modeling](extensions/03-mongodb/02-document-modeling/README.md), [schema evolution](extensions/03-mongodb/03-schema-evolution/README.md), then [references, aggregation, and explain](extensions/03-mongodb/04-references-and-aggregation/README.md). |
-| Valkey cache | Supplement after context and testing | [Remote values, TTL, hits/misses, typed JSON, and Testcontainers](extensions/04-valkey-cache/01-fundamentals/README.md). |
+| Valkey cache | Supplement after context and testing | [Remote values, TTL, hits/misses, typed JSON, and Testcontainers](extensions/04-valkey-cache/01-fundamentals/README.md), then [PostgreSQL cache-aside and write invalidation](extensions/04-valkey-cache/02-cache-aside/README.md). |
 
 ## Validate the course
 
@@ -193,5 +194,8 @@ adds company references/left lookup, city/tag aggregation reports, typed results
 and explain comparisons. The
 [Valkey cache fundamentals](extensions/04-valkey-cache/01-fundamentals/README.md)
 introduce atomic value/TTL assignment, hit/miss versus failure, expiration,
-versioned JSON, and client/key ownership. Cache-aside with PostgreSQL and
-concurrency/failure policy remain separate blocks, with guided exercises last.
+versioned JSON, and client/key ownership. The
+[cache-aside stage](extensions/04-valkey-cache/02-cache-aside/README.md) combines
+PostgreSQL and Valkey, proves avoided SQL contact reads, and invalidates copies
+after committed writes. Concurrency/failure policy and dedicated REST/gRPC cache
+labs remain later blocks, with guided exercises last.

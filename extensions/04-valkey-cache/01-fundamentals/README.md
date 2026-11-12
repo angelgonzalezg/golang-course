@@ -231,6 +231,10 @@ Read in order: [main.go](main.go), [demo.go](../internal/demo/demo.go),
 [contact.go](../cache/contact.go), [unit tests](../cache/contact_test.go),
 and [integration tests](../integration/valkey_test.go).
 
+Next, [cache-aside with PostgreSQL](../02-cache-aside/README.md) adds authoritative
+records, observable cold/warm reads, and write invalidation. This fundamentals
+program remains independent of PostgreSQL.
+
 References: [Valkey](https://valkey.io/topics/introduction/),
 [SET](https://valkey.io/commands/set/), [PTTL](https://valkey.io/commands/pttl/),
 [Go client](https://github.com/valkey-io/valkey-go), and

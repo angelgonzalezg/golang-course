@@ -197,7 +197,7 @@ jobs:
         run: go -C extensions/03-mongodb test -tags=integration -race -count=1 -timeout=5m ./...
 
   valkey-integration:
-    name: Valkey integration (Testcontainers)
+    name: Valkey and PostgreSQL cache-aside (Testcontainers)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -214,5 +214,5 @@ jobs:
           cache-dependency-path: extensions/04-valkey-cache/go.sum
       - name: Check the container runtime
         run: docker info
-      - name: Run real Valkey tests with the race detector
+      - name: Run real Valkey and cache-aside tests with the race detector
         run: go -C extensions/04-valkey-cache test -tags=integration -race -count=1 -timeout=5m ./...

@@ -156,9 +156,14 @@ connect a reusable client, assign a value/expiration atomically, and distinguish
 empty hits, misses, payload errors, and connection failures. Observe real server
 expiration, map PTTL states explicitly, and serialize a versioned typed contact.
 The guide includes standalone Compose/Rancher/test setup; tagged tests own Valkey
-and demonstrate cleanup without flushing neighboring keys. Cache-aside with
-PostgreSQL and concurrency/failure handling remain later blocks; guided exercises
-remain last.
+and demonstrate cleanup without flushing neighboring keys. Then run
+[PostgreSQL cache-aside](../extensions/04-valkey-cache/02-cache-aside/README.md):
+follow a cold GET into SQL and SET/PX, then prove a warm hit avoids another SQL
+contact read. Commit updates/deletes in SQL before invalidation, reload after
+expiry, and distinguish failed invalidation from rollback. The standalone guide
+includes both Compose services, real two-service tests, and the baseline's
+consistency/error limits. Concurrency/failure policy and dedicated REST/gRPC cache
+labs remain later blocks; guided exercises remain last.
 
 ## First pass through pointers
 

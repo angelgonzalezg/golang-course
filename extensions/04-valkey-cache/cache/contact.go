@@ -9,8 +9,8 @@ import (
 	"unicode/utf8"
 )
 
-// Contact is a small cache teaching model. The database/cache-aside stage follows
-// later; a cached value's lifetime is independent of any authoritative record.
+// Contact is the small fundamentals model. The contactcache package uses the
+// complete shared SQL/API model; cache lifetime is separate from record lifetime.
 type Contact struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`

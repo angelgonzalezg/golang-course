@@ -26,7 +26,7 @@ one module's failure does not cancel the other module jobs.
 | Race detector, all modules | Runs each module's tests with `-race`, separately from ordinary tests. |
 | PostgreSQL integration | Runs SQL and persistent gRPC tests with `-tags=integration -race`, using Testcontainers and real PostgreSQL servers. |
 | MongoDB integration | Runs the MongoDB module's `-tags=integration -race` tests with a real authenticated MongoDB server owned by Testcontainers. |
-| Valkey integration | Runs the cache module's `-tags=integration -race` tests with real authenticated Valkey, observed expiration, and owned server-failure checks. |
+| Valkey and cache-aside integration | Runs the cache module's `-tags=integration -race` tests with real authenticated Valkey and PostgreSQL, observed expiration, SQL read routing/write invalidation, and owned server-failure checks. |
 
 Ordinary jobs use `CGO_ENABLED=0`, except for the cgo lab's job. The race job uses
 `CGO_ENABLED=1` with the runner's C compiler. The cgo lab remains optional for
@@ -250,15 +250,18 @@ CGO_ENABLED=1 go -C extensions/04-valkey-cache test -tags=integration -race -cou
 go -C extensions/04-valkey-cache vet -tags=integration ./...
 ```
 
-Tests own an authenticated Valkey instance and never use `VALKEY_URL` or the
-Compose cache. Cases cover empty/binary hits, misses, TTL metadata, actual
+Tests own authenticated Valkey and PostgreSQL instances and never use
+`VALKEY_URL`, `DATABASE_URL`, or the Compose services. Cases cover empty/binary hits, misses, TTL metadata, actual
 expiration with bounded polling, typed/corrupt JSON, wrong server value types,
 clients/contexts/authentication, cleanup preserving another key, and a connection
 failure after stopping only the test-owned server. The
 [standalone guide](../extensions/04-valkey-cache/01-fundamentals/README.md)
-includes Compose, Rancher Desktop, expected output, and cleanup. The supplied
-cache disables persistence; authoritative PostgreSQL/cache-aside integration
-will follow in a separate block. CI runs these checks in the new Valkey jobs.
+includes Compose, Rancher Desktop, expected output, and cleanup. The
+[cache-aside guide](../extensions/04-valkey-cache/02-cache-aside/README.md) adds
+cold/warm SQL contact-read counts, full/partial write invalidation, expiry reload,
+and deletion against both real services. Repeated demos preserve neighboring SQL
+rows/cache keys. The manual cache disables persistence; the database keeps its
+named volume. CI runs both stages in the Valkey integration job.
 
 ## Root module and formatting
 

@@ -2,13 +2,16 @@
 
 Learn remote caching in an independent Go 1.27 module with real Valkey, the
 valkey-go client v1.0.79, and Testcontainers v0.45.0. Start with typed values,
-errors, context, and testing; authoritative persistence and cache-aside follow.
+errors, context, and testing, then connect the cache to authoritative PostgreSQL
+records with an application-managed cache-aside layer.
 
 | Stage | Status |
 | --- | --- |
 | 1. Fundamentals | Implemented: [standalone execution/test guide](01-fundamentals/README.md), SET/PX, GET/DEL, hits/misses, TTL states, real expiration, typed JSON, client ownership, and real Valkey tests. |
-| 2. Cache-aside with PostgreSQL | Proposed: application-managed lookup/loading from the source of truth and explicit write invalidation. |
+| 2. Cache-aside with PostgreSQL | Implemented: [standalone execution/test guide](02-cache-aside/README.md), cold/warm reads, SQL read counters, complete contact payloads, TTL reloads, and commit-before-invalidation. |
 | 3. Concurrency and failures | Proposed: duplicate-load suppression/cache stampede, cancellation, and defined cache-outage behavior. |
+| 4. REST with cache | Planned: dedicated lab reusing the SQL-backed API and shared cache layer. |
+| 5. gRPC with cache | Planned: dedicated lab reusing the same contact cache behavior. |
 
 ## Run directly
 
@@ -42,6 +45,39 @@ docker compose -f extensions/04-valkey-cache/compose.yaml down
 Restarting this cache loses its keys; durable application data belongs in an
 authoritative store. Testcontainers owns its separate disposable resources.
 
+## Run cache-aside with PostgreSQL
+
+From the same repository root and engine setup above, start both services:
+
+```sh
+docker compose -f extensions/02-database-sql/compose.yaml up -d --wait
+docker compose -f extensions/04-valkey-cache/compose.yaml up -d --wait
+export DATABASE_URL='postgres://sql_lab:sql_lab_local@127.0.0.1:5433/sql_lab?sslmode=disable'
+export VALKEY_URL='valkey://default:cache_lab_local@127.0.0.1:6380/0'
+go -C extensions/04-valkey-cache run ./02-cache-aside
+```
+
+The finite console demo applies the existing golang-migrate service migrations,
+creates its own contacts, and shows CREATE, cold/warm GET, REPLACE, PATCH, expiry,
+and DELETE. The first GET increments the PostgreSQL contact-read counter to 1;
+the second is a Valkey hit and leaves it at 1. Writes go directly to PostgreSQL;
+successful updates/deletes then invalidate the key. Only this demo's contacts
+and keys are cleaned up. Existing REST/gRPC lab data/replay results remain.
+
+This baseline exposes cache failures; it does not yet provide outage fallback
+or strict consistency under concurrent writes. Read the
+[complete stage guide](02-cache-aside/README.md) for payloads, error outcomes,
+expected output, and the concurrency limits. It starts no HTTP/gRPC server.
+
+After the demo and any other labs using these shared services finish:
+
+```sh
+docker compose -f extensions/04-valkey-cache/compose.yaml down
+docker compose -f extensions/02-database-sql/compose.yaml down
+```
+
+The PostgreSQL named volume remains. Valkey is disposable.
+
 ## Verify directly
 
 Ordinary tests need Go alone; race checks additionally need clang or gcc:
@@ -53,9 +89,10 @@ go -C extensions/04-valkey-cache mod tidy -diff
 CGO_ENABLED=1 go -C extensions/04-valkey-cache test -race -count=1 -timeout=90s ./...
 ```
 
-For integration tests, start the engine. Testcontainers starts/waits for an
-authenticated Valkey server and cleans it up; it does not use `VALKEY_URL` or
-Compose. One case stops only that owned server to verify failure classification.
+For integration tests, start the engine. Testcontainers starts/waits for its own
+authenticated Valkey and PostgreSQL servers and cleans them up; it does not use
+`VALKEY_URL`, `DATABASE_URL`, or Compose. One fundamentals case stops only its
+owned Valkey server to verify failure classification.
 
 For Rancher Desktop on macOS, select **dockerd (moby)**. With the home-directory
 socket and localhost port forwarding, set these in the test terminal:
@@ -76,13 +113,15 @@ CGO_ENABLED=1 go -C extensions/04-valkey-cache test -tags=integration -race -cou
 go -C extensions/04-valkey-cache vet -tags=integration ./...
 ```
 
-Unit tests cover JSON, input boundaries, and TTL/error mapping. Real server tests
-cover strings, expiration, metadata, independent clients, authentication/type/
-connection failures, contexts, and demo cleanup preserving other keys. Initial
-runs can pull Valkey and the cleanup-helper image; missing engines fail tagged tests.
+Unit tests cover JSON, input boundaries, TTL/error mapping, cache-aside routing,
+and write/invalidation ordering. Real server tests cover strings, expiration,
+metadata, independent clients, authentication/type/connection failures, contexts,
+cache-aside source-read counts, SQL writes/deletes, and demo cleanup preserving
+other rows/keys. Initial runs can pull both servers and the cleanup-helper image;
+missing engines fail tagged tests.
 Expect `ok` for test packages and `[no test files]` for command/helper packages.
 Successful vet/metadata checks are normally quiet.
 
 CI includes this ninth module in ordinary/race checks and runs its integration
-suite separately. Cache-aside and concurrency/failure policy remain later blocks;
-guided exercises remain the final course block.
+suite separately. Concurrency/failure policy and dedicated REST/gRPC cache labs
+remain later blocks; guided exercises remain the final course block.

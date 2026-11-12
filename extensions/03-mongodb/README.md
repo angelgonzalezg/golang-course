@@ -131,4 +131,6 @@ commented implementation and tests. Finish with
 [references and aggregation](04-references-and-aggregation/README.md).
 All four planned MongoDB stages are implemented. Continue separately to
 [Valkey cache fundamentals](../04-valkey-cache/01-fundamentals/README.md).
-Cache-aside/concurrency policy remain later blocks; guided exercises remain last.
+Then [PostgreSQL cache-aside](../04-valkey-cache/02-cache-aside/README.md) shows
+lazy loading and write invalidation. Concurrency/failure policy and dedicated
+REST/gRPC cache labs remain later blocks; guided exercises remain last.

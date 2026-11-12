@@ -356,8 +356,11 @@ validation and repeatable data evolution. Its
 [fourth stage](../03-mongodb/04-references-and-aggregation/README.md) adds references,
 aggregation reports, and explain. The independent
 [Valkey fundamentals](../04-valkey-cache/01-fundamentals/README.md) introduce
-remote cache values, TTLs, and serialization. PostgreSQL/cache-aside integration
-and cache concurrency/failure policy remain later blocks; guided exercises stay last.
+remote cache values, TTLs, and serialization. The
+[cache-aside stage](../04-valkey-cache/02-cache-aside/README.md) reuses this SQL
+adapter with cold/warm contact-read counters and commit-before-invalidation.
+Cache concurrency/failure policy and dedicated REST/gRPC cache labs remain
+later blocks; guided exercises stay last.
 
 References: [Go database/sql guides](https://go.dev/doc/database/),
 [pgx's stdlib adapter](https://pkg.go.dev/github.com/jackc/pgx/v5/stdlib),
