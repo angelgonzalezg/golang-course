@@ -162,8 +162,13 @@ follow a cold GET into SQL and SET/PX, then prove a warm hit avoids another SQL
 contact read. Commit updates/deletes in SQL before invalidation, reload after
 expiry, and distinguish failed invalidation from rollback. The standalone guide
 includes both Compose services, real two-service tests, and the baseline's
-consistency/error limits. Concurrency/failure policy and dedicated REST/gRPC cache
-labs remain later blocks; guided exercises remain last.
+consistency/error limits. Continue to
+[cache concurrency and failures](../extensions/04-valkey-cache/03-concurrency-and-failures/README.md):
+coalesce simultaneous lookups, separate shared-load and caller lifetimes, bound
+cache calls, and make fallback observable. Trace local gate ordering and repair
+only the key after failed post-commit invalidation. The two-instance test shows
+why that coordination is not a distributed consistency guarantee. Dedicated
+REST/gRPC cache labs remain later blocks; guided exercises remain last.
 
 ## First pass through pointers
 

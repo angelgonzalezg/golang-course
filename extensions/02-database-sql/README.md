@@ -359,8 +359,9 @@ aggregation reports, and explain. The independent
 remote cache values, TTLs, and serialization. The
 [cache-aside stage](../04-valkey-cache/02-cache-aside/README.md) reuses this SQL
 adapter with cold/warm contact-read counters and commit-before-invalidation.
-Cache concurrency/failure policy and dedicated REST/gRPC cache labs remain
-later blocks; guided exercises stay last.
+The [concurrency/failure stage](../04-valkey-cache/03-concurrency-and-failures/README.md)
+adds bounded fallback, shared loads, local ordering, and explicit invalidation
+repair. Dedicated REST/gRPC cache labs remain later blocks; guided exercises stay last.
 
 References: [Go database/sql guides](https://go.dev/doc/database/),
 [pgx's stdlib adapter](https://pkg.go.dev/github.com/jackc/pgx/v5/stdlib),

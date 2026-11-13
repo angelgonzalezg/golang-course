@@ -9,7 +9,7 @@ records with an application-managed cache-aside layer.
 | --- | --- |
 | 1. Fundamentals | Implemented: [standalone execution/test guide](01-fundamentals/README.md), SET/PX, GET/DEL, hits/misses, TTL states, real expiration, typed JSON, client ownership, and real Valkey tests. |
 | 2. Cache-aside with PostgreSQL | Implemented: [standalone execution/test guide](02-cache-aside/README.md), cold/warm reads, SQL read counters, complete contact payloads, TTL reloads, and commit-before-invalidation. |
-| 3. Concurrency and failures | Proposed: duplicate-load suppression/cache stampede, cancellation, and defined cache-outage behavior. |
+| 3. Concurrency and failures | Implemented: [standalone execution/test guide](03-concurrency-and-failures/README.md), observable fallback, bounded shared loads, independent caller cancellation, local fill/write ordering, and failed-invalidation repair. |
 | 4. REST with cache | Planned: dedicated lab reusing the SQL-backed API and shared cache layer. |
 | 5. gRPC with cache | Planned: dedicated lab reusing the same contact cache behavior. |
 
@@ -78,6 +78,26 @@ docker compose -f extensions/02-database-sql/compose.yaml down
 
 The PostgreSQL named volume remains. Valkey is disposable.
 
+## Run concurrency and failures
+
+With the same Compose services and DATABASE_URL/VALKEY_URL above:
+
+```sh
+go -C extensions/04-valkey-cache run ./03-concurrency-and-failures
+```
+
+The finite demo coalesces eight callers into one SQL load, cancels the initiating
+caller without canceling the others, orders a local fill/write, and exercises
+controlled GET/SET/DEL failures plus corrupt JSON against real data. Fail-open
+reads keep valid SQL results; failed post-commit invalidation remains explicit
+and can be repaired by deleting only the key. The program closes/joins its work
+and cleans only its own contact/key. It never stops the manual services.
+
+The [stage guide](03-concurrency-and-failures/README.md) includes full setup,
+diagrams, expected counters, policy choices, and tests. Local gates/singleflight
+are not distributed consistency; a real two-instance test reproduces the remaining
+stale-fill race. The strict stage-2 implementation remains available for comparison.
+
 ## Verify directly
 
 Ordinary tests need Go alone; race checks additionally need clang or gcc:
@@ -116,12 +136,13 @@ go -C extensions/04-valkey-cache vet -tags=integration ./...
 Unit tests cover JSON, input boundaries, TTL/error mapping, cache-aside routing,
 and write/invalidation ordering. Real server tests cover strings, expiration,
 metadata, independent clients, authentication/type/connection failures, contexts,
-cache-aside source-read counts, SQL writes/deletes, and demo cleanup preserving
-other rows/keys. Initial runs can pull both servers and the cleanup-helper image;
+cache-aside source-read counts, SQL writes/deletes, shared-load cancellation,
+local/cross-instance races, real cache-outage fallback, and demo cleanup preserving
+other rows/keys/replay results. Initial runs can pull both servers and the cleanup-helper image;
 missing engines fail tagged tests.
 Expect `ok` for test packages and `[no test files]` for command/helper packages.
 Successful vet/metadata checks are normally quiet.
 
 CI includes this ninth module in ordinary/race checks and runs its integration
-suite separately. Concurrency/failure policy and dedicated REST/gRPC cache labs
-remain later blocks; guided exercises remain the final course block.
+suite separately. Dedicated REST/gRPC cache labs remain later blocks; guided
+exercises remain the final course block.

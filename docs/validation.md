@@ -261,7 +261,13 @@ includes Compose, Rancher Desktop, expected output, and cleanup. The
 cold/warm SQL contact-read counts, full/partial write invalidation, expiry reload,
 and deletion against both real services. Repeated demos preserve neighboring SQL
 rows/cache keys. The manual cache disables persistence; the database keeps its
-named volume. CI runs both stages in the Valkey integration job.
+named volume. The
+[concurrency/failure guide](../extensions/04-valkey-cache/03-concurrency-and-failures/README.md)
+adds shared-load/initiator cancellation, local read/write ordering, a deliberate
+cross-instance stale-fill case, and real cache-outage fallback. Failed DEL after
+confirmed SQL success remains an explicit outcome. Unit tests cover command/load
+budgets, canceled writers, shutdown, post-commit cancellation, source/domain
+errors, and targeted repair. CI runs all three stages in the cache integration job.
 
 ## Root module and formatting
 

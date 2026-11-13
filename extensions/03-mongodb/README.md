@@ -132,5 +132,7 @@ commented implementation and tests. Finish with
 All four planned MongoDB stages are implemented. Continue separately to
 [Valkey cache fundamentals](../04-valkey-cache/01-fundamentals/README.md).
 Then [PostgreSQL cache-aside](../04-valkey-cache/02-cache-aside/README.md) shows
-lazy loading and write invalidation. Concurrency/failure policy and dedicated
+lazy loading and write invalidation. Its
+[concurrency/failure stage](../04-valkey-cache/03-concurrency-and-failures/README.md)
+adds shared loads, observable fallback, and local coordination limits. Dedicated
 REST/gRPC cache labs remain later blocks; guided exercises remain last.

@@ -311,8 +311,9 @@ PostgreSQL's named volume remains, including other SQL/REST/gRPC lab data. These
 commands stop the shared manual services, so finish other labs using them first.
 Valkey keys disappear on restart. Testcontainers cleans its separate resources.
 
-Next: concurrency/failure policy, then dedicated REST and gRPC cache integration
-labs reusing this transport-independent layer. Guided exercises remain last.
+Next: [concurrency and failure policy](../03-concurrency-and-failures/README.md),
+then dedicated REST and gRPC cache integration labs reusing the shared behavior.
+Guided exercises remain last.
 
 References: [cache-aside pattern and limitations](https://learn.microsoft.com/en-us/azure/architecture/patterns/cache-aside),
 [Valkey SET](https://valkey.io/commands/set/),
